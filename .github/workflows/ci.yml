@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-crossbuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache: true
+      - name: Test
+        run: go test ./...
+      - name: Cross-build all platforms
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for pair in "windows/amd64:.exe" "darwin/amd64:" "darwin/arm64:" "linux/amd64:" "linux/arm64:"; do
+            GOOS="${pair%%/*}"
+            rest="${pair#*/}"
+            GOARCH="${rest%%:*}"
+            EXT="${rest#*:}"
+            out="dist/gbr-agent-${GOOS}-${GOARCH}${EXT}"
+            echo "--> $out"
+            CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -trimpath -ldflags "-s -w" -o "$out" ./cmd/gbr-agent
+          done
+          ls -la dist/

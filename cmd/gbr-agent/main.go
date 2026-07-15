@@ -22,15 +22,17 @@ import (
 	"time"
 
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/core"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/doctor"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/grok"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/inject"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/relay"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/service"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/session"
 	"github.com/google/uuid"
 )
 
 var (
-	version = "0.2.1-dev"
+	version = "0.3.0"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -88,6 +90,10 @@ func run(args []string) int {
 		return cmdSessions(subArgs)
 	case "status":
 		return cmdStatus(subArgs)
+	case "doctor":
+		return cmdDoctor(subArgs)
+	case "service":
+		return cmdService(subArgs)
 	case "help", "-h", "--help":
 		printUsage()
 		return 0
@@ -99,15 +105,17 @@ func run(args []string) int {
 }
 
 func printUsage() {
-	fmt.Fprintf(os.Stderr, `gbr-agent — Grok Build Remote agent (protocol gbr/1)
+	fmt.Fprintf(os.Stderr, `gbr-agent — Grok Build Remote agent (Windows / Mac / Linux)
 
 Usage:
   gbr-agent [-log=info] version
+  gbr-agent [-log=info] doctor
+  gbr-agent [-log=info] status
   gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL]
   gbr-agent [-log=info] pair -code PAIRING_CODE [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL]
   gbr-agent [-log=info] rename -name DEVICE_NAME [-session SESSION_ID]
   gbr-agent [-log=info] sessions
-  gbr-agent [-log=info] status
+  gbr-agent [-log=info] service install|uninstall|status
 
 Environment:
   GBR_API_KEY / XAI_API_KEY     xAI API key (optional if relay-only)
@@ -117,6 +125,11 @@ Environment:
 Device identity: %%USERPROFILE%%\.gbr\device.json
 Sessions rename: %%USERPROFILE%%\.gbr\sessions.json
 Inject dedup:    %%USERPROFILE%%\.gbr\seen.json
+
+Platforms:
+  windows  SendInput + managed pwsh; Task Scheduler user logon service
+  darwin   AppleScript Terminal/iTerm + managed bash; LaunchAgent
+  linux    xdotool (X11) + managed bash; systemd --user
 
 `)
 }
@@ -677,7 +690,7 @@ func cmdStatus(args []string) int {
 	} else {
 		relayOK = "error: " + err.Error()
 	}
-	fmt.Printf("gbr-agent %s\n", version)
+	fmt.Printf("gbr-agent %s (%s/%s)\n", version, runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("device_id:   %s\n", dev.DeviceID)
 	fmt.Printf("device_name: %s\n", dev.DeviceName)
 	fmt.Printf("mailbox:     %s\n", dev.MailboxConversationID)
@@ -690,6 +703,54 @@ func cmdStatus(args []string) int {
 		fmt.Printf("hint: run  gbr-agent -log=info run\n")
 	}
 	return 0
+}
+
+func cmdDoctor(args []string) int {
+	_ = args
+	results := doctor.Run()
+	fmt.Print(doctor.Format(results))
+	for _, r := range results {
+		if !r.OK {
+			return 1
+		}
+	}
+	return 0
+}
+
+func cmdService(args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: gbr-agent service install|uninstall|status")
+		return 2
+	}
+	switch args[0] {
+	case "install":
+		if err := service.Install(); err != nil {
+			slog.Error("service install", "err", err)
+			return 1
+		}
+		fmt.Println("service installed and started (user session)")
+		st, _ := service.Status()
+		fmt.Print(st)
+		return 0
+	case "uninstall":
+		if err := service.Uninstall(); err != nil {
+			slog.Error("service uninstall", "err", err)
+			return 1
+		}
+		fmt.Println("service uninstalled")
+		return 0
+	case "status":
+		st, err := service.Status()
+		if err != nil {
+			slog.Error("service status", "err", err)
+			return 1
+		}
+		fmt.Print(st)
+		return 0
+	default:
+		fmt.Fprintln(os.Stderr, "usage: gbr-agent service install|uninstall|status")
+		return 2
+	}
 }
 
 func defaultShellName() string {

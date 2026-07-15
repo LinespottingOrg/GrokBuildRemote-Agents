@@ -2,6 +2,7 @@ package inject
 
 import (
 	"log/slog"
+	"strings"
 )
 
 // Hybrid tries platform UI inject first, then managed shell (PTY pipes).
@@ -49,6 +50,18 @@ func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 		return err
 	}
 	if h.UI != nil {
+		// Best-effort: auto-bind first discovered terminal if inject needs a window
+		if wins, err := h.UI.Discover(); err == nil && len(wins) > 0 {
+			// Prefer title containing session id; else first window
+			chosen := wins[0]
+			for _, w := range wins {
+				if sessionID != "" && (containsFold(w.Title, sessionID) || containsFold(w.ExeName, sessionID)) {
+					chosen = w
+					break
+				}
+			}
+			_ = h.UI.Bind(sessionID, chosen)
+		}
 		if err := h.UI.Inject(sessionID, req); err == nil {
 			return nil
 		} else {
@@ -56,6 +69,13 @@ func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 		}
 	}
 	return h.PTY.Inject(sessionID, req)
+}
+
+func containsFold(s, sub string) bool {
+	if sub == "" || s == "" {
+		return false
+	}
+	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
 }
 
 func (h *Hybrid) Capture(sessionID string) (CaptureResult, error) {
