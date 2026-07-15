@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Grok Build Remote — launchd agent example (macOS)
+
+  Binary: gbr-agent
+  Install binary first (e.g. ~/.local/bin/gbr-agent via install/install.sh)
+
+  Setup:
+    1. Copy to ~/Library/LaunchAgents/com.linespotting.gbr-agent.plist
+    2. Edit ProgramArguments[0] if your install path differs
+    3. mkdir -p ~/Library/Logs/GrokBuildRemote
+    4. launchctl load ~/Library/LaunchAgents/com.linespotting.gbr-agent.plist
+    5. launchctl start com.linespotting.gbr-agent
+
+  Unload:
+    launchctl unload ~/Library/LaunchAgents/com.linespotting.gbr-agent.plist
+
+  Notes:
+    - Use LaunchAgents (user session), not LaunchDaemons, so AppleScript /
+      Accessibility inject can reach interactive terminals.
+    - Grant Accessibility / Automation permissions to gbr-agent when prompted.
+    - Grok API key: ~/.grok/config.json
+    - Protocol: gbr/1
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.linespotting.gbr-agent</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/Users/REPLACE_ME/.local/bin/gbr-agent</string>
+      <string>run</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+      <key>SuccessfulExit</key>
+      <false/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/REPLACE_ME</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>GBR_DATA_DIR</key>
+      <string>/Users/REPLACE_ME/Library/Application Support/GrokBuildRemote</string>
+      <key>PATH</key>
+      <string>/usr/local/bin:/usr/bin:/bin:/Users/REPLACE_ME/.local/bin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/REPLACE_ME/Library/Logs/GrokBuildRemote/gbr-agent.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/REPLACE_ME/Library/Logs/GrokBuildRemote/gbr-agent.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+  </dict>
+</plist>

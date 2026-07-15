@@ -1,0 +1,63 @@
+# Grok Build Remote — systemd user/system unit for gbr-agent
+#
+# Binary: gbr-agent
+# Prefer a **user** unit so the agent runs in the graphical session (needed for
+# xdotool / window inject). System units in multi-user.target often lack DISPLAY.
+#
+# User install (recommended):
+#   mkdir -p ~/.config/systemd/user
+#   cp install/linux/gbr-agent.service ~/.config/systemd/user/gbr-agent.service
+#   # edit ExecStart if needed
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now gbr-agent
+#   loginctl enable-linger "$USER"   # optional: keep running after logout
+#
+# System install (headless / no inject — relay-only edge cases):
+#   sudo cp install/linux/gbr-agent.service /etc/systemd/system/gbr-agent.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now gbr-agent
+#
+# Logs: journalctl --user -u gbr-agent -f
+# Config: ~/.grok/config.json  |  Protocol: gbr/1
+# Free binary; proprietary source — LinespottingOrg
+
+[Unit]
+Description=Grok Build Remote agent (gbr-agent)
+Documentation=https://github.com/LinespottingOrg/GrokBuildRemote-Agents
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# User unit: leave User=/Group= unset. System unit: set User= to the desktop account.
+# User=youruser
+# Group=youruser
+
+ExecStart=%h/.local/bin/gbr-agent run
+WorkingDirectory=%h
+
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# Inject needs session bus / display when using xdotool
+Environment=GBR_DATA_DIR=%h/.local/share/GrokBuildRemote
+# Environment=DISPLAY=:0
+# Environment=XAUTHORITY=%h/.Xauthority
+
+# Hardening (relax if inject or desktop APIs fail)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/share/GrokBuildRemote %h/.grok %h/.local/bin
+
+# Soft limits
+LimitNOFILE=65536
+TimeoutStopSec=20
+KillMode=mixed
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=default.target

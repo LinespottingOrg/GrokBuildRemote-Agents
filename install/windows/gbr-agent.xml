@@ -1,0 +1,43 @@
+<!--
+  WinSW configuration sample — Grok Build Remote (gbr-agent)
+
+  Place this file next to:
+    - gbr-agent.exe           (agent binary)
+    - gbr-agent-service.exe   (WinSW renamed executable)
+
+  Docs: install/windows/service.md
+  Product: Grok Build Remote | LinespottingOrg
+-->
+<service>
+  <id>gbr-agent</id>
+  <name>Grok Build Remote Agent</name>
+  <description>Grok Build Remote desktop agent (gbr-agent). Relays terminal inject/output via Grok protocol gbr/1. Free binary; proprietary source.</description>
+
+  <!-- Working directory = folder containing this XML and the binaries -->
+  <executable>%BASE%\gbr-agent.exe</executable>
+  <arguments>run</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+
+  <!-- Auto-restart on failure -->
+  <onfailure action="restart" delay="5 sec"/>
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <startmode>Automatic</startmode>
+  <stoptimeout>15 sec</stoptimeout>
+
+  <!-- Run in the interactive user context when policy allows.
+       Prefer Task Scheduler at-logon if Session 0 isolation blocks inject. -->
+  <priority>Normal</priority>
+
+  <logpath>%BASE%\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+
+  <!-- Optional: set only non-secret overrides here.
+       API keys belong in %USERPROFILE%\.grok\config.json -->
+  <env name="GBR_DATA_DIR" value="%BASE%\data"/>
+</service>

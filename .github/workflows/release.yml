@@ -1,0 +1,155 @@
+# Grok Build Remote — release binaries for gbr-agent
+# Triggers on version tags: v1.0.0, v0.1.0-rc.1, etc.
+# Source repo is private company IP; published binaries are free for end users
+# (website distribution + future Microsoft Store packaging).
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: build-${{ matrix.goos }}-${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache: true
+
+      - name: Build info
+        id: meta
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          COMMIT="$(git rev-parse --short HEAD)"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "commit=${COMMIT}" >> "$GITHUB_OUTPUT"
+          echo "date=${DATE}" >> "$GITHUB_OUTPUT"
+          echo "asset=gbr-agent-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}" >> "$GITHUB_OUTPUT"
+
+      - name: Cross-compile gbr-agent
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          LDFLAGS="-s -w -X main.version=${{ steps.meta.outputs.version }} -X main.commit=${{ steps.meta.outputs.commit }} -X main.date=${{ steps.meta.outputs.date }}"
+          go build -trimpath -ldflags "${LDFLAGS}" -o "dist/${{ steps.meta.outputs.asset }}" ./cmd/gbr-agent
+          ls -la dist/
+          sha256sum "dist/${{ steps.meta.outputs.asset }}" | tee "dist/${{ steps.meta.outputs.asset }}.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.asset }}
+          path: |
+            dist/${{ steps.meta.outputs.asset }}
+            dist/${{ steps.meta.outputs.asset }}.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: publish-github-release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten assets
+        run: |
+          mkdir -p dist
+          # artifacts/<asset-name>/<files>
+          find artifacts -type f \( -name 'gbr-agent-*' -o -name '*.sha256' \) -print
+          while IFS= read -r -d '' f; do
+            cp -f "$f" "dist/$(basename "$f")"
+          done < <(find artifacts -type f \( -name 'gbr-agent-*' -o -name '*.sha256' \) -print0)
+          (
+            cd dist
+            sha256sum gbr-agent-* 2>/dev/null | grep -v '\.sha256$' > SHA256SUMS || true
+            ls -la
+          )
+
+      - name: Create GitHub Release & upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Grok Build Remote Agent ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          body: |
+            ## gbr-agent ${{ github.ref_name }}
+
+            Free desktop agent binaries for **Grok Build Remote**.
+
+            | Asset | Platform |
+            |-------|----------|
+            | `gbr-agent-windows-amd64.exe` | Windows x64 |
+            | `gbr-agent-darwin-amd64` | macOS Intel |
+            | `gbr-agent-darwin-arm64` | macOS Apple Silicon |
+            | `gbr-agent-linux-amd64` | Linux x64 |
+            | `gbr-agent-linux-arm64` | Linux ARM64 |
+
+            **Source code** in this repository is private proprietary IP of LinespottingOrg.
+            **Binaries** are free for end users (website + future Microsoft Store).
+
+            Install (Unix):
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/LinespottingOrg/GrokBuildRemote-Agents/main/install/install.sh | bash
+            ```
+            Or pin: `GBR_VERSION=${{ github.ref_name }} ./install/install.sh`
+
+            See `README.md` and `install/` for service setup (WinSW, launchd, systemd).
+          files: |
+            dist/gbr-agent-windows-amd64.exe
+            dist/gbr-agent-darwin-amd64
+            dist/gbr-agent-darwin-arm64
+            dist/gbr-agent-linux-amd64
+            dist/gbr-agent-linux-arm64
+            dist/SHA256SUMS
+            dist/*.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
