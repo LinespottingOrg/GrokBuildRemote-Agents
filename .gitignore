@@ -1,53 +1,21 @@
-# Binaries (root / dist only — do not ignore cmd/gbr-agent source)
-/bin/
+# binaries / build
 /dist/
-/gbr-agent
-/gbr-agent.exe
 *.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+.gbr-agent*
 
-# Test / coverage
-*.test
-*.out
-coverage.html
-coverage.txt
-
-# Go workspace
-go.work
-go.work.sum
-
-# Vendor (optional local)
-/vendor/
+# local Go toolchain (portable)
+.goroot/
 
 # IDE / OS
 .idea/
 .vscode/
 *.swp
-*~
 .DS_Store
 Thumbs.db
 
-# Secrets & local state (never commit)
+# secrets
 .env
 .env.*
 api-passwords.md
 *.pem
 *.key
-
-# Session tracking (local only)
-_session_state.md
-_file_index.md
-prompts.md
-
-# Build artifacts
-*.zip
-*.tar.gz
-
-# Local portable Go toolchain (dev only)
-.goroot/
-.gopath/
-.goextract/
-.go.zip
