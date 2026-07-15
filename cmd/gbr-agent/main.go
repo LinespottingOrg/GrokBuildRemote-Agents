@@ -538,9 +538,10 @@ func cmdPair(args []string) int {
 		}
 	}
 
-	mailboxID := firstNonEmpty(*conv, dev.MailboxConversationID)
+	// Always bind mailbox to this pairing code unless -conv overrides.
+	// (Previously we kept the old mailbox, so pair -code ABCD left gbr-testcode1.)
+	mailboxID := strings.TrimSpace(*conv)
 	if mailboxID == "" {
-		// Deterministic mailbox from pairing code so mobile can derive the same id.
 		mailboxID = "gbr-" + strings.ToLower(codeNorm)
 	}
 	if err := dev.SetMailboxConversationID(mailboxID); err != nil {
