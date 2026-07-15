@@ -161,6 +161,34 @@ func (c *Client) Pair(ctx context.Context, mailboxID, code, deviceID, deviceName
 	return nil
 }
 
+// Ack asks the relay to drop envelopes by command_id (after successful handle).
+func (c *Client) Ack(ctx context.Context, mailboxID string, commandIDs []string) error {
+	if len(commandIDs) == 0 {
+		return nil
+	}
+	payload := map[string]any{"command_ids": commandIDs}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	u := fmt.Sprintf("%s/v1/mb/%s/ack", c.base, url.PathEscape(mailboxID))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("relay ack: %w", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("relay ack HTTP %d: %s", resp.StatusCode, truncate(string(body), 200))
+	}
+	return nil
+}
+
 // Health checks the relay.
 func (c *Client) Health(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/health", nil)

@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	version = "0.2.0-dev"
+	version = "0.2.1-dev"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -87,6 +87,8 @@ func run(args []string) int {
 		return cmdRename(subArgs)
 	case "sessions":
 		return cmdSessions(subArgs)
+	case "status":
+		return cmdStatus(subArgs)
 	case "help", "-h", "--help":
 		printUsage()
 		return 0
@@ -104,8 +106,9 @@ Usage:
   gbr-agent [-log=info] version
   gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL]
   gbr-agent [-log=info] pair -code PAIRING_CODE [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL]
-  gbr-agent [-log=info] rename -name DEVICE_NAME
+  gbr-agent [-log=info] rename -name DEVICE_NAME [-session SESSION_ID]
   gbr-agent [-log=info] sessions
+  gbr-agent [-log=info] status
 
 Environment:
   GBR_API_KEY / XAI_API_KEY     xAI API key (optional if relay-only)
@@ -114,6 +117,7 @@ Environment:
 
 Device identity: %%USERPROFILE%%\.gbr\device.json
 Sessions rename: %%USERPROFILE%%\.gbr\sessions.json
+Inject dedup:    %%USERPROFILE%%\.gbr\seen.json
 
 `)
 }
@@ -141,8 +145,8 @@ type agentRuntime struct {
 	hybrid  *inject.Hybrid
 	scanner *session.Scanner
 	store   *session.Store
+	seen    *core.SeenStore
 	mu      sync.Mutex
-	seen    map[string]struct{}
 }
 
 func cmdRun(args []string) int {
@@ -219,13 +223,22 @@ func cmdRun(args []string) int {
 		}
 	}
 
+	seenStore, err := core.OpenSeen()
+	if err != nil {
+		slog.Warn("seen store", "err", err)
+		seenStore, _ = core.OpenSeen() // empty fallback
+	}
+	if seenStore == nil {
+		seenStore, _ = core.OpenSeen()
+	}
+
 	rt := &agentRuntime{
 		dev:     dev,
 		relay:   rc,
 		hybrid:  hybrid,
 		scanner: sc,
 		store:   store,
-		seen:    make(map[string]struct{}),
+		seen:    seenStore,
 	}
 
 	slog.Info("gbr-agent starting",
@@ -290,20 +303,26 @@ func (rt *agentRuntime) pollOnce(ctx context.Context, mailboxID string) {
 			slog.Debug("skip bad envelope", "err", err)
 			continue
 		}
-		fp := env.Type + ":" + env.CommandID + ":" + env.TS.UTC().Format(time.RFC3339Nano)
-		rt.mu.Lock()
-		if _, ok := rt.seen[fp]; ok {
-			rt.mu.Unlock()
+		// Prefer command_id for inject/list; include type so pair/output don't collide.
+		fp := env.Type + ":" + env.CommandID
+		if env.CommandID == "" {
+			fp = env.Type + ":" + env.DeviceID + ":" + env.TS.UTC().Format(time.RFC3339Nano)
+		}
+		if rt.seen != nil && rt.seen.Has(fp) {
 			continue
 		}
-		rt.seen[fp] = struct{}{}
-		if len(rt.seen) > 4096 {
-			rt.seen = map[string]struct{}{fp: {}}
-		}
-		rt.mu.Unlock()
-
 		if err := rt.handle(ctx, mailboxID, env); err != nil {
 			slog.Error("handle", "type", env.Type, "err", err)
+			continue
+		}
+		if rt.seen != nil {
+			rt.seen.Add(fp)
+		}
+		// Best-effort: drop inject/list from relay queue so restarts stay clean
+		if env.CommandID != "" && (env.Type == grok.TypeInject || env.Type == grok.TypeList) {
+			actx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			_ = rt.relay.Ack(actx, mailboxID, []string{env.CommandID})
+			cancel()
 		}
 	}
 }
@@ -639,6 +658,38 @@ func cmdSessions(args []string) int {
 	}
 	for _, s := range reg.List() {
 		fmt.Printf("%-24s  cwd=%s  shell=%s  title=%s\n", s.ID, s.CWD, s.Shell, s.Title)
+	}
+	return 0
+}
+
+func cmdStatus(args []string) int {
+	_ = args
+	dev, err := core.LoadOrCreateDevice()
+	if err != nil {
+		slog.Error("device", "err", err)
+		return 1
+	}
+	seen, _ := core.OpenSeen()
+	rc := relay.New(os.Getenv("GBR_RELAY_URL"), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	relayOK := "down"
+	if err := rc.Health(ctx); err == nil {
+		relayOK = "ok"
+	} else {
+		relayOK = "error: " + err.Error()
+	}
+	fmt.Printf("gbr-agent %s\n", version)
+	fmt.Printf("device_id:   %s\n", dev.DeviceID)
+	fmt.Printf("device_name: %s\n", dev.DeviceName)
+	fmt.Printf("mailbox:     %s\n", dev.MailboxConversationID)
+	fmt.Printf("relay:       %s (%s)\n", rc.Base(), relayOK)
+	fmt.Printf("seen_cmds:   %d\n", seen.Len())
+	fmt.Printf("device_file: %s\n", dev.Path())
+	if dev.MailboxConversationID == "" {
+		fmt.Printf("hint: run  gbr-agent pair -code YOURCODE\n")
+	} else {
+		fmt.Printf("hint: run  gbr-agent -log=info run\n")
 	}
 	return 0
 }

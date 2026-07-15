@@ -76,7 +76,11 @@ func LoadOrCreateDevice() (*Device, error) {
 	}
 
 	now := time.Now().UTC()
-	name, _ := os.Hostname()
+	// Product display name; users can rename with `gbr-agent rename -name …`
+	name := "Grok Build Remote"
+	if hn, err := os.Hostname(); err == nil && hn != "" {
+		name = "Grok Build Remote (" + hn + ")"
+	}
 	d := &Device{
 		DeviceID:   uuid.NewString(),
 		DeviceName: name,
