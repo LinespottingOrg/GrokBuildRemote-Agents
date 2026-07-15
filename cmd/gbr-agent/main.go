@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -146,7 +145,6 @@ type agentRuntime struct {
 	scanner *session.Scanner
 	store   *session.Store
 	seen    *core.SeenStore
-	mu      sync.Mutex
 }
 
 func cmdRun(args []string) int {
