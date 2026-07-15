@@ -7,6 +7,9 @@ func platformInjector() Injector {
 	return &noopInjector{}
 }
 
+// PlatformName is the GOOS this binary targets for inject.
+func PlatformName() string { return "stub" }
+
 type noopInjector struct{}
 
 func (n *noopInjector) Discover() ([]TerminalWindow, error) { return nil, ErrNotSupported }

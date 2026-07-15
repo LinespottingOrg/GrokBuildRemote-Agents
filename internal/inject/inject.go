@@ -212,11 +212,9 @@ func EffectiveText(req InjectRequest) string {
 }
 
 // Default returns the platform UI-automation injector (windows/darwin/linux).
-// When UI automation cannot resolve a session, fall back to Manager
-// (managed shell — see pty_session.go).
-//
-// platformInjector is defined in inject_windows.go / inject_darwin.go /
-// inject_linux.go / inject_stub.go (build-tagged).
+// platformInjector is defined in build-tagged files (inject_windows.go,
+// default_darwin.go, default_linux.go, inject_stub.go).
+// When UI automation cannot resolve a session, fall back to Manager (pty_session.go).
 func Default() Injector {
 	return platformInjector()
 }

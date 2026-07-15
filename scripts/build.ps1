@@ -27,7 +27,12 @@ if (-not $Version) {
 
 $Dist = Join-Path $Root "dist"
 New-Item -ItemType Directory -Force -Path $Dist | Out-Null
-$Ldflags = "-s -w -X main.Version=$Version"
+try {
+    $Commit = (git rev-parse --short HEAD 2>$null)
+    if (-not $Commit) { $Commit = "none" }
+} catch { $Commit = "none" }
+$Date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+$Ldflags = "-s -w -X main.version=$Version -X main.commit=$Commit -X main.date=$Date"
 $Cmd = "./cmd/gbr-agent"
 
 function Build-One {

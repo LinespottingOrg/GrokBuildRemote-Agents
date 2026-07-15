@@ -14,6 +14,9 @@ func platformInjector() Injector {
 	return &windowsAdapter{inner: windows.New()}
 }
 
+// PlatformName is the GOOS this binary targets for inject.
+func PlatformName() string { return "windows" }
+
 // windowsAdapter maps windows.* types onto inject.Injector without an import
 // cycle (windows does not import inject).
 type windowsAdapter struct {
