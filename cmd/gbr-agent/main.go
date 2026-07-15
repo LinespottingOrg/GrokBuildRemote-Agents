@@ -1,13 +1,15 @@
 // Command gbr-agent is the Grok Build Remote PC agent.
 //
-//	gbr-agent run              — start mailbox poll loop (Mode B)
+//	gbr-agent run              — start relay poll loop + session scanner
 //	gbr-agent version          — print version
 //	gbr-agent pair -code CODE  — complete mobile pairing
 //	gbr-agent rename -name N   — set device display name
+//	gbr-agent sessions         — list known sessions
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -16,20 +18,20 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/core"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/grok"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/inject"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/relay"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/session"
 	"github.com/google/uuid"
 )
 
-// Build-time metadata (release.yml / scripts/build-all.*):
-//
-//	-X main.version=… -X main.commit=… -X main.date=…
 var (
-	version = "0.1.0-dev"
+	version = "0.2.0-dev"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -83,6 +85,8 @@ func run(args []string) int {
 		return cmdPair(subArgs)
 	case "rename":
 		return cmdRename(subArgs)
+	case "sessions":
+		return cmdSessions(subArgs)
 	case "help", "-h", "--help":
 		printUsage()
 		return 0
@@ -98,15 +102,18 @@ func printUsage() {
 
 Usage:
   gbr-agent [-log=info] version
-  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID]
-  gbr-agent [-log=info] pair -code PAIRING_CODE [-name DEVICE_NAME] [-conv MAILBOX_ID]
+  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL]
+  gbr-agent [-log=info] pair -code PAIRING_CODE [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL]
   gbr-agent [-log=info] rename -name DEVICE_NAME
+  gbr-agent [-log=info] sessions
 
 Environment:
-  GBR_API_KEY / XAI_API_KEY     xAI API key (or %%USERPROFILE%%\.grok\config.json)
-  GBR_BASE_URL / XAI_BASE_URL   default https://api.x.ai/v1
+  GBR_API_KEY / XAI_API_KEY     xAI API key (optional if relay-only)
+  GBR_RELAY_URL                 durable mailbox relay (default production worker)
+  GBR_BASE_URL / XAI_BASE_URL   xAI base (legacy Mode B)
 
 Device identity: %%USERPROFILE%%\.gbr\device.json
+Sessions rename: %%USERPROFILE%%\.gbr\sessions.json
 
 `)
 }
@@ -127,17 +134,31 @@ func setupLogger(level string) {
 	slog.SetDefault(slog.New(h))
 }
 
+// agentRuntime holds live state for the run loop.
+type agentRuntime struct {
+	dev     *core.Device
+	relay   *relay.Client
+	hybrid  *inject.Hybrid
+	scanner *session.Scanner
+	store   *session.Store
+	mu      sync.Mutex
+	seen    map[string]struct{}
+}
+
 func cmdRun(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
-	session := fs.String("session", "", "session_id to register (optional)")
+	sessionFlag := fs.String("session", "", "also force-track this session_id at cwd")
 	conv := fs.String("conv", "", "mailbox conversation id (else from device.json)")
+	relayURL := fs.String("relay", "", "relay base URL (else GBR_RELAY_URL / default)")
 	_ = fs.Parse(args)
 
-	cfg, err := core.LoadConfig()
-	if err != nil {
-		slog.Error("config", "err", err)
-		return 1
+	// Config: API key optional when using durable relay only.
+	cfg, cfgErr := core.LoadConfig()
+	if cfgErr != nil {
+		slog.Warn("xAI config unavailable (relay-only mode ok)", "err", cfgErr)
+		cfg = &core.Config{PollIntervalSec: 2, HTTPTimeoutSec: 30, BaseURL: core.DefaultBaseURL}
 	}
+
 	dev, err := core.LoadOrCreateDevice()
 	if err != nil {
 		slog.Error("device", "err", err)
@@ -146,154 +167,148 @@ func cmdRun(args []string) int {
 
 	mailboxID := firstNonEmpty(*conv, dev.MailboxConversationID)
 	if mailboxID == "" {
-		slog.Error("no mailbox conversation; run: gbr-agent pair -code ... first")
+		slog.Error("no mailbox; run: gbr-agent pair -code ... first")
 		return 1
 	}
 
-	client := grok.NewClient(
-		cfg.BaseURL,
-		cfg.APIKey,
-		time.Duration(cfg.HTTPTimeoutSec)*time.Second,
-		grok.WithLogger(slog.Default()),
-	)
-	client.SetConversation(mailboxID)
+	rc := relay.New(firstNonEmpty(*relayURL, os.Getenv("GBR_RELAY_URL")), time.Duration(cfg.HTTPTimeoutSec)*time.Second)
+	ctxHealth, cancelH := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := rc.Health(ctxHealth); err != nil {
+		slog.Warn("relay health check failed (will still try)", "relay", rc.Base(), "err", err)
+	} else {
+		slog.Info("relay ok", "relay", rc.Base())
+	}
+	cancelH()
 
-	inj := newInjector()
-	defer func() { _ = inj.Close() }()
+	store, err := session.OpenStore("")
+	if err != nil {
+		slog.Warn("session store", "err", err)
+		store = nil
+	}
+	reg := session.NewRegistry()
+	ui := inject.Default()
+	pty := inject.NewManager(nil)
+	hybrid := inject.NewHybrid(ui, pty)
+
+	discover := func(ctx context.Context) ([]session.Candidate, error) {
+		wins, err := hybrid.Discover()
+		if err != nil {
+			return nil, err
+		}
+		var out []session.Candidate
+		cwd, _ := os.Getwd()
+		for _, w := range wins {
+			out = append(out, session.Candidate{
+				CWD:   cwd, // best-effort; UI discover often lacks cwd
+				Shell: string(w.Kind),
+				PID:   int(w.PID),
+				HWND:  w.HWND,
+				Title: w.Title,
+			})
+		}
+		return out, nil
+	}
+	sc := session.NewScanner(store, reg, discover)
+	// Always track agent working directory as a session.
+	cwd, _ := os.Getwd()
+	sc.Track(session.Candidate{CWD: cwd, Shell: defaultShellName(), Title: "gbr-agent"})
+	if *sessionFlag != "" {
+		// Pin explicit session id via rename map if possible
+		if store != nil && grok.ValidSessionID(*sessionFlag) {
+			_ = store.Rename(cwd, *sessionFlag)
+		}
+	}
+
+	rt := &agentRuntime{
+		dev:     dev,
+		relay:   rc,
+		hybrid:  hybrid,
+		scanner: sc,
+		store:   store,
+		seen:    make(map[string]struct{}),
+	}
 
 	slog.Info("gbr-agent starting",
 		"version", version,
 		"device_id", dev.DeviceID,
 		"device_name", dev.DeviceName,
 		"mailbox", mailboxID,
-		"base_url", cfg.BaseURL,
-		"api_key", core.RedactKey(cfg.APIKey),
-		"inject", runtime.GOOS,
+		"relay", rc.Base(),
+		"os", runtime.GOOS,
 	)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	defer func() { _ = hybrid.Close() }()
 
-	if *session != "" {
-		if !grok.ValidSessionID(*session) {
-			slog.Error("invalid session_id", "session", *session)
-			return 1
+	// Background: session scanner
+	go func() {
+		if err := sc.Run(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("scanner", "err", err)
 		}
-		if err := postRegister(ctx, client, dev, *session); err != nil {
-			slog.Error("register", "err", err)
-		}
-	}
+	}()
 
-	go heartbeatLoop(ctx, client, dev)
+	// Publish registers periodically
+	go rt.registerLoop(ctx, mailboxID)
 
+	// Heartbeat
+	go rt.heartbeatLoop(ctx, mailboxID)
+
+	// Main poll loop
 	interval := time.Duration(cfg.PollIntervalSec) * time.Second
-	handler := func(ctx context.Context, env *grok.Envelope) error {
-		return handleEnvelope(ctx, client, dev, inj, env)
+	if interval < 2*time.Second {
+		interval = 2 * time.Second
 	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
 
-	err = client.StartMailboxLoop(ctx, dev.DeviceID, interval, handler)
-	if err != nil && ctx.Err() != nil {
-		slog.Info("shutdown")
-		return 0
-	}
-	if err != nil {
-		slog.Error("mailbox loop", "err", err)
-		return 1
-	}
-	return 0
-}
+	// Immediate poll
+	rt.pollOnce(ctx, mailboxID)
 
-func cmdPair(args []string) int {
-	fs := flag.NewFlagSet("pair", flag.ExitOnError)
-	code := fs.String("code", "", "8-char pairing code from mobile")
-	name := fs.String("name", "", "device display name")
-	conv := fs.String("conv", "", "optional mailbox conversation id (generated if empty)")
-	_ = fs.Parse(args)
-
-	if strings.TrimSpace(*code) == "" {
-		slog.Error("pair requires -code")
-		return 2
-	}
-
-	cfg, err := core.LoadConfig()
-	if err != nil {
-		slog.Error("config", "err", err)
-		return 1
-	}
-	dev, err := core.LoadOrCreateDevice()
-	if err != nil {
-		slog.Error("device", "err", err)
-		return 1
-	}
-	if *name != "" {
-		if err := dev.SetDeviceName(*name); err != nil {
-			slog.Error("rename during pair", "err", err)
-			return 1
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("shutdown")
+			return 0
+		case <-ticker.C:
+			rt.pollOnce(ctx, mailboxID)
 		}
 	}
+}
 
-	mailboxID := firstNonEmpty(*conv, dev.MailboxConversationID)
-	if mailboxID == "" {
-		mailboxID = grok.CreateMailboxConversation()
-	}
-	if err := dev.SetMailboxConversationID(mailboxID); err != nil {
-		slog.Error("save mailbox id", "err", err)
-		return 1
-	}
-
-	client := grok.NewClient(
-		cfg.BaseURL,
-		cfg.APIKey,
-		time.Duration(cfg.HTTPTimeoutSec)*time.Second,
-		grok.WithLogger(slog.Default()),
-	)
-	client.SetConversation(mailboxID)
-
-	payload := grok.PairPayload{
-		PairingCode: strings.ToUpper(strings.TrimSpace(*code)),
-		DeviceName:  dev.DeviceName,
-	}
-	env, err := grok.NewEnvelope(grok.TypePair, dev.DeviceID, "", uuid.NewString(), payload)
-	if err != nil {
-		slog.Error("envelope", "err", err)
-		return 1
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.HTTPTimeoutSec)*time.Second)
+func (rt *agentRuntime) pollOnce(ctx context.Context, mailboxID string) {
+	pctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
-
-	if err := client.PostEnvelope(ctx, env); err != nil {
-		slog.Error("pair post failed", "err", err)
-		return 1
-	}
-
-	fmt.Printf("paired device_id=%s mailbox=%s name=%s\n", dev.DeviceID, mailboxID, dev.DeviceName)
-	fmt.Printf("device file: %s\n", dev.Path())
-	return 0
-}
-
-func cmdRename(args []string) int {
-	fs := flag.NewFlagSet("rename", flag.ExitOnError)
-	name := fs.String("name", "", "new device display name")
-	_ = fs.Parse(args)
-	if strings.TrimSpace(*name) == "" {
-		slog.Error("rename requires -name")
-		return 2
-	}
-	dev, err := core.LoadOrCreateDevice()
+	raws, err := rt.relay.Poll(pctx, mailboxID, rt.dev.DeviceID, "agent")
 	if err != nil {
-		slog.Error("device", "err", err)
-		return 1
+		slog.Warn("poll", "err", err)
+		return
 	}
-	if err := dev.SetDeviceName(strings.TrimSpace(*name)); err != nil {
-		slog.Error("rename", "err", err)
-		return 1
+	for _, raw := range raws {
+		env, err := grok.ParseEnvelope(raw)
+		if err != nil {
+			slog.Debug("skip bad envelope", "err", err)
+			continue
+		}
+		fp := env.Type + ":" + env.CommandID + ":" + env.TS.UTC().Format(time.RFC3339Nano)
+		rt.mu.Lock()
+		if _, ok := rt.seen[fp]; ok {
+			rt.mu.Unlock()
+			continue
+		}
+		rt.seen[fp] = struct{}{}
+		if len(rt.seen) > 4096 {
+			rt.seen = map[string]struct{}{fp: {}}
+		}
+		rt.mu.Unlock()
+
+		if err := rt.handle(ctx, mailboxID, env); err != nil {
+			slog.Error("handle", "type", env.Type, "err", err)
+		}
 	}
-	fmt.Printf("renamed device_id=%s name=%s\n", dev.DeviceID, dev.DeviceName)
-	return 0
 }
 
-func handleEnvelope(ctx context.Context, client *grok.Client, dev *core.Device, inj inject.Injector, env *grok.Envelope) error {
+func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.Envelope) error {
 	slog.Info("envelope", "type", env.Type, "session_id", env.SessionID, "command_id", env.CommandID)
 
 	switch env.Type {
@@ -312,29 +327,41 @@ func handleEnvelope(ctx context.Context, client *grok.Client, dev *core.Device, 
 			Text:      text,
 			Submit:    p.Submit,
 		}
-		err := inj.Inject(env.SessionID, req)
-		chunk := "ok"
-		if err != nil {
-			chunk = err.Error()
+		// Prefer binding to known session if we have HWND
+		if sess, ok := rt.scanner.Registry.Get(env.SessionID); ok && sess != nil && sess.HWND != 0 {
+			_ = rt.hybrid.Bind(env.SessionID, inject.TerminalWindow{
+				HWND:  sess.HWND,
+				PID:   uint32(sess.PID),
+				Title: sess.Title,
+			})
 		}
-		out, nerr := grok.NewEnvelope(grok.TypeOutput, dev.DeviceID, env.SessionID, env.CommandID, grok.OutputPayload{
-			Stream: "system",
-			Chunk:  chunk,
-			EOF:    true,
-		})
-		if nerr != nil {
-			return nerr
+		injErr := rt.hybrid.Inject(env.SessionID, req)
+		// Capture output after short settle
+		time.Sleep(400 * time.Millisecond)
+		cap, _ := rt.hybrid.Capture(env.SessionID)
+		chunk := cap.Text
+		if chunk == "" {
+			if injErr != nil {
+				chunk = "inject error: " + injErr.Error()
+			} else {
+				chunk = "ok (no capture buffer yet — managed shell may still be starting)"
+			}
 		}
-		return client.PostEnvelope(ctx, out)
+		stream := "stdout"
+		if injErr != nil && cap.Text == "" {
+			stream = "system"
+		}
+		return rt.pushOutput(ctx, mailboxID, env.SessionID, env.CommandID, stream, chunk, true)
 
 	case grok.TypeList:
-		out, err := grok.NewEnvelope(grok.TypeList, dev.DeviceID, "", env.CommandID, map[string]any{
-			"sessions": []any{},
+		sessions := rt.listSessionPayloads()
+		out, err := grok.NewEnvelope(grok.TypeList, rt.dev.DeviceID, "", env.CommandID, map[string]any{
+			"sessions": sessions,
 		})
 		if err != nil {
 			return err
 		}
-		return client.PostEnvelope(ctx, out)
+		return rt.pushEnv(ctx, mailboxID, out)
 
 	case grok.TypePair:
 		slog.Info("pair envelope seen", "from_device", env.DeviceID)
@@ -349,26 +376,114 @@ func handleEnvelope(ctx context.Context, client *grok.Client, dev *core.Device, 
 	}
 }
 
-func postRegister(ctx context.Context, client *grok.Client, dev *core.Device, sessionID string) error {
-	cwd, _ := os.Getwd()
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "pwsh"
-	}
-	payload := grok.RegisterPayload{
-		CWD:   filepath.ToSlash(cwd),
-		Shell: shell,
-		OS:    runtime.GOOS,
-		Title: "gbr-agent",
-	}
-	env, err := grok.NewEnvelope(grok.TypeRegister, dev.DeviceID, sessionID, uuid.NewString(), payload)
+func (rt *agentRuntime) pushOutput(ctx context.Context, mailboxID, sessionID, commandID, stream, chunk string, eof bool) error {
+	out, err := grok.NewEnvelope(grok.TypeOutput, rt.dev.DeviceID, sessionID, commandID, grok.OutputPayload{
+		Stream: stream,
+		Chunk:  chunk,
+		EOF:    eof,
+	})
 	if err != nil {
 		return err
 	}
-	return client.PostEnvelope(ctx, env)
+	return rt.pushEnv(ctx, mailboxID, out)
 }
 
-func heartbeatLoop(ctx context.Context, client *grok.Client, dev *core.Device) {
+func (rt *agentRuntime) pushEnv(ctx context.Context, mailboxID string, env *grok.Envelope) error {
+	// Relay expects plain JSON object
+	var wire map[string]any
+	b, err := env.Serialize()
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(b, &wire); err != nil {
+		return err
+	}
+	pctx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+	return rt.relay.Push(pctx, mailboxID, wire)
+}
+
+func (rt *agentRuntime) listSessionPayloads() []map[string]any {
+	var out []map[string]any
+	if rt.scanner != nil && rt.scanner.Registry != nil {
+		for _, s := range rt.scanner.Registry.List() {
+			out = append(out, map[string]any{
+				"session_id": s.ID,
+				"cwd":        s.CWD,
+				"shell":      s.Shell,
+				"title":      s.Title,
+				"os":         runtime.GOOS,
+				"git_remote": s.GitRemote,
+			})
+		}
+	}
+	// Include managed PTY sessions not already listed
+	seen := map[string]bool{}
+	for _, m := range out {
+		if id, ok := m["session_id"].(string); ok {
+			seen[id] = true
+		}
+	}
+	for _, id := range rt.hybrid.ManagedIDs() {
+		if seen[id] {
+			continue
+		}
+		out = append(out, map[string]any{
+			"session_id": id,
+			"shell":      "managed",
+			"title":      "gbr managed shell",
+			"os":         runtime.GOOS,
+		})
+	}
+	if len(out) == 0 {
+		cwd, _ := os.Getwd()
+		out = append(out, map[string]any{
+			"session_id": session.Slugify(filepath.Base(cwd)),
+			"cwd":        cwd,
+			"shell":      defaultShellName(),
+			"title":      "gbr-agent",
+			"os":         runtime.GOOS,
+		})
+	}
+	return out
+}
+
+func (rt *agentRuntime) registerLoop(ctx context.Context, mailboxID string) {
+	t := time.NewTicker(15 * time.Second)
+	defer t.Stop()
+	// immediate
+	rt.publishRegisters(ctx, mailboxID)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			rt.publishRegisters(ctx, mailboxID)
+		}
+	}
+}
+
+func (rt *agentRuntime) publishRegisters(ctx context.Context, mailboxID string) {
+	for _, msg := range rt.scanner.Registers(rt.dev.DeviceID) {
+		// msg is session.RegisterMessage — convert to grok envelope map
+		b, err := json.Marshal(msg)
+		if err != nil {
+			continue
+		}
+		var wire map[string]any
+		if err := json.Unmarshal(b, &wire); err != nil {
+			continue
+		}
+		pctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		err = rt.relay.Push(pctx, mailboxID, wire)
+		cancel()
+		if err != nil {
+			slog.Debug("register push", "err", err)
+		}
+	}
+}
+
+func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 	t := time.NewTicker(30 * time.Second)
 	defer t.Stop()
 	for {
@@ -376,22 +491,162 @@ func heartbeatLoop(ctx context.Context, client *grok.Client, dev *core.Device) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			env, err := grok.NewEnvelope(grok.TypeHeartbeat, dev.DeviceID, "", uuid.NewString(), grok.HeartbeatPayload{
-				SessionCount: 0,
+			n := 0
+			if rt.scanner != nil && rt.scanner.Registry != nil {
+				n = len(rt.scanner.Registry.List())
+			}
+			env, err := grok.NewEnvelope(grok.TypeHeartbeat, rt.dev.DeviceID, "", uuid.NewString(), grok.HeartbeatPayload{
+				SessionCount: n,
 				Status:       "alive",
 			})
 			if err != nil {
-				slog.Error("heartbeat envelope", "err", err)
 				continue
 			}
-			hctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-			err = client.PostEnvelope(hctx, env)
-			cancel()
-			if err != nil {
-				slog.Warn("heartbeat post", "err", err)
+			if err := rt.pushEnv(ctx, mailboxID, env); err != nil {
+				slog.Warn("heartbeat", "err", err)
 			}
 		}
 	}
+}
+
+func cmdPair(args []string) int {
+	fs := flag.NewFlagSet("pair", flag.ExitOnError)
+	code := fs.String("code", "", "8-char pairing code from mobile")
+	name := fs.String("name", "", "device display name")
+	conv := fs.String("conv", "", "optional mailbox id (default: gbr-<code>)")
+	relayURL := fs.String("relay", "", "relay base URL")
+	_ = fs.Parse(args)
+
+	if strings.TrimSpace(*code) == "" {
+		slog.Error("pair requires -code")
+		return 2
+	}
+	codeNorm := strings.ToUpper(strings.TrimSpace(*code))
+	// Strip spaces/dashes
+	codeNorm = strings.ReplaceAll(codeNorm, " ", "")
+	codeNorm = strings.ReplaceAll(codeNorm, "-", "")
+
+	dev, err := core.LoadOrCreateDevice()
+	if err != nil {
+		slog.Error("device", "err", err)
+		return 1
+	}
+	if *name != "" {
+		if err := dev.SetDeviceName(*name); err != nil {
+			slog.Error("rename during pair", "err", err)
+			return 1
+		}
+	}
+
+	mailboxID := firstNonEmpty(*conv, dev.MailboxConversationID)
+	if mailboxID == "" {
+		// Deterministic mailbox from pairing code so mobile can derive the same id.
+		mailboxID = "gbr-" + strings.ToLower(codeNorm)
+	}
+	if err := dev.SetMailboxConversationID(mailboxID); err != nil {
+		slog.Error("save mailbox id", "err", err)
+		return 1
+	}
+
+	rc := relay.New(firstNonEmpty(*relayURL, os.Getenv("GBR_RELAY_URL")), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := rc.Pair(ctx, mailboxID, codeNorm, dev.DeviceID, dev.DeviceName); err != nil {
+		slog.Error("relay pair", "err", err)
+		return 1
+	}
+
+	// Also push a pair envelope into the mailbox so mobile can observe.
+	payload := grok.PairPayload{PairingCode: codeNorm, DeviceName: dev.DeviceName}
+	env, err := grok.NewEnvelope(grok.TypePair, dev.DeviceID, "", uuid.NewString(), payload)
+	if err != nil {
+		slog.Error("envelope", "err", err)
+		return 1
+	}
+	var wire map[string]any
+	b, _ := env.Serialize()
+	_ = json.Unmarshal(b, &wire)
+	if err := rc.Push(ctx, mailboxID, wire); err != nil {
+		slog.Error("pair push", "err", err)
+		return 1
+	}
+
+	fmt.Printf("paired device_id=%s mailbox=%s name=%s\n", dev.DeviceID, mailboxID, dev.DeviceName)
+	fmt.Printf("relay=%s\n", rc.Base())
+	fmt.Printf("device file: %s\n", dev.Path())
+	fmt.Printf("next: gbr-agent run\n")
+	return 0
+}
+
+func cmdRename(args []string) int {
+	fs := flag.NewFlagSet("rename", flag.ExitOnError)
+	name := fs.String("name", "", "new device display name")
+	sessionID := fs.String("session", "", "optional: rename current cwd to this session_id")
+	_ = fs.Parse(args)
+
+	if *sessionID != "" {
+		if !grok.ValidSessionID(*sessionID) {
+			slog.Error("invalid session_id", "id", *sessionID)
+			return 2
+		}
+		store, err := session.OpenStore("")
+		if err != nil {
+			slog.Error("store", "err", err)
+			return 1
+		}
+		cwd, _ := os.Getwd()
+		if err := store.Rename(cwd, *sessionID); err != nil {
+			slog.Error("session rename", "err", err)
+			return 1
+		}
+		fmt.Printf("session cwd=%s id=%s\n", cwd, *sessionID)
+		return 0
+	}
+
+	if strings.TrimSpace(*name) == "" {
+		slog.Error("rename requires -name or -session")
+		return 2
+	}
+	dev, err := core.LoadOrCreateDevice()
+	if err != nil {
+		slog.Error("device", "err", err)
+		return 1
+	}
+	if err := dev.SetDeviceName(strings.TrimSpace(*name)); err != nil {
+		slog.Error("rename", "err", err)
+		return 1
+	}
+	fmt.Printf("renamed device_id=%s name=%s\n", dev.DeviceID, dev.DeviceName)
+	return 0
+}
+
+func cmdSessions(args []string) int {
+	_ = args
+	store, err := session.OpenStore("")
+	if err != nil {
+		slog.Warn("store", "err", err)
+	}
+	reg := session.NewRegistry()
+	sc := session.NewScanner(store, reg, nil)
+	cwd, _ := os.Getwd()
+	sc.Track(session.Candidate{CWD: cwd, Shell: defaultShellName(), Title: "gbr-agent"})
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := sc.ScanOnce(ctx); err != nil {
+		slog.Warn("scan", "err", err)
+	}
+	for _, s := range reg.List() {
+		fmt.Printf("%-24s  cwd=%s  shell=%s  title=%s\n", s.ID, s.CWD, s.Shell, s.Title)
+	}
+	return 0
+}
+
+func defaultShellName() string {
+	if runtime.GOOS == "windows" {
+		return "pwsh"
+	}
+	return "bash"
 }
 
 func firstNonEmpty(a, b string) string {
