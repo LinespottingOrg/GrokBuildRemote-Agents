@@ -15,6 +15,17 @@ Grok Build (SpaceX / xAI agentic coding CLI) gained a new interface and API surf
 
 ---
 
+
+## Independence & trademarks
+
+**Build Remote Agent is an independent, third-party product from Linespotting AB.**
+It is **not** affiliated with, endorsed by, or sponsored by **xAI** or **SpaceX**, and it is
+**not** covered by the **Grok** trademark or brand. "Grok" and "Grok Build" are used solely to
+describe compatibility with the user's own locally installed Grok Build CLI.
+
+- **Desktop agent (this repo): 100% open source** under the MIT license.
+- **Mobile apps ("Build Remote Agent" on iOS / Android): separate commercial products**, closed source (private repository), sold by Linespotting AB.
+
 ## Open source
 
 | What | Policy |
