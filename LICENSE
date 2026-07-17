@@ -1,150 +1,27 @@
-PROPRIETARY SOFTWARE LICENSE
-Grok Build Remote — Desktop Agent (gbr-agent)
-Copyright (c) 2026 LinespottingOrg / Linespotting AB. All Rights Reserved.
+MIT License
 
-================================================================================
-PROPRIETARY — ALL RIGHTS RESERVED
-FREE BINARY USE LICENSE (END USERS)
-================================================================================
+Copyright (c) 2026 LinespottingOrg / Linespotting AB
 
-IMPORTANT: This is NOT an open-source license. This is NOT the MIT License,
-Apache License, GPL, or any other OSI-approved open source license. The source
-code, designs, documentation structure, protocols as implemented in this
-repository, trademarks, and related materials are private company intellectual
-property of LinespottingOrg / Linespotting AB (the "Licensor").
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
---------------------------------------------------------------------------------
-1. DEFINITIONS
---------------------------------------------------------------------------------
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-"Software" means the Grok Build Remote desktop agent known as "gbr-agent",
-including object code, installers, and associated documentation.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
-"Source" means human-readable source code, build scripts, internal packages,
-and repository contents of the private Agents repository and related private
-materials.
+---
 
-"Binary" means compiled, redistributable object code of gbr-agent officially
-published by Licensor (for example via the product website, GitHub Release
-assets intentionally published for download, or the Microsoft Store).
-
-"You" means an individual or legal entity exercising permissions granted by
-this license.
-
---------------------------------------------------------------------------------
-2. SOURCE CODE — NO LICENSE TO USE, COPY, OR DISTRIBUTE
---------------------------------------------------------------------------------
-
-Except for limited rights expressly granted in writing by Licensor:
-
-  a) You may NOT copy, modify, merge, publish, distribute, sublicense, sell,
-     or create derivative works of the Source.
-  b) You may NOT reverse engineer, decompile, or disassemble the Software
-     except to the limited extent that applicable law expressly prohibits
-     such restriction.
-  c) Access to the private repository (if any) does not transfer ownership
-     and does not grant broader rights than this license or a separate
-     written agreement.
-
-All rights in the Source not expressly granted are reserved by Licensor.
-
---------------------------------------------------------------------------------
-3. FREE BINARY USE (END USERS)
---------------------------------------------------------------------------------
-
-Subject to this license, Licensor grants You a personal, non-exclusive,
-non-transferable, revocable, royalty-free license to:
-
-  a) Download official Binaries of gbr-agent from Licensor-authorized channels
-     (product website, published release assets, and/or Microsoft Store);
-  b) Install and run the Binary on devices You own or control, for the purpose
-     of using the Grok Build Remote product;
-  c) Make a reasonable number of backup copies of the Binary for archival use.
-
-This free Binary license does NOT include rights to the Source, and does NOT
-permit You to rebrand, resell, or offer the Binary as a competing hosted
-service without a separate commercial agreement.
-
---------------------------------------------------------------------------------
-4. RESTRICTIONS
---------------------------------------------------------------------------------
-
-You may NOT:
-
-  a) Remove or alter proprietary notices, trademarks, or attribution;
-  b) Redistribute modified Binaries or claim them as official releases;
-  c) Use Licensor trademarks (including "Grok Build Remote", "gbr-agent",
-     "Linespotting") in a way that implies endorsement without permission;
-  d) Use the Software for unlawful purposes;
-  e) Circumvent license, update, or integrity checks in official distributions.
-
-"Grok" is a trademark of its respective owner (xAI). This product is an
-independent integration and is not affiliated with or endorsed by xAI unless
-explicitly stated.
-
---------------------------------------------------------------------------------
-5. OWNERSHIP
---------------------------------------------------------------------------------
-
-Title, ownership rights, and intellectual property rights in the Software and
-Source remain with LinespottingOrg / Linespotting AB and its licensors.
-This license is not a sale.
-
---------------------------------------------------------------------------------
-6. NO WARRANTY
---------------------------------------------------------------------------------
-
-THE SOFTWARE AND BINARIES ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. YOU USE THE SOFTWARE
-AT YOUR OWN RISK.
-
---------------------------------------------------------------------------------
-7. LIMITATION OF LIABILITY
---------------------------------------------------------------------------------
-
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR SHALL NOT BE LIABLE FOR ANY
-INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS
-OF PROFITS, DATA, OR BUSINESS, ARISING FROM USE OF THE SOFTWARE, EVEN IF
-ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. LICENSOR'S TOTAL LIABILITY SHALL
-NOT EXCEED THE AMOUNT YOU PAID FOR THE SOFTWARE (OR ZERO IF PROVIDED FREE).
-
---------------------------------------------------------------------------------
-8. TERMINATION
---------------------------------------------------------------------------------
-
-This license terminates automatically if You breach it. Upon termination You
-must stop using the Software and destroy copies in Your possession, except
-where applicable law requires retention. Sections on ownership, warranty
-disclaimer, limitation of liability, and this termination survival remain in
-effect.
-
---------------------------------------------------------------------------------
-9. COMMERCIAL / OEM LICENSING
---------------------------------------------------------------------------------
-
-For redistribution rights, source access, OEM embedding, managed enterprise
-deployment, or any use beyond Section 3, contact LinespottingOrg / Linespotting
-AB for a separate written agreement.
-
---------------------------------------------------------------------------------
-10. GOVERNING LAW
---------------------------------------------------------------------------------
-
-Unless mandatory local law provides otherwise, this license is governed by the
-laws of Sweden, excluding conflict-of-law rules. Courts of Sweden shall have
-exclusive jurisdiction, subject to mandatory consumer protections where
-applicable.
-
---------------------------------------------------------------------------------
-11. ENTIRE AGREEMENT
---------------------------------------------------------------------------------
-
-This document constitutes the entire license for the Software unless superseded
-by a signed agreement between You and Licensor. If any provision is held
-unenforceable, the remainder continues in effect.
-
-================================================================================
-Copyright (c) 2026 LinespottingOrg / Linespotting AB. All Rights Reserved.
-Grok Build Remote · gbr-agent · Proprietary · Free binary use for end users
-================================================================================
+Product note: the companion **mobile apps** ("Build Remote Agent") are separate
+commercial products and are not licensed under this MIT file unless stated in
+their own store listings / EULA.

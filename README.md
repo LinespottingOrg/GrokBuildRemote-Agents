@@ -1,36 +1,38 @@
-# Grok Build Remote — Agents (`gbr-agent`)
+# Build Remote Agent — desktop (`gbr-agent`)
 
-**Brand:** Grok Build Remote  
-**Tagline:** Control Grok Build CLI sessions from your phone. No network, no VPN, Grok is the relay.  
+**Product brand:** Build Remote Agent  
 **Binary:** `gbr-agent`  
-**Org:** LinespottingOrg / Linespotting AB
+**License:** **MIT** (open source)  
+**Org:** LinespottingOrg / Linespotting AB  
 
-Desktop agents for **Windows**, **macOS**, and **Linux**. They discover local terminal sessions, inject input, capture output, and exchange **protocol `gbr/1`** envelopes through the Grok API — your phone and PC never open ports to each other.
+Desktop agents for **Windows**, **macOS**, and **Linux**. They discover local terminal / **Grok Build** sessions, inject input, capture output, and exchange **protocol `gbr/1`** envelopes over HTTPS — your phone and PC never open ports to each other.
+
+This agent pairs with the paid **Build Remote Agent** mobile apps (iOS / Android, $13 one-time). The mobile clients are **not** open source; this desktop agent **is**.
+
+### Why it exists
+
+Grok Build (SpaceX / xAI agentic coding CLI) gained a new interface and API surface around **16 July 2026**. That made remote control of *local* Grok Build sessions practical. This open-source agent + paid mobile remote implements that workflow. Independent product — not affiliated with SpaceX or xAI except as a client of public APIs / open tooling.
 
 ---
 
-## Private repository (company IP)
-
-This GitHub repository is **private**. The **source code is proprietary** intellectual property of LinespottingOrg (see [`LICENSE`](./LICENSE)).
+## Open source
 
 | What | Policy |
 |------|--------|
-| Source (`cmd/`, `internal/`, this repo) | **Private** — all rights reserved |
-| Official **binaries** (`gbr-agent`) | **Free** for end users |
-| Distribution channels | Product **website** + **Microsoft Store** (planned) |
-| Mobile apps | Separate private repo; paid $13.00 per store — NOT free |
+| Source (`cmd/`, `internal/`, this repo) | **Public · MIT** |
+| Official binaries | Free for end users |
+| Mobile apps | Separate private repo; paid $13 |
 
-You may download and run free binaries under the Free Binary Use terms in `LICENSE`. You may **not** treat this repo as open source (it is **not** MIT).
+**Repo:** https://github.com/LinespottingOrg/GrokBuildRemote-Agents  
+**Website:** https://grokbuildremote.com/
 
 ---
 
 ## Free download
 
-- **Website install funnel** (primary for users): product homepage / install page (public web).
-- **Release assets**: tagged builds (`v*`) publish platform binaries (CI in [`.github/workflows/release.yml`](./.github/workflows/release.yml)).
-- **Microsoft Store**: packaging planned for Windows; sideload + website remain available for full inject capabilities during rollout.
-
-Asset names:
+- **Website:** https://grokbuildremote.com/#download  
+- **GitHub Releases:** tagged `v*` assets  
+- **Clone & build:** see below  
 
 | File | Platform |
 |------|----------|
@@ -44,18 +46,24 @@ Asset names:
 
 ## Quick install
 
-### One-liner (macOS / Linux / Git Bash)
+### One-liner (macOS / Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LinespottingOrg/GrokBuildRemote-Agents/main/install/install.sh | bash
+curl -fsSL https://grokbuildremote.com/install.sh | bash
 ```
 
-Pin a version or CDN base:
+### One-liner (Windows PowerShell)
+
+```powershell
+irm https://grokbuildremote.com/install.ps1 | iex
+```
+
+### From source
 
 ```bash
-export GBR_VERSION=v0.1.0
-export GBR_DOWNLOAD_BASE="https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download"
-./install/install.sh
+git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+cd GrokBuildRemote-Agents
+# build per Makefile / go build in cmd/
 ```
 
 Default install locations:
@@ -64,152 +72,22 @@ Default install locations:
 |----|-----------|
 | macOS / Linux | `~/.local/bin/gbr-agent` |
 | Windows (user) | `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` |
-| Windows (elevated) | `%ProgramFiles%\GrokBuildRemote\gbr-agent.exe` |
 
-### From a release asset
-
-Download the matching asset, `chmod +x` on Unix, place on `PATH`, then:
+### Typical flow
 
 ```bash
+gbr-agent pair -code YOURCODE
 gbr-agent run
 ```
 
+Optional: `sessions`, `status`, `version`, `rename -name MyPC`.
+
 ### API key
 
-Agent reads the Grok / xAI API key from:
-
-- Unix: `~/.grok/config.json`
-- Windows: `%USERPROFILE%\.grok\config.json`
-
-Do not commit keys. Use a local gitignored `api-passwords.md` if your team tracks secrets offline.
+Agent may read relay / model API credentials from env (`GBR_API_KEY`, `XAI_API_KEY`, etc.) or local config under `~/.gbr/` — see support docs on the website.
 
 ---
 
-## Run as a service
+## Contributing
 
-| Platform | Guide | Unit / sample |
-|----------|--------|----------------|
-| **Windows** | [`install/windows/service.md`](./install/windows/service.md) | [`install/windows/gbr-agent.xml`](./install/windows/gbr-agent.xml) (WinSW) |
-| **macOS** | launchd (user agent) | [`install/darwin/launchd.plist.example`](./install/darwin/launchd.plist.example) |
-| **Linux** | systemd (prefer **user** unit) | [`install/linux/gbr-agent.service`](./install/linux/gbr-agent.service) |
-
-**Why user session matters:** inject uses OS APIs (`SendInput`, AppleScript / Accessibility, `xdotool`). Session 0 services and headless system units often cannot reach interactive terminals.
-
----
-
-## Architecture
-
-```
-┌─────────────┐     Grok API (HTTPS JSON)      ┌──────────────────┐
-│  Mobile app │ ◄──── protocol gbr/1 ────────► │  gbr-agent (PC)  │
-│ iOS/Android │   no phone↔PC sockets/VPN     │ Win / Mac / Linux│
-└─────────────┘                               └────────┬─────────┘
-                                                       │
-                                          discover sessions / inject
-                                                       ▼
-                                              local terminals
-                                         (WT, iTerm, gnome-term, …)
-```
-
-### Components (this monorepo-style tree)
-
-| Path | Role |
-|------|------|
-| `cmd/gbr-agent` | Main binary entrypoint |
-| `internal/core` | Config, lifecycle |
-| `internal/grok` | Grok client / relay mailbox |
-| `internal/session` | Session discovery + naming |
-| `internal/inject/windows` | SendInput inject + capture |
-| `internal/inject/darwin` | AppleScript / macOS inject |
-| `internal/inject/linux` | xdotool / Linux inject |
-| `install/` | Installer + service units |
-| `scripts/` | Cross-compile helpers |
-
-### Link protocol concepts (`gbr/1`)
-
-Shared contract lives in the product **protocol** pack (sibling docs: `protocol/v1.md`, `protocol/schema.json`).
-
-| Concept | Meaning |
-|---------|---------|
-| `proto: gbr/1` | Envelope version on every message |
-| `device_id` | UUID of one PC installation |
-| `session_id` | Named terminal slug (e.g. `global-edition`) |
-| `command_id` | Idempotent inject id |
-| `pairing_code` | One-time mobile↔agent link (8-char Crockford base32) |
-| Message types | `pair`, `register`, `list`, `inject`, `output`, `heartbeat` |
-
-**Relay pattern:** mobile and agent never dial each other. Both talk to Grok with a device-scoped mailbox / structured chat envelopes. Fallback: shared pairing token + authenticated Grok API (see protocol v1).
-
----
-
-## Build from source (contributors with repo access)
-
-Requirements: Go 1.22+, git.
-
-**Unix:**
-
-```bash
-./scripts/build-all.sh
-# artifacts in ./dist/
-```
-
-**PowerShell:**
-
-```powershell
-.\scripts\build-all.ps1
-```
-
-Targets: `windows/amd64`, `darwin/amd64`, `darwin/arm64`, `linux/amd64`, `linux/arm64`.
-
-Single platform:
-
-```bash
-CGO_ENABLED=0 go build -o gbr-agent ./cmd/gbr-agent
-```
-
----
-
-## Release CI
-
-Push a tag matching `v*`:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-Workflow [`.github/workflows/release.yml`](./.github/workflows/release.yml):
-
-1. Matrix-builds all five platform binaries  
-2. Uploads artifacts  
-3. Creates a GitHub Release with assets + `SHA256SUMS`
-
----
-
-## Microsoft Store (future)
-
-Windows Store (MSIX) packaging is planned so non-technical users can install **free** agents with OS update semantics. Until Store certification is complete:
-
-- Website + GitHub Release binaries remain the supported free path  
-- WinSW / Task Scheduler docs cover always-on operation  
-- Store builds may have capability differences; full inject sideload remains available
-
----
-
-## Security notes
-
-- No inbound listen port required for the relay design  
-- API keys stay on device (`~/.grok/config.json`)  
-- Source is private; only use **official** free binaries  
-- Report security issues privately to LinespottingOrg — do not open public issues with exploit detail
-
----
-
-## License
-
-**Proprietary — All Rights Reserved.**  
-Free binary use for end users. **Not MIT / not open source.**  
-
-See [`LICENSE`](./LICENSE).
-
-Copyright © 2026 LinespottingOrg / Linespotting AB.
+Issues and PRs welcome on GitHub. Please keep protocol `gbr/1` compatibility stable unless versioned intentionally.
