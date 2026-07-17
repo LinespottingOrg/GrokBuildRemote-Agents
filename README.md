@@ -91,3 +91,9 @@ Agent may read relay / model API credentials from env (`GBR_API_KEY`, `XAI_API_K
 ## Contributing
 
 Issues and PRs welcome on GitHub. Please keep protocol `gbr/1` compatibility stable unless versioned intentionally.
+
+## Licensing note
+
+This desktop agent is MIT-licensed and free. The companion **mobile apps**
+("Build Remote Agent") are separate commercial products and are not covered
+by this repository's MIT license.
