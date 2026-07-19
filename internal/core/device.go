@@ -24,6 +24,16 @@ type Device struct {
 	// MailboxConversationID is Mode B shared conversation id (set after pair).
 	MailboxConversationID string `json:"mailbox_conversation_id,omitempty"`
 
+	// MailboxKey is the per-mailbox secret issued by the relay at pairing and
+	// sent as X-GBR-Key on every request.
+	//
+	// Without it the mailbox id alone authorises pushing an inject — i.e.
+	// arbitrary keystrokes into the user's terminal — and that id is derived
+	// from the 8-char pairing code shown on the phone screen, using a
+	// derivation published in the open-source agent. This replaces the
+	// on-screen code as the long-lived credential.
+	MailboxKey string `json:"mailbox_key,omitempty"`
+
 	mu   sync.Mutex `json:"-"`
 	path string     `json:"-"`
 }
@@ -138,6 +148,14 @@ func (d *Device) Save() error {
 func (d *Device) SetMailboxConversationID(id string) error {
 	d.mu.Lock()
 	d.MailboxConversationID = id
+	d.mu.Unlock()
+	return d.Save()
+}
+
+// SetMailboxKey stores the relay-issued mailbox secret and persists.
+func (d *Device) SetMailboxKey(key string) error {
+	d.mu.Lock()
+	d.MailboxKey = key
 	d.mu.Unlock()
 	return d.Save()
 }

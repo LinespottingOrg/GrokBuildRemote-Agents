@@ -221,6 +221,11 @@ Lock file: %s
 	defer lock.Release()
 
 	rc := relay.New(firstNonEmpty(*relayURL, os.Getenv("GBR_RELAY_URL")), time.Duration(cfg.HTTPTimeoutSec)*time.Second)
+	rc.SetKey(dev.MailboxKey) // no-op when unpaired or paired against a legacy relay
+	if dev.MailboxKey == "" {
+		slog.Warn("no mailbox key on file — running unauthenticated; re-pair to obtain one",
+			"hint", "gbr-agent pair -code YOURCODE")
+	}
 	ctxHealth, cancelH := context.WithTimeout(context.Background(), 10*time.Second)
 	if err := rc.Health(ctxHealth); err != nil {
 		slog.Warn("relay health check failed (will still try)", "relay", rc.Base(), "err", err)
@@ -721,9 +726,18 @@ func cmdPair(args []string) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := rc.Pair(ctx, mailboxID, codeNorm, dev.DeviceID, dev.DeviceName); err != nil {
+	mbKey, err := rc.Pair(ctx, mailboxID, codeNorm, dev.DeviceID, dev.DeviceName)
+	if err != nil {
 		slog.Error("relay pair", "err", err)
 		return 1
+	}
+	if mbKey != "" {
+		if err := dev.SetMailboxKey(mbKey); err != nil {
+			slog.Error("save mailbox key", "err", err)
+			return 1
+		}
+	} else {
+		slog.Warn("relay issued no mailbox key (legacy relay) — requests will be unauthenticated")
 	}
 
 	// Also push a pair envelope into the mailbox so mobile can observe.
@@ -832,6 +846,11 @@ func cmdStatus(args []string) int {
 	fmt.Printf("device_id:   %s\n", dev.DeviceID)
 	fmt.Printf("device_name: %s\n", dev.DeviceName)
 	fmt.Printf("mailbox:     %s\n", dev.MailboxConversationID)
+	if dev.MailboxKey != "" {
+		fmt.Printf("mailbox_key: set (%d chars) — requests authenticated\n", len(dev.MailboxKey))
+	} else {
+		fmt.Printf("mailbox_key: NOT SET — unauthenticated; re-pair to obtain one\n")
+	}
 	fmt.Printf("relay:       %s (%s)\n", rc.Base(), relayOK)
 	fmt.Printf("seen_cmds:   %d\n", seen.Len())
 	fmt.Printf("device_file: %s\n", dev.Path())

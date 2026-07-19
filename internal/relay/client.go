@@ -29,6 +29,29 @@ type Client struct {
 	httpClient *http.Client
 	mu         sync.Mutex
 	after      time.Time
+	key        string // per-mailbox secret, sent as X-GBR-Key
+}
+
+// SetKey installs the relay-issued mailbox secret.
+func (c *Client) SetKey(k string) {
+	c.mu.Lock()
+	c.key = strings.TrimSpace(k)
+	c.mu.Unlock()
+}
+
+// Key returns the configured mailbox secret.
+func (c *Client) Key() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.key
+}
+
+// auth stamps the mailbox secret on a request. Safe when unset — the relay runs
+// in warn mode during rollout and still accepts unauthenticated legacy clients.
+func (c *Client) auth(req *http.Request) {
+	if k := c.Key(); k != "" {
+		req.Header.Set("X-GBR-Key", k)
+	}
 }
 
 // New builds a relay client. base empty → env GBR_RELAY_URL or DefaultBase.
@@ -66,6 +89,7 @@ func (c *Client) Push(ctx context.Context, mailboxID string, envelope any) error
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	c.auth(req)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("relay push: %w", err)
@@ -121,6 +145,7 @@ func (c *Client) Poll(ctx context.Context, mailboxID, deviceID, role string) ([]
 	if err != nil {
 		return nil, err
 	}
+	c.auth(req)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("relay poll: %w", err)
@@ -151,8 +176,10 @@ func (c *Client) Poll(ctx context.Context, mailboxID, deviceID, role string) ([]
 	return pr.Envelopes, nil
 }
 
-// Pair registers pairing metadata on the relay.
-func (c *Client) Pair(ctx context.Context, mailboxID, code, deviceID, deviceName string) error {
+// Pair registers pairing metadata on the relay and returns the issued mailbox
+// key. The key is idempotent per mailbox, so the agent and the phone both get
+// the same value by pairing with the same code. Empty means a legacy relay.
+func (c *Client) Pair(ctx context.Context, mailboxID, code, deviceID, deviceName string) (string, error) {
 	payload := map[string]string{
 		"pairing_code": code,
 		"device_id":    deviceID,
@@ -162,19 +189,30 @@ func (c *Client) Pair(ctx context.Context, mailboxID, code, deviceID, deviceName
 	u := fmt.Sprintf("%s/v1/mb/%s/pair", c.base, url.PathEscape(mailboxID))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(raw))
 	if err != nil {
-		return err
+		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("relay pair: %w", err)
+		return "", fmt.Errorf("relay pair: %w", err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("relay pair HTTP %d: %s", resp.StatusCode, truncate(string(body), 200))
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return "", fmt.Errorf("relay pair throttled (too many attempts on this mailbox): %s",
+			truncate(string(body), 200))
 	}
-	return nil
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("relay pair HTTP %d: %s", resp.StatusCode, truncate(string(body), 200))
+	}
+	var pr struct {
+		MailboxKey string `json:"mailbox_key"`
+	}
+	_ = json.Unmarshal(body, &pr)
+	if pr.MailboxKey != "" {
+		c.SetKey(pr.MailboxKey)
+	}
+	return pr.MailboxKey, nil
 }
 
 // Ack asks the relay to drop envelopes by command_id (after successful handle).
@@ -197,6 +235,7 @@ func (c *Client) Ack(ctx context.Context, mailboxID string, commandIDs []string,
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	c.auth(req)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("relay ack: %w", err)
