@@ -57,7 +57,7 @@ func installPlatform() error {
     </Exec>
   </Actions>
 </Task>
-`, p.UnitPath, p.Binary, filepath.Dir(p.Binary))
+`, p.UnitPath, p.Binary, serviceWorkDir(p.Binary))
 
 	tmp := filepath.Join(os.TempDir(), "gbr-agent-task.xml")
 	// Task Scheduler XML expects UTF-16 LE with BOM when using /XML
@@ -82,9 +82,37 @@ func installPlatform() error {
 			return nil
 		}
 	}
+	// Task registration succeeded — drop any Startup-folder launcher left behind
+	// by an earlier unelevated attempt. Otherwise BOTH fire at logon: the task
+	// wins, the launcher's agent hits the singleton lock and exits with an error
+	// every single login.
+	removeStartupFolder()
+
 	// Start now
 	_ = exec.Command("schtasks", "/Run", "/TN", p.UnitPath).Run()
 	return nil
+}
+
+// serviceWorkDir is the agent's working directory when launched by the service.
+//
+// It must NOT be the binary's own folder: the agent tracks its cwd as a session,
+// so installing from dist/ produced a session literally named "dist". The user
+// home is stable and neutral; real sessions come from discovered terminals, a
+// .grok-session file, or `gbr-agent rename -session`.
+func serviceWorkDir(binary string) string {
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return home
+	}
+	return filepath.Dir(binary)
+}
+
+func removeStartupFolder() {
+	appData := os.Getenv("APPDATA")
+	if appData == "" {
+		return
+	}
+	_ = os.Remove(filepath.Join(appData, "Microsoft", "Windows",
+		"Start Menu", "Programs", "Startup", "GrokBuildRemoteAgent.cmd"))
 }
 
 func installStartupFolder(binary string) error {
