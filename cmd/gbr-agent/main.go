@@ -28,11 +28,12 @@ import (
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/relay"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/service"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/session"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/trace"
 	"github.com/google/uuid"
 )
 
 var (
-	version = "0.3.0"
+	version = "0.4.0"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -90,6 +91,8 @@ func run(args []string) int {
 		return cmdSessions(subArgs)
 	case "status":
 		return cmdStatus(subArgs)
+	case "logs":
+		return cmdLogs(subArgs)
 	case "doctor":
 		return cmdDoctor(subArgs)
 	case "service":
@@ -111,20 +114,25 @@ Usage:
   gbr-agent [-log=info] version
   gbr-agent [-log=info] doctor
   gbr-agent [-log=info] status
-  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL]
+  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force]
   gbr-agent [-log=info] pair -code PAIRING_CODE [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL]
   gbr-agent [-log=info] rename -name DEVICE_NAME [-session SESSION_ID]
   gbr-agent [-log=info] sessions
+  gbr-agent [-log=info] logs [-f] [-n 50] [-command COMMAND_ID]
   gbr-agent [-log=info] service install|uninstall|status
 
 Environment:
   GBR_API_KEY / XAI_API_KEY     xAI API key (optional if relay-only)
   GBR_RELAY_URL                 durable mailbox relay (default production worker)
   GBR_BASE_URL / XAI_BASE_URL   xAI base (legacy Mode B)
+  GBR_TRACE=0                   disable hop tracing entirely
+  GBR_TRACE_REMOTE=0            trace to local file only (no relay mirror)
+  GBR_LOG_DIR                   override log directory
 
 Device identity: %%USERPROFILE%%\.gbr\device.json
 Sessions rename: %%USERPROFILE%%\.gbr\sessions.json
 Inject dedup:    %%USERPROFILE%%\.gbr\seen.json
+Trace log:       %%USERPROFILE%%\.gbr\logs\agent-YYYY-MM-DD.jsonl
 
 Platforms:
   windows  SendInput + managed pwsh; Task Scheduler user logon service
@@ -165,6 +173,7 @@ func cmdRun(args []string) int {
 	sessionFlag := fs.String("session", "", "also force-track this session_id at cwd")
 	conv := fs.String("conv", "", "mailbox conversation id (else from device.json)")
 	relayURL := fs.String("relay", "", "relay base URL (else GBR_RELAY_URL / default)")
+	force := fs.Bool("force", false, "start even if another agent holds the lock (unsafe)")
 	_ = fs.Parse(args)
 
 	// Config: API key optional when using durable relay only.
@@ -185,6 +194,31 @@ func cmdRun(args []string) int {
 		slog.Error("no mailbox; run: gbr-agent pair -code ... first")
 		return 1
 	}
+
+	// Single instance per machine. One agent already serves MANY sessions —
+	// the scanner tracks every terminal and injects are routed by session_id.
+	// Two agents on one mailbox both poll, both inject and both ack, so they
+	// consume each other's commands; three were found running concurrently
+	// during service install, which produced injects that appeared to vanish.
+	lock, lockErr := core.AcquireLock(mailboxID)
+	if lockErr != nil {
+		if !*force {
+			slog.Error("refusing to start", "err", lockErr)
+			fmt.Fprintf(os.Stderr, `
+One gbr-agent per mailbox — it already handles all your sessions.
+
+  gbr-agent sessions          list the sessions this machine exposes
+  gbr-agent logs -f           watch what the running agent is doing
+  gbr-agent run -force        start anyway (only if you know the lock is wrong)
+
+Mailbox:   %s
+Lock file: %s
+`, mailboxID, core.LockPath(mailboxID))
+			return 1
+		}
+		slog.Warn("lock held but -force given; running a second agent is unsafe", "err", lockErr)
+	}
+	defer lock.Release()
 
 	rc := relay.New(firstNonEmpty(*relayURL, os.Getenv("GBR_RELAY_URL")), time.Duration(cfg.HTTPTimeoutSec)*time.Second)
 	ctxHealth, cancelH := context.WithTimeout(context.Background(), 10*time.Second)
@@ -252,6 +286,14 @@ func cmdRun(args []string) int {
 		seen:    seenStore,
 	}
 
+	tl := trace.Init(trace.Config{
+		Actor:     "agent",
+		DeviceID:  dev.DeviceID,
+		MailboxID: mailboxID,
+		RelayBase: rc.Base(),
+	})
+	defer trace.Close()
+
 	slog.Info("gbr-agent starting",
 		"version", version,
 		"device_id", dev.DeviceID,
@@ -259,7 +301,16 @@ func cmdRun(args []string) int {
 		"mailbox", mailboxID,
 		"relay", rc.Base(),
 		"os", runtime.GOOS,
+		"trace", tl.Enabled(),
+		"trace_remote", tl.RemoteEnabled(),
+		"trace_log", tl.Path(),
 	)
+	trace.Emit(trace.Event{
+		Hop:    trace.HopAgentStart,
+		Type:   "lifecycle",
+		OK:     true,
+		Detail: fmt.Sprintf("v%s %s/%s mailbox=%s", version, runtime.GOOS, runtime.GOARCH, mailboxID),
+	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -293,6 +344,7 @@ func cmdRun(args []string) int {
 		select {
 		case <-ctx.Done():
 			slog.Info("shutdown")
+			trace.Emit(trace.Event{Hop: trace.HopAgentStop, Type: "lifecycle", OK: true})
 			return 0
 		case <-ticker.C:
 			rt.pollOnce(ctx, mailboxID)
@@ -303,10 +355,26 @@ func cmdRun(args []string) int {
 func (rt *agentRuntime) pollOnce(ctx context.Context, mailboxID string) {
 	pctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
+	pollStart := time.Now()
 	raws, err := rt.relay.Poll(pctx, mailboxID, rt.dev.DeviceID, "agent")
 	if err != nil {
 		slog.Warn("poll", "err", err)
+		trace.Emit(trace.Event{
+			Hop:    trace.HopAgentPoll,
+			OK:     false,
+			MS:     time.Since(pollStart).Milliseconds(),
+			Detail: err.Error(),
+		})
 		return
+	}
+	// Only trace polls that actually delivered work — idle polls stay quiet.
+	if len(raws) > 0 {
+		trace.Emit(trace.Event{
+			Hop:    trace.HopAgentPoll,
+			OK:     true,
+			MS:     time.Since(pollStart).Milliseconds(),
+			Detail: fmt.Sprintf("received=%d", len(raws)),
+		})
 	}
 	for _, raw := range raws {
 		env, err := grok.ParseEnvelope(raw)
@@ -332,7 +400,7 @@ func (rt *agentRuntime) pollOnce(ctx context.Context, mailboxID string) {
 		// Best-effort: drop inject/list from relay queue so restarts stay clean
 		if env.CommandID != "" && (env.Type == grok.TypeInject || env.Type == grok.TypeList) {
 			actx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			_ = rt.relay.Ack(actx, mailboxID, []string{env.CommandID})
+			_ = rt.relay.Ack(actx, mailboxID, []string{env.CommandID}, rt.dev.DeviceID)
 			cancel()
 		}
 	}
@@ -341,10 +409,33 @@ func (rt *agentRuntime) pollOnce(ctx context.Context, mailboxID string) {
 func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.Envelope) error {
 	slog.Info("envelope", "type", env.Type, "session_id", env.SessionID, "command_id", env.CommandID)
 
+	// Latency from the phone stamping the envelope to the agent receiving it.
+	var relayLagMS int64
+	if !env.TS.IsZero() {
+		relayLagMS = time.Since(env.TS).Milliseconds()
+	}
+	trace.Emit(trace.Event{
+		Hop:       trace.HopAgentRecv,
+		Type:      string(env.Type),
+		SessionID: env.SessionID,
+		CommandID: env.CommandID,
+		OK:        true,
+		MS:        relayLagMS,
+		Detail:    fmt.Sprintf("from_device=%s", env.DeviceID),
+	})
+
 	switch env.Type {
 	case grok.TypeInject:
 		var p grok.InjectPayload
 		if err := env.UnmarshalPayload(&p); err != nil {
+			trace.Emit(trace.Event{
+				Hop:       trace.HopAgentError,
+				Type:      string(env.Type),
+				SessionID: env.SessionID,
+				CommandID: env.CommandID,
+				OK:        false,
+				Detail:    "bad inject payload: " + err.Error(),
+			})
 			return err
 		}
 		text := p.Text
@@ -365,10 +456,35 @@ func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.
 				Title: sess.Title,
 			})
 		}
+		injStart := time.Now()
 		injErr := rt.hybrid.Inject(env.SessionID, req)
+		injDetail := fmt.Sprintf("chars=%d submit=%v mode=%s", len(text), p.Submit, p.Mode)
+		if injErr != nil {
+			injDetail = injErr.Error()
+		}
+		trace.Emit(trace.Event{
+			Hop:       trace.HopAgentInject,
+			Type:      string(env.Type),
+			SessionID: env.SessionID,
+			CommandID: env.CommandID,
+			OK:        injErr == nil,
+			MS:        time.Since(injStart).Milliseconds(),
+			Detail:    injDetail,
+		})
+
 		// Capture output after short settle
 		time.Sleep(400 * time.Millisecond)
+		capStart := time.Now()
 		cap, _ := rt.hybrid.Capture(env.SessionID)
+		trace.Emit(trace.Event{
+			Hop:       trace.HopAgentCapture,
+			Type:      string(env.Type),
+			SessionID: env.SessionID,
+			CommandID: env.CommandID,
+			OK:        cap.Text != "",
+			MS:        time.Since(capStart).Milliseconds(),
+			Detail:    fmt.Sprintf("bytes=%d", len(cap.Text)),
+		})
 		chunk := cap.Text
 		if chunk == "" {
 			if injErr != nil {
@@ -415,7 +531,22 @@ func (rt *agentRuntime) pushOutput(ctx context.Context, mailboxID, sessionID, co
 	if err != nil {
 		return err
 	}
-	return rt.pushEnv(ctx, mailboxID, out)
+	pushStart := time.Now()
+	pushErr := rt.pushEnv(ctx, mailboxID, out)
+	detail := fmt.Sprintf("stream=%s bytes=%d eof=%v", stream, len(chunk), eof)
+	if pushErr != nil {
+		detail = pushErr.Error()
+	}
+	trace.Emit(trace.Event{
+		Hop:       trace.HopAgentPushOutput,
+		Type:      "output",
+		SessionID: sessionID,
+		CommandID: commandID,
+		OK:        pushErr == nil,
+		MS:        time.Since(pushStart).Milliseconds(),
+		Detail:    detail,
+	})
+	return pushErr
 }
 
 func (rt *agentRuntime) pushEnv(ctx context.Context, mailboxID string, env *grok.Envelope) error {
@@ -532,9 +663,16 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 			if err != nil {
 				continue
 			}
-			if err := rt.pushEnv(ctx, mailboxID, env); err != nil {
-				slog.Warn("heartbeat", "err", err)
+			hbErr := rt.pushEnv(ctx, mailboxID, env)
+			if hbErr != nil {
+				slog.Warn("heartbeat", "err", hbErr)
 			}
+			trace.Emit(trace.Event{
+				Hop:    trace.HopAgentHeartbeat,
+				Type:   "heartbeat",
+				OK:     hbErr == nil,
+				Detail: fmt.Sprintf("sessions=%d", n),
+			})
 		}
 	}
 }
@@ -697,6 +835,26 @@ func cmdStatus(args []string) int {
 	fmt.Printf("relay:       %s (%s)\n", rc.Base(), relayOK)
 	fmt.Printf("seen_cmds:   %d\n", seen.Len())
 	fmt.Printf("device_file: %s\n", dev.Path())
+	tl := trace.New(trace.Config{
+		Actor:     "agent",
+		DeviceID:  dev.DeviceID,
+		MailboxID: dev.MailboxConversationID,
+		RelayBase: rc.Base(),
+	})
+	fmt.Printf("trace:       enabled=%v remote=%v\n", tl.Enabled(), tl.RemoteEnabled())
+	fmt.Printf("trace_log:   %s\n", tl.Path())
+	tl.Close()
+	if li, ok := core.ReadLock(dev.MailboxConversationID); ok {
+		alive := core.ProcessAlive(li.PID)
+		state := "STALE (will be reclaimed)"
+		if alive {
+			state = "running"
+		}
+		fmt.Printf("agent_lock:  pid=%d %s since %s\n",
+			li.PID, state, li.StartedAt.Local().Format("15:04:05"))
+	} else {
+		fmt.Printf("agent_lock:  none — no agent running\n")
+	}
 	if dev.MailboxConversationID == "" {
 		fmt.Printf("hint: run  gbr-agent pair -code YOURCODE\n")
 	} else {

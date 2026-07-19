@@ -19,6 +19,10 @@ import (
 // DefaultBase is overridden by GBR_RELAY_URL.
 const DefaultBase = "https://gbr-relay.ekobrott.workers.dev"
 
+// PollOverlap is how far back each poll re-reads to absorb KV eventual
+// consistency. Must comfortably exceed KV convergence; dedup makes it cheap.
+const PollOverlap = 30 * time.Second
+
 // Client talks to the GBR relay Worker.
 type Client struct {
 	base       string
@@ -90,7 +94,19 @@ func (c *Client) Poll(ctx context.Context, mailboxID, deviceID, role string) ([]
 
 	q := url.Values{}
 	if !after.IsZero() {
-		q.Set("after", after.UTC().Format(time.RFC3339Nano))
+		// Re-request a window we have already seen.
+		//
+		// The mailbox queue lives in Cloudflare KV, which is eventually
+		// consistent, but the poll cursor is server wall-clock time. A push that
+		// lands at T can still be invisible to a read issued at T+ε; once the
+		// cursor moves past T that envelope is skipped FOREVER. Observed live:
+		// an inject was pushed, acknowledged by the relay, and never delivered —
+		// no error at any hop.
+		//
+		// Overlapping the cursor makes delivery at-least-once instead of
+		// at-most-once. Duplicates are free for us: the agent already dedupes on
+		// type+command_id via SeenStore before handling anything.
+		q.Set("after", after.Add(-PollOverlap).UTC().Format(time.RFC3339Nano))
 	}
 	if deviceID != "" {
 		q.Set("for", deviceID)
@@ -162,11 +178,15 @@ func (c *Client) Pair(ctx context.Context, mailboxID, code, deviceID, deviceName
 }
 
 // Ack asks the relay to drop envelopes by command_id (after successful handle).
-func (c *Client) Ack(ctx context.Context, mailboxID string, commandIDs []string) error {
+//
+// fromDevice is this agent's device_id. The relay uses it to skip the acker's
+// OWN envelopes: a `list` reply reuses the request's command_id, so a blind
+// ack-by-command_id deleted the reply the agent had just pushed.
+func (c *Client) Ack(ctx context.Context, mailboxID string, commandIDs []string, fromDevice string) error {
 	if len(commandIDs) == 0 {
 		return nil
 	}
-	payload := map[string]any{"command_ids": commandIDs}
+	payload := map[string]any{"command_ids": commandIDs, "from_device": fromDevice}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return err
