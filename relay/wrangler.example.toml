@@ -1,0 +1,49 @@
+# Copy to wrangler.toml and fill in your own Cloudflare account details.
+#
+#   cp wrangler.example.toml wrangler.toml
+#
+# wrangler.toml is gitignored because it carries your account_id and KV
+# namespace id. Neither is a credential, but there is no reason to publish them.
+
+name = "gbr-relay"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+workers_dev = true
+
+[vars]
+# "enforce" — every push/poll/ack must present the X-GBR-Key issued at pairing.
+# "warn"    — issues and verifies keys, traces relay.auth_reject, never blocks.
+#
+# Without enforcement the mailbox id alone authorises injecting keystrokes into
+# a user's terminal, and that id is derived from the on-screen pairing code by a
+# formula published in this repo. Use "warn" only for a staged rollout where an
+# installed base still needs to catch up.
+GBR_AUTH_MODE = "enforce"
+
+[[kv_namespaces]]
+binding = "MB"
+id = "YOUR_KV_NAMESPACE_ID"
+
+# Trace ring buffer — one Durable Object per mailbox.
+# DOs serialize writes and give strongly consistent reads, which KV cannot:
+# KV read-modify-write loses concurrent hops, and KV list() lags too far behind
+# to drive a live trace view.
+[[durable_objects.bindings]]
+name = "TRACE"
+class_name = "TraceBuffer"
+
+# Envelope queue — also a DO. push and ack both mutate the queue, and as KV
+# read-modify-write they raced: an ack writing back a pre-push snapshot silently
+# erased freshly pushed injects.
+[[durable_objects.bindings]]
+name = "QUEUE"
+class_name = "MailboxQueue"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TraceBuffer"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["MailboxQueue"]

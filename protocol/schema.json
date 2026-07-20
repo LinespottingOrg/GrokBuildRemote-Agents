@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gbr.local/protocol/v1/schema.json",
+  "title": "GrokBuildRemoteEnvelope",
+  "type": "object",
+  "required": ["proto", "type", "ts"],
+  "properties": {
+    "proto": { "const": "gbr/1" },
+    "type": {
+      "enum": ["pair", "register", "list", "inject", "output", "heartbeat", "error"]
+    },
+    "device_id": { "type": "string", "format": "uuid" },
+    "session_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+    },
+    "command_id": { "type": "string", "format": "uuid" },
+    "ts": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  },
+  "additionalProperties": false
+}

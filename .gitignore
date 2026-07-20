@@ -19,3 +19,12 @@ Thumbs.db
 api-passwords.md
 *.pem
 *.key
+
+# relay: real Cloudflare config carries account_id + KV namespace id.
+# Commit wrangler.example.toml instead.
+relay/wrangler.toml
+relay/.wrangler/
+relay/node_modules/
+
+# QA output — agent logs, trace JSONL, pairing codes, device.json backups
+qa/logs/
