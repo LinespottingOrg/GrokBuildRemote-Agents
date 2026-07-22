@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	version = "0.4.0"
+	version = "0.4.1"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -731,14 +731,19 @@ func cmdPair(args []string) int {
 		slog.Error("relay pair", "err", err)
 		return 1
 	}
-	if mbKey != "" {
-		if err := dev.SetMailboxKey(mbKey); err != nil {
-			slog.Error("save mailbox key", "err", err)
-			return 1
-		}
-	} else {
-		slog.Warn("relay issued no mailbox key (legacy relay) — requests will be unauthenticated")
+	if mbKey == "" {
+		// Live relay is enforce-mode; without a key poll/heartbeat always 401.
+		// Treat empty key as hard failure so users never get a false "paired".
+		slog.Error("relay issued no mailbox key — upgrade agent and re-pair",
+			"hint", "download latest from https://grokbuildremote.com/#download")
+		return 1
 	}
+	if err := dev.SetMailboxKey(mbKey); err != nil {
+		slog.Error("save mailbox key", "err", err)
+		return 1
+	}
+	// Ensure client uses key for the follow-up pair envelope push.
+	rc.SetKey(mbKey)
 
 	// Also push a pair envelope into the mailbox so mobile can observe.
 	payload := grok.PairPayload{PairingCode: codeNorm, DeviceName: dev.DeviceName}
@@ -756,9 +761,11 @@ func cmdPair(args []string) int {
 	}
 
 	fmt.Printf("paired device_id=%s mailbox=%s name=%s\n", dev.DeviceID, mailboxID, dev.DeviceName)
+	fmt.Printf("mailbox_key: set (%d chars)\n", len(mbKey))
 	fmt.Printf("relay=%s\n", rc.Base())
 	fmt.Printf("device file: %s\n", dev.Path())
 	fmt.Printf("next: gbr-agent run\n")
+	fmt.Printf("verify: gbr-agent status   # must show mailbox_key: set\n")
 	return 0
 }
 
