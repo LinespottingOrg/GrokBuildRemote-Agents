@@ -28,3 +28,10 @@ relay/node_modules/
 
 # QA output — agent logs, trace JSONL, pairing codes, device.json backups
 qa/logs/
+*.jks
+*.keystore
+*.p12
+*.p8
+*CREDENTIALS*
+signing/
+keystore.properties
