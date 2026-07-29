@@ -4,6 +4,7 @@ package windows
 
 import (
 	"fmt"
+	"sync"
 	"syscall"
 	"unsafe"
 )
@@ -119,16 +120,37 @@ type consoleScreenBufferInfo struct {
 	MaximumWindowSize coord
 }
 
+// Single package-level EnumWindows callback.
+// syscall.NewCallback must NOT be called on every Discover() — Go never frees
+// those slots and eventually fatals: "too many callback functions".
+// Scanner ticks every ~5s, so a leak would crash the agent within hours.
+var (
+	enumWindowsMu sync.Mutex
+	enumWindowsCB func(hwnd syscall.Handle) bool
+	enumWindowsProc = syscall.NewCallback(enumWindowsThunk)
+)
+
+func enumWindowsThunk(hwnd syscall.Handle, _ uintptr) uintptr {
+	// Called synchronously from EnumWindows while enumWindowsMu is held.
+	// Do not take enumWindowsMu here (would deadlock).
+	cb := enumWindowsCB
+	if cb == nil {
+		return 1
+	}
+	if cb(hwnd) {
+		return 1 // continue
+	}
+	return 0 // stop
+}
+
 func enumWindows(cb func(hwnd syscall.Handle) bool) error {
 	// WNDENUMPROC: BOOL CALLBACK EnumFunc(HWND hwnd, LPARAM lParam)
-	var enumProc uintptr
-	enumProc = syscall.NewCallback(func(hwnd syscall.Handle, _ uintptr) uintptr {
-		if cb(hwnd) {
-			return 1 // continue
-		}
-		return 0 // stop
-	})
-	r, _, err := procEnumWindows.Call(enumProc, 0)
+	enumWindowsMu.Lock()
+	defer enumWindowsMu.Unlock()
+	enumWindowsCB = cb
+	defer func() { enumWindowsCB = nil }()
+
+	r, _, err := procEnumWindows.Call(enumWindowsProc, 0)
 	if r == 0 {
 		// EnumWindows returns 0 if callback stopped OR on failure.
 		// Failure sets last error; stop-by-callback also returns 0 with success.

@@ -50,7 +50,7 @@ func checkDevice() Result {
 	mb := dev.MailboxConversationID
 	if mb == "" {
 		return Result{"device", true, fmt.Sprintf("id=%s name=%q mailbox=<not paired>", dev.DeviceID, dev.DeviceName),
-			"gbr-agent pair -code YOURCODE"}
+			"gbr-agent pair  # opens browser QR for phone camera"}
 	}
 	return Result{"device", true, fmt.Sprintf("id=%s name=%q mailbox=%s", dev.DeviceID, dev.DeviceName, mb), ""}
 }
@@ -60,9 +60,18 @@ func checkRelay() Result {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := c.Health(ctx); err != nil {
-		return Result{"relay", false, err.Error(), "check network; GBR_RELAY_URL=" + c.Base()}
+		return Result{"relay", false, err.Error(),
+			"outbound HTTPS blocked? run: gbr-agent netcheck · GBR_RELAY_URL=" + c.Base()}
 	}
-	return Result{"relay", true, c.Base(), ""}
+	return Result{"relay", true, c.Base() + " (HTTPS · no inbound ports needed)",
+		"firewall: allow outbound TCP 443 only · gbr-agent netcheck"}
+}
+
+// RunAll includes platform doctor + network path (firewall/VPN).
+func RunAll() []Result {
+	out := Run()
+	out = append(out, RunNetwork("")...)
+	return out
 }
 
 func checkInject() Result {

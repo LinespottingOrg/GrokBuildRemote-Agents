@@ -25,18 +25,68 @@ func kindFromExe(base string) Kind {
 		return KindPowerShell
 	case "cmd.exe":
 		return KindCmd
+	// Grok Build CLI / launcher process names (best-effort; titles also match)
+	case "grok.exe", "grok-build.exe", "grokbuild.exe", "grok_build.exe":
+		return KindGrokBuild
 	default:
 		return KindUnknown
 	}
+}
+
+// titleLooksLikeGrokBuild matches Grok Build host windows when the process
+// name is generic (Electron, console host) but the title identifies Grok Build.
+func titleLooksLikeGrokBuild(title string) bool {
+	lt := strings.ToLower(title)
+	if lt == "" {
+		return false
+	}
+	// Common title fragments for Grok Build CLI / TUI / IDE hosts
+	needles := []string{
+		"grok build",
+		"grok-build",
+		"grokbuild",
+		"spacexai",
+		"xai grok",
+		"grok cli",
+		"grok agent",
+		"grok code",
+	}
+	for _, n := range needles {
+		if strings.Contains(lt, n) {
+			return true
+		}
+	}
+	// Lone "grok" in title is too broad (browser tabs). Require build/cli cues.
+	if strings.Contains(lt, "grok") && (strings.Contains(lt, "build") ||
+		strings.Contains(lt, "cli") || strings.Contains(lt, "agent") ||
+		strings.Contains(lt, "terminal") || strings.Contains(lt, "code")) {
+		return true
+	}
+	// Exact-ish short titles some builds use
+	if lt == "grok" || strings.HasPrefix(lt, "grok —") || strings.HasPrefix(lt, "grok -") {
+		return true
+	}
+	return false
 }
 
 func isTerminalCandidate(class, exeBase string) (Kind, bool) {
 	if k, ok := terminalClasses[class]; ok {
 		return k, true
 	}
+	// Electron / Chromium shells often host Grok Build UI
+	switch class {
+	case "Chrome_WidgetWin_1", "Chrome_WidgetWin_0", "Chrome_RenderWidgetHostHWND":
+		// only keep when title matches Grok later; still mark as possible
+		return KindUnknown, false
+	}
 	k := kindFromExe(exeBase)
 	if k != KindUnknown {
 		return k, true
+	}
+	// Electron exe names
+	switch strings.ToLower(exeBase) {
+	case "electron.exe", "grok desktop.exe", "grok desktop", "code.exe":
+		return KindUnknown, false // title gate below
 	}
 	return KindUnknown, false
 }
@@ -68,8 +118,17 @@ func Discover() ([]Window, error) {
 			if strings.Contains(lt, "powershell") || strings.Contains(lt, "windows terminal") ||
 				strings.Contains(lt, "command prompt") || strings.HasPrefix(lt, "cmd") {
 				kind = kindFromExe(base)
+				if kind == KindUnknown {
+					kind = KindConhost
+				}
 				ok = true
 			}
+		}
+		// Grok Build: may run as its own GUI, or inside a terminal whose title
+		// still says "Grok Build". Prefer KindGrokBuild when title matches.
+		if titleLooksLikeGrokBuild(title) {
+			kind = KindGrokBuild
+			ok = true
 		}
 		if !ok {
 			return true

@@ -23,6 +23,7 @@ const (
 	KindConhost         Kind = "conhost"
 	KindPowerShell      Kind = "powershell"
 	KindCmd             Kind = "cmd"
+	KindGrokBuild       Kind = "grok-build"
 	KindUnknown         Kind = "unknown"
 )
 

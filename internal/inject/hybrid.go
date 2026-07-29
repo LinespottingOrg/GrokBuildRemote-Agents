@@ -50,16 +50,10 @@ func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 		return err
 	}
 	if h.UI != nil {
-		// Best-effort: auto-bind first discovered terminal if inject needs a window
+		// Prefer already-bound session. Re-discover only if inject will need a window.
+		// Prefer Grok Build / matching title over the agent's own PowerShell host.
 		if wins, err := h.UI.Discover(); err == nil && len(wins) > 0 {
-			// Prefer title containing session id; else first window
-			chosen := wins[0]
-			for _, w := range wins {
-				if sessionID != "" && (containsFold(w.Title, sessionID) || containsFold(w.ExeName, sessionID)) {
-					chosen = w
-					break
-				}
-			}
+			chosen := pickInjectTarget(wins, sessionID)
 			_ = h.UI.Bind(sessionID, chosen)
 		}
 		if err := h.UI.Inject(sessionID, req); err == nil {
@@ -76,6 +70,43 @@ func containsFold(s, sub string) bool {
 		return false
 	}
 	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
+}
+
+// pickInjectTarget ranks discovered windows for auto-bind:
+//  1. Title/exe contains session id
+//  2. Grok Build host
+//  3. Real terminals (not gbr-agent title)
+//  4. First remaining window
+func pickInjectTarget(wins []TerminalWindow, sessionID string) TerminalWindow {
+	if len(wins) == 0 {
+		return TerminalWindow{}
+	}
+	score := func(w TerminalWindow) int {
+		s := 0
+		lt := strings.ToLower(w.Title)
+		if sessionID != "" && (containsFold(w.Title, sessionID) || containsFold(w.ExeName, sessionID)) {
+			s += 100
+		}
+		if containsFold(w.Title, "grok build") || containsFold(w.Title, "grok-build") ||
+			containsFold(w.ExeName, "grok") || strings.EqualFold(string(w.Kind), "grok-build") {
+			s += 50
+		}
+		if strings.Contains(lt, "gbr-agent") {
+			s -= 40
+		}
+		if w.Kind != "" && w.Kind != "unknown" {
+			s += 5
+		}
+		return s
+	}
+	best := wins[0]
+	bestS := score(best)
+	for _, w := range wins[1:] {
+		if sc := score(w); sc > bestS {
+			best, bestS = w, sc
+		}
+	}
+	return best
 }
 
 func (h *Hybrid) Capture(sessionID string) (CaptureResult, error) {

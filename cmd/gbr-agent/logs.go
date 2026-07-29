@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -28,12 +29,37 @@ func cmdLogs(args []string) int {
 	commandID := fs.String("command", "", "filter to one command_id")
 	remote := fs.Bool("remote", false, "read the relay trace (all hops) instead of local file")
 	raw := fs.Bool("json", false, "print raw JSONL")
+	export := fs.Bool("export", false, "copy current log file into ~/Downloads")
 	_ = fs.Parse(args)
 
+	if *export {
+		return logsExport()
+	}
 	if *remote {
 		return logsRemote(*n, *commandID, *raw, *follow)
 	}
 	return logsLocal(*n, *commandID, *raw, *follow)
+}
+
+func logsExport() int {
+	src := logPath()
+	data, err := os.ReadFile(src)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "no log yet at %s\n", src)
+		fmt.Fprintf(os.Stderr, "hint: gbr-agent run   then  gbr-agent support-log\n")
+		return 1
+	}
+	dir := downloadsDir()
+	_ = os.MkdirAll(dir, 0o755)
+	name := fmt.Sprintf("gbr-agent-log-%s.jsonl", time.Now().Format("20060102-150405"))
+	dst := filepath.Join(dir, name)
+	if err := os.WriteFile(dst, data, 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "export: %v\n", err)
+		return 1
+	}
+	_ = os.WriteFile(filepath.Join(dir, "gbr-agent-log-latest.jsonl"), data, 0o644)
+	fmt.Printf("exported:\n  %s\n", dst)
+	return 0
 }
 
 func logPath() string {

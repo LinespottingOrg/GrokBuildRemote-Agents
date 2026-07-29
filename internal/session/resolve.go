@@ -17,6 +17,8 @@ const (
 	SourceRename ResolveSource = "rename"
 	// SourceFallback is folder name (+ optional git repo) slug.
 	SourceFallback ResolveSource = "fallback"
+	// SourceUI is a discovered UI window (HWND-stable PreferID).
+	SourceUI ResolveSource = "ui"
 )
 
 // GrokSessionFile is the per-cwd session identity file (first line = session_id).

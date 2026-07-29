@@ -1,6 +1,8 @@
 package session
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -75,9 +77,28 @@ func (s *Session) ToRegister(deviceID string) RegisterMessage {
 // BuildSession constructs a Session from a Candidate using naming resolution.
 func BuildSession(c Candidate, renames map[string]string) (*Session, error) {
 	cwd := NormalizeCWD(c.CWD)
-	id, src, err := ResolveSessionID(cwd, renames)
-	if err != nil {
-		return nil, err
+	var id string
+	var src ResolveSource
+	var err error
+
+	// UI windows: PreferID wins so each HWND is its own session.
+	if pref := strings.TrimSpace(c.PreferID); pref != "" {
+		id = Slugify(pref)
+		if !ValidSessionID(id) {
+			id = Slugify(fmt.Sprintf("win-%x", c.HWND))
+		}
+		if !ValidSessionID(id) {
+			id = "session"
+		}
+		src = SourceUI
+		if cwd == "" {
+			cwd = NormalizeCWD("gbr-ui-" + id)
+		}
+	} else {
+		id, src, err = ResolveSessionID(cwd, renames)
+		if err != nil {
+			return nil, err
+		}
 	}
 	shell := c.Shell
 	if shell == "" {
@@ -87,6 +108,10 @@ func BuildSession(c Candidate, renames map[string]string) (*Session, error) {
 	if title == "" {
 		title = shell
 	}
+	git := ""
+	if !strings.HasPrefix(cwd, "gbr-ui-") && !strings.Contains(cwd, "gbr-ui-") {
+		git = GitRemoteDisplay(cwd)
+	}
 	return &Session{
 		ID:        id,
 		CWD:       cwd,
@@ -94,7 +119,7 @@ func BuildSession(c Candidate, renames map[string]string) (*Session, error) {
 		PID:       c.PID,
 		HWND:      c.HWND,
 		Title:     title,
-		GitRemote: GitRemoteDisplay(cwd),
+		GitRemote: git,
 		LastSeen:  time.Now().UTC(),
 		OS:        hostOS(),
 		Source:    src,

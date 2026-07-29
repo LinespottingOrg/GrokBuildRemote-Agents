@@ -36,6 +36,10 @@ type Candidate struct {
 	PID    int
 	HWND   uintptr
 	Title  string
+	// PreferID, when set, becomes the session_id (after Slugify). Used for UI
+	// windows that share no real project cwd so they do not collapse into one
+	// session (the Windows bug: every terminal got agent cwd → only one register).
+	PreferID string
 }
 
 // Registry holds the live set of sessions, keyed by session_id and cwd.
