@@ -15,6 +15,7 @@ const ProtoV1 = "gbr/1"
 const GBRTag = "[GBR]"
 
 // Message types (protocol v1).
+// TypeControl is additive (gbr/1-compatible): old agents log "unhandled" and ignore.
 const (
 	TypePair      = "pair"
 	TypeRegister  = "register"
@@ -23,6 +24,7 @@ const (
 	TypeOutput    = "output"
 	TypeHeartbeat = "heartbeat"
 	TypeError     = "error"
+	TypeControl   = "control"
 )
 
 // Envelope is the GBR protocol wire format (see protocol/v1.md).
@@ -246,6 +248,19 @@ type OutputPayload struct {
 	Stream string `json:"stream"` // stdout | stderr | system
 	Chunk  string `json:"chunk"`
 	EOF    bool   `json:"eof"`
+	// Reason is additive: inject | periodic | control | status
+	Reason string `json:"reason,omitempty"`
+	// Method describes capture backend when known (pty, readconsole, title, …).
+	Method string `json:"method,omitempty"`
+}
+
+// ControlPayload is type=control (phone → agent settings; never typed into a terminal).
+type ControlPayload struct {
+	Action      string `json:"action"`                 // feedback | feedback_now
+	Enabled     *bool  `json:"enabled,omitempty"`      // for action=feedback
+	IntervalSec int    `json:"interval_sec,omitempty"` // 5|10|60|600|3600
+	Expand      *bool  `json:"expand,omitempty"`
+	SessionID   string `json:"session_id,omitempty"`
 }
 
 // HeartbeatPayload is type=heartbeat.

@@ -2,22 +2,30 @@
 //
 //	gbr-agent run              — start relay poll loop + session scanner
 //	gbr-agent version          — print version
-//	gbr-agent pair -code CODE  — complete mobile pairing
+//	gbr-agent pair             — generate code, open browser QR for phone camera
+//	gbr-agent pair -code CODE  — pair with code (legacy / manual)
 //	gbr-agent rename -name N   — set device display name
 //	gbr-agent sessions         — list known sessions
 package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -30,13 +38,19 @@ import (
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/session"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/trace"
 	"github.com/google/uuid"
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 var (
-	version = "0.4.1"
+	version = "0.4.5"
 	commit  = "none"
 	date    = "unknown"
 )
+
+// Crockford base32 (no I L O U) — same alphabet as the mobile apps.
+const crockfordAlphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+const pairPageBase = "https://grokbuildremote.com/pair.html"
 
 func main() {
 	os.Exit(run(os.Args[1:]))
@@ -93,8 +107,14 @@ func run(args []string) int {
 		return cmdStatus(subArgs)
 	case "logs":
 		return cmdLogs(subArgs)
+	case "support-log", "supportlog", "support":
+		return cmdSupportLog(subArgs)
+	case "feedback":
+		return cmdFeedback(subArgs)
 	case "doctor":
 		return cmdDoctor(subArgs)
+	case "netcheck", "net-check", "network":
+		return cmdNetcheck(subArgs)
 	case "service":
 		return cmdService(subArgs)
 	case "help", "-h", "--help":
@@ -113,12 +133,22 @@ func printUsage() {
 Usage:
   gbr-agent [-log=info] version
   gbr-agent [-log=info] doctor
+  gbr-agent [-log=info] netcheck [-relay URL] [-doc]
+      Firewall/VPN test: DNS + TCP/443 + TLS + HTTPS /health (no inbound ports).
   gbr-agent [-log=info] status
   gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force]
-  gbr-agent [-log=info] pair -code PAIRING_CODE [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL]
+  gbr-agent [-log=info] pair [-code CODE] [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL] [-no-open]
+      Default: PC generates the code, pairs this agent, opens a browser QR for the
+      phone camera to scan (mobile does NOT show the QR — the phone reads it).
   gbr-agent [-log=info] rename -name DEVICE_NAME [-session SESSION_ID]
   gbr-agent [-log=info] sessions
   gbr-agent [-log=info] logs [-f] [-n 50] [-command COMMAND_ID]
+  gbr-agent [-log=info] support-log [-open]
+      Write diagnostics (sessions, discover, Grok Build windows, recent logs)
+      to ~/Downloads/gbr-agent-support-*.txt for support.
+  gbr-agent [-log=info] feedback [status|on|off|expand|compact|interval SEC]
+      Minimal text feedback to phone (on/off · 5s|10s|1m|10m|1h · expand).
+      Default OFF. Does not change inject behaviour.
   gbr-agent [-log=info] service install|uninstall|status
 
 Environment:
@@ -166,6 +196,10 @@ type agentRuntime struct {
 	scanner *session.Scanner
 	store   *session.Store
 	seen    *core.SeenStore
+
+	// lastFeedbackHash avoids spamming identical capture text on the periodic loop.
+	fbMu       sync.Mutex
+	fbLastHash map[string]string
 }
 
 func cmdRun(args []string) int {
@@ -247,19 +281,55 @@ Lock file: %s
 	discover := func(ctx context.Context) ([]session.Candidate, error) {
 		wins, err := hybrid.Discover()
 		if err != nil {
+			slog.Warn("discover failed", "err", err)
 			return nil, err
 		}
+		// Sort Grok Build windows first so they never lose a collision race.
+		sort.SliceStable(wins, func(i, j int) bool {
+			gi := strings.Contains(string(wins[i].Kind), "grok")
+			gj := strings.Contains(string(wins[j].Kind), "grok")
+			if gi != gj {
+				return gi
+			}
+			return wins[i].Title < wins[j].Title
+		})
 		var out []session.Candidate
-		cwd, _ := os.Getwd()
+		var grokN, otherN int
 		for _, w := range wins {
+			kind := string(w.Kind)
+			if kind == "" {
+				kind = "window"
+			}
+			// UNIQUE per HWND — never share agent cwd (that collapsed all terminals
+			// into one session_id and hid Grok Build on multi-window Windows desktops).
+			prefer := fmt.Sprintf("%s-%x", kind, w.HWND)
+			if strings.Contains(kind, "grok") {
+				prefer = fmt.Sprintf("grok-build-%x", w.HWND)
+				grokN++
+			} else {
+				otherN++
+			}
+			virtualCWD := fmt.Sprintf("gbr-ui-%s-%d-%x", kind, w.PID, w.HWND)
+			title := w.Title
+			if title == "" {
+				title = kind
+			}
 			out = append(out, session.Candidate{
-				CWD:   cwd, // best-effort; UI discover often lacks cwd
-				Shell: string(w.Kind),
-				PID:   int(w.PID),
-				HWND:  w.HWND,
-				Title: w.Title,
+				CWD:      virtualCWD,
+				Shell:    kind,
+				PID:      int(w.PID),
+				HWND:     w.HWND,
+				Title:    title,
+				PreferID: prefer,
 			})
 		}
+		slog.Info("discover", "windows", len(out), "grok_build", grokN, "other_terminals", otherN)
+		trace.Emit(trace.Event{
+			Hop:    "agent.discover",
+			Type:   "discover",
+			OK:     true,
+			Detail: fmt.Sprintf("windows=%d grok_build=%d other=%d", len(out), grokN, otherN),
+		})
 		return out, nil
 	}
 	sc := session.NewScanner(store, reg, discover)
@@ -333,6 +403,9 @@ Lock file: %s
 
 	// Heartbeat
 	go rt.heartbeatLoop(ctx, mailboxID)
+
+	// Optional minimal text feedback (default OFF — does not alter inject path)
+	go rt.feedbackLoop(ctx, mailboxID)
 
 	// Main poll loop
 	interval := time.Duration(cfg.PollIntervalSec) * time.Second
@@ -477,32 +550,12 @@ func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.
 			Detail:    injDetail,
 		})
 
-		// Capture output after short settle
-		time.Sleep(400 * time.Millisecond)
-		capStart := time.Now()
-		cap, _ := rt.hybrid.Capture(env.SessionID)
-		trace.Emit(trace.Event{
-			Hop:       trace.HopAgentCapture,
-			Type:      string(env.Type),
-			SessionID: env.SessionID,
-			CommandID: env.CommandID,
-			OK:        cap.Text != "",
-			MS:        time.Since(capStart).Milliseconds(),
-			Detail:    fmt.Sprintf("bytes=%d", len(cap.Text)),
-		})
-		chunk := cap.Text
-		if chunk == "" {
-			if injErr != nil {
-				chunk = "inject error: " + injErr.Error()
-			} else {
-				chunk = "ok (no capture buffer yet — managed shell may still be starting)"
-			}
-		}
-		stream := "stdout"
-		if injErr != nil && cap.Text == "" {
-			stream = "system"
-		}
-		return rt.pushOutput(ctx, mailboxID, env.SessionID, env.CommandID, stream, chunk, true)
+		// Multi-sample capture: Grok Build UI often has empty console buffers.
+		// We never change inject itself — only try harder to read text afterward.
+		return rt.captureAndPushAfterInject(ctx, mailboxID, env.SessionID, env.CommandID, injErr)
+
+	case grok.TypeControl:
+		return rt.handleControl(ctx, mailboxID, env)
 
 	case grok.TypeList:
 		sessions := rt.listSessionPayloads()
@@ -528,17 +581,23 @@ func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.
 }
 
 func (rt *agentRuntime) pushOutput(ctx context.Context, mailboxID, sessionID, commandID, stream, chunk string, eof bool) error {
+	return rt.pushOutputFull(ctx, mailboxID, sessionID, commandID, stream, chunk, eof, "inject", "")
+}
+
+func (rt *agentRuntime) pushOutputFull(ctx context.Context, mailboxID, sessionID, commandID, stream, chunk string, eof bool, reason, method string) error {
 	out, err := grok.NewEnvelope(grok.TypeOutput, rt.dev.DeviceID, sessionID, commandID, grok.OutputPayload{
 		Stream: stream,
 		Chunk:  chunk,
 		EOF:    eof,
+		Reason: reason,
+		Method: method,
 	})
 	if err != nil {
 		return err
 	}
 	pushStart := time.Now()
 	pushErr := rt.pushEnv(ctx, mailboxID, out)
-	detail := fmt.Sprintf("stream=%s bytes=%d eof=%v", stream, len(chunk), eof)
+	detail := fmt.Sprintf("stream=%s bytes=%d eof=%v reason=%s", stream, len(chunk), eof, reason)
 	if pushErr != nil {
 		detail = pushErr.Error()
 	}
@@ -552,6 +611,292 @@ func (rt *agentRuntime) pushOutput(ctx context.Context, mailboxID, sessionID, co
 		Detail:    detail,
 	})
 	return pushErr
+}
+
+// captureAndPushAfterInject samples capture several times without changing inject.
+// Empty Grok Build UI buffers yield an honest system note (not fake success spam).
+func (rt *agentRuntime) captureAndPushAfterInject(ctx context.Context, mailboxID, sessionID, commandID string, injErr error) error {
+	delays := []time.Duration{400 * time.Millisecond, 1500 * time.Millisecond, 3000 * time.Millisecond}
+	var lastText, lastMethod string
+	var lastPartial bool
+	for i, d := range delays {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(d):
+		}
+		capStart := time.Now()
+		cap, _ := rt.hybrid.Capture(sessionID)
+		trace.Emit(trace.Event{
+			Hop:       trace.HopAgentCapture,
+			Type:      "inject",
+			SessionID: sessionID,
+			CommandID: commandID,
+			OK:        strings.TrimSpace(cap.Text) != "",
+			MS:        time.Since(capStart).Milliseconds(),
+			Detail:    fmt.Sprintf("sample=%d bytes=%d method=%s", i+1, len(cap.Text), cap.Method),
+		})
+		if strings.TrimSpace(cap.Text) != "" {
+			lastText = cap.Text
+			lastMethod = cap.Method
+			lastPartial = cap.Partial
+			// Push intermediate sample (non-eof) if text changed and not last sample.
+			if i < len(delays)-1 {
+				_ = rt.pushOutputFull(ctx, mailboxID, sessionID, commandID, "stdout",
+					trimChunk(lastText, 8*1024), false, "inject", lastMethod)
+			}
+		} else if lastMethod == "" {
+			lastMethod = cap.Method
+			lastPartial = cap.Partial
+		}
+	}
+	if strings.TrimSpace(lastText) != "" {
+		return rt.pushOutputFull(ctx, mailboxID, sessionID, commandID, "stdout",
+			trimChunk(lastText, 12*1024), true, "inject", lastMethod)
+	}
+	// Honest status when capture is unavailable (typical for Grok Build UI / WT).
+	title := rt.sessionTitle(sessionID)
+	chunk := ""
+	if injErr != nil {
+		chunk = "inject error: " + injErr.Error()
+	} else {
+		chunk = "inject delivered"
+		if title != "" {
+			chunk += " · window: " + title
+		}
+		chunk += " · capture empty"
+		if lastMethod != "" {
+			chunk += " (" + lastMethod + ")"
+		}
+		if lastPartial {
+			chunk += " partial"
+		}
+		chunk += " — enable Settings → Feedback for periodic text peeks; full Grok UI scrollback is not readable on all platforms"
+	}
+	return rt.pushOutputFull(ctx, mailboxID, sessionID, commandID, "system", chunk, true, "inject", lastMethod)
+}
+
+func (rt *agentRuntime) sessionTitle(sessionID string) string {
+	if rt.scanner == nil || rt.scanner.Registry == nil {
+		return ""
+	}
+	if sess, ok := rt.scanner.Registry.Get(sessionID); ok && sess != nil {
+		return sess.Title
+	}
+	return ""
+}
+
+func trimChunk(s string, max int) string {
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	// keep tail (most recent terminal output)
+	return s[len(s)-max:]
+}
+
+func (rt *agentRuntime) handleControl(ctx context.Context, mailboxID string, env *grok.Envelope) error {
+	var p grok.ControlPayload
+	if err := env.UnmarshalPayload(&p); err != nil {
+		return err
+	}
+	action := strings.ToLower(strings.TrimSpace(p.Action))
+	switch action {
+	case "feedback", "set_feedback", "":
+		cfg := core.LoadFeedback()
+		if p.Enabled != nil {
+			cfg.Enabled = *p.Enabled
+		}
+		if p.IntervalSec > 0 {
+			cfg.IntervalSec = p.IntervalSec
+		}
+		if p.Expand != nil {
+			cfg.Expand = *p.Expand
+		}
+		if p.SessionID != "" {
+			cfg.SessionID = p.SessionID
+		} else if env.SessionID != "" {
+			cfg.SessionID = env.SessionID
+		}
+		if err := core.SaveFeedback(cfg); err != nil {
+			return rt.pushOutputFull(ctx, mailboxID, env.SessionID, env.CommandID, "system",
+				"feedback save failed: "+err.Error(), true, "control", "")
+		}
+		msg := fmt.Sprintf("feedback %s · interval %s · expand=%v",
+			map[bool]string{true: "ON", false: "OFF"}[cfg.Enabled],
+			core.FeedbackIntervalLabel(cfg.IntervalSec),
+			cfg.Expand,
+		)
+		return rt.pushOutputFull(ctx, mailboxID, env.SessionID, env.CommandID, "system", msg, true, "control", "")
+	case "feedback_now", "snapshot":
+		sid := p.SessionID
+		if sid == "" {
+			sid = env.SessionID
+		}
+		return rt.pushFeedbackSample(ctx, mailboxID, sid, env.CommandID, true)
+	default:
+		return rt.pushOutputFull(ctx, mailboxID, env.SessionID, env.CommandID, "system",
+			"unknown control action: "+action, true, "control", "")
+	}
+}
+
+func (rt *agentRuntime) feedbackLoop(ctx context.Context, mailboxID string) {
+	// Adaptive ticker: re-read config each tick so phone control takes effect without restart.
+	t := time.NewTicker(2 * time.Second)
+	defer t.Stop()
+	var lastFire time.Time
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			cfg := core.LoadFeedback()
+			if !cfg.Enabled {
+				continue
+			}
+			interval := cfg.FeedbackTickerDuration()
+			if time.Since(lastFire) < interval {
+				continue
+			}
+			lastFire = time.Now()
+			for _, sid := range rt.feedbackSessionIDs(cfg) {
+				_ = rt.pushFeedbackSample(ctx, mailboxID, sid, uuid.NewString(), false)
+			}
+		}
+	}
+}
+
+func (rt *agentRuntime) feedbackSessionIDs(cfg core.FeedbackConfig) []string {
+	if cfg.SessionID != "" {
+		return []string{cfg.SessionID}
+	}
+	var ids []string
+	if rt.scanner != nil && rt.scanner.Registry != nil {
+		for _, s := range rt.scanner.Registry.List() {
+			ids = append(ids, s.ID)
+		}
+	}
+	for _, id := range rt.hybrid.ManagedIDs() {
+		found := false
+		for _, x := range ids {
+			if x == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ids = append(ids, id)
+		}
+	}
+	// Cap fan-out: first 6 sessions only
+	if len(ids) > 6 {
+		ids = ids[:6]
+	}
+	return ids
+}
+
+func (rt *agentRuntime) pushFeedbackSample(ctx context.Context, mailboxID, sessionID, commandID string, force bool) error {
+	if sessionID == "" {
+		return nil
+	}
+	cfg := core.LoadFeedback()
+	cap, _ := rt.hybrid.Capture(sessionID)
+	text := strings.TrimSpace(cap.Text)
+	title := rt.sessionTitle(sessionID)
+	method := cap.Method
+	if text == "" {
+		// Title-only peek — still useful when console capture is empty.
+		if title == "" && !force {
+			return nil
+		}
+		chunk := "feedback peek · capture empty"
+		if method != "" {
+			chunk += " (" + method + ")"
+		}
+		if title != "" {
+			chunk += " · " + title
+		}
+		// Only send title peeks at most when force or hash changes.
+		return rt.pushIfChanged(ctx, mailboxID, sessionID, commandID, "system", chunk, method, force, cfg)
+	}
+	chunk := trimChunk(text, cfg.MaxFeedbackChunk())
+	return rt.pushIfChanged(ctx, mailboxID, sessionID, commandID, "stdout", chunk, method, force, cfg)
+}
+
+func (rt *agentRuntime) pushIfChanged(ctx context.Context, mailboxID, sessionID, commandID, stream, chunk, method string, force bool, cfg core.FeedbackConfig) error {
+	sum := sha256.Sum256([]byte(chunk))
+	h := hex.EncodeToString(sum[:8])
+	rt.fbMu.Lock()
+	if rt.fbLastHash == nil {
+		rt.fbLastHash = map[string]string{}
+	}
+	prev := rt.fbLastHash[sessionID]
+	if !force && prev == h {
+		rt.fbMu.Unlock()
+		return nil
+	}
+	rt.fbLastHash[sessionID] = h
+	rt.fbMu.Unlock()
+	return rt.pushOutputFull(ctx, mailboxID, sessionID, commandID, stream, chunk, false, "periodic", method)
+}
+
+func cmdFeedback(args []string) int {
+	if len(args) == 0 {
+		cfg := core.LoadFeedback()
+		fmt.Printf("feedback enabled=%v interval=%s expand=%v session=%q\n",
+			cfg.Enabled, core.FeedbackIntervalLabel(cfg.IntervalSec), cfg.Expand, cfg.SessionID)
+		path, _ := core.FeedbackPath()
+		fmt.Printf("file: %s\n", path)
+		return 0
+	}
+	cfg := core.LoadFeedback()
+	switch strings.ToLower(args[0]) {
+	case "status":
+		fmt.Printf("feedback enabled=%v interval=%s expand=%v\n",
+			cfg.Enabled, core.FeedbackIntervalLabel(cfg.IntervalSec), cfg.Expand)
+		return 0
+	case "on", "enable", "true", "1":
+		cfg.Enabled = true
+	case "off", "disable", "false", "0":
+		cfg.Enabled = false
+	case "expand":
+		cfg.Expand = true
+	case "compact", "minimal":
+		cfg.Expand = false
+	case "interval":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: gbr-agent feedback interval 5|10|60|600|3600")
+			return 2
+		}
+		var sec int
+		switch strings.ToLower(args[1]) {
+		case "5", "5s":
+			sec = 5
+		case "10", "10s":
+			sec = 10
+		case "60", "1m", "1min":
+			sec = 60
+		case "600", "10m", "10min":
+			sec = 600
+		case "3600", "1h", "60m":
+			sec = 3600
+		default:
+			if _, err := fmt.Sscanf(args[1], "%d", &sec); err != nil {
+				fmt.Fprintln(os.Stderr, "bad interval")
+				return 2
+			}
+		}
+		cfg.IntervalSec = sec
+	default:
+		fmt.Fprintln(os.Stderr, "usage: gbr-agent feedback [status|on|off|expand|compact|interval SEC]")
+		return 2
+	}
+	if err := core.SaveFeedback(cfg); err != nil {
+		slog.Error("save feedback", "err", err)
+		return 1
+	}
+	fmt.Printf("ok feedback enabled=%v interval=%s expand=%v\n",
+		cfg.Enabled, core.FeedbackIntervalLabel(cfg.IntervalSec), cfg.Expand)
+	return 0
 }
 
 func (rt *agentRuntime) pushEnv(ctx context.Context, mailboxID string, env *grok.Envelope) error {
@@ -684,20 +1029,28 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 
 func cmdPair(args []string) int {
 	fs := flag.NewFlagSet("pair", flag.ExitOnError)
-	code := fs.String("code", "", "8-char pairing code from mobile")
+	code := fs.String("code", "", "optional: use this code (default: PC generates one for phone camera QR)")
 	name := fs.String("name", "", "device display name")
 	conv := fs.String("conv", "", "optional mailbox id (default: gbr-<code>)")
 	relayURL := fs.String("relay", "", "relay base URL")
+	noOpen := fs.Bool("no-open", false, "do not open the browser QR page")
 	_ = fs.Parse(args)
 
-	if strings.TrimSpace(*code) == "" {
-		slog.Error("pair requires -code")
-		return 2
-	}
+	// Preferred: PC generates the code. Phone camera scans the browser QR.
+	// Legacy: -code from phone still works for manual entry.
+	generated := false
 	codeNorm := strings.ToUpper(strings.TrimSpace(*code))
-	// Strip spaces/dashes
 	codeNorm = strings.ReplaceAll(codeNorm, " ", "")
 	codeNorm = strings.ReplaceAll(codeNorm, "-", "")
+	if codeNorm == "" {
+		var err error
+		codeNorm, err = generatePairingCode(8)
+		if err != nil {
+			slog.Error("generate pairing code", "err", err)
+			return 1
+		}
+		generated = true
+	}
 
 	dev, err := core.LoadOrCreateDevice()
 	if err != nil {
@@ -760,13 +1113,156 @@ func cmdPair(args []string) int {
 		return 1
 	}
 
+	deepLink := pairDeepLink(codeNorm, dev.DeviceName)
+	webURL := fmt.Sprintf("%s?code=%s", pairPageBase, codeNorm)
+	if dev.DeviceName != "" {
+		webURL += "&name=" + urlQueryEscape(dev.DeviceName)
+	}
+
+	fmt.Printf("\n")
+	fmt.Printf("=== PAIR — phone camera scans the QR on this PC ===\n")
+	if generated {
+		fmt.Printf("code (generated on PC):  %s\n", codeNorm)
+	} else {
+		fmt.Printf("code (from -code):       %s\n", codeNorm)
+	}
+	fmt.Printf("deep link:               %s\n", deepLink)
+	fmt.Printf("browser page:            %s\n", webURL)
+	fmt.Printf("\n")
+	fmt.Printf("1) Leave this terminal open / next run agent.\n")
+	fmt.Printf("2) On the PHONE: open Build Remote Agent → Scan QR\n")
+	fmt.Printf("   (point camera at the browser window — not the phone screen)\n")
+	fmt.Printf("3) Then: gbr-agent run\n")
+	fmt.Printf("\n")
 	fmt.Printf("paired device_id=%s mailbox=%s name=%s\n", dev.DeviceID, mailboxID, dev.DeviceName)
 	fmt.Printf("mailbox_key: set (%d chars)\n", len(mbKey))
 	fmt.Printf("relay=%s\n", rc.Base())
 	fmt.Printf("device file: %s\n", dev.Path())
-	fmt.Printf("next: gbr-agent run\n")
 	fmt.Printf("verify: gbr-agent status   # must show mailbox_key: set\n")
+
+	if !*noOpen {
+		// Local HTML always works offline; also try hosted pair.html.
+		if local, err := writeLocalPairHTML(codeNorm, dev.DeviceName, deepLink); err != nil {
+			slog.Warn("local pair HTML", "err", err)
+			if err := openBrowser(webURL); err != nil {
+				slog.Warn("open browser", "err", err, "url", webURL)
+				fmt.Printf("open this URL manually: %s\n", webURL)
+			}
+		} else {
+			if err := openBrowser(local); err != nil {
+				slog.Warn("open local pair page", "err", err)
+				_ = openBrowser(webURL)
+			} else {
+				fmt.Printf("opened QR page: %s\n", local)
+			}
+		}
+	}
 	return 0
+}
+
+func generatePairingCode(n int) (string, error) {
+	if n < 6 {
+		n = 8
+	}
+	out := make([]byte, n)
+	buf := make([]byte, n)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	for i := 0; i < n; i++ {
+		out[i] = crockfordAlphabet[int(buf[i])%len(crockfordAlphabet)]
+	}
+	return string(out), nil
+}
+
+func pairDeepLink(code, deviceName string) string {
+	s := "gbr://pair?v=1&code=" + code
+	if deviceName != "" {
+		s += "&device_name=" + urlQueryEscape(deviceName)
+	}
+	return s
+}
+
+func urlQueryEscape(s string) string {
+	// Minimal escape for query values (device names are short).
+	r := strings.NewReplacer(
+		" ", "%20",
+		"&", "%26",
+		"=", "%3D",
+		"#", "%23",
+		"?", "%3F",
+		"+", "%2B",
+	)
+	return r.Replace(s)
+}
+
+func writeLocalPairHTML(code, deviceName, deepLink string) (string, error) {
+	png, err := qrcode.Encode(deepLink, qrcode.Medium, 512)
+	if err != nil {
+		return "", err
+	}
+	b64 := base64.StdEncoding.EncodeToString(png)
+	title := "Scan with phone camera"
+	if deviceName != "" {
+		title = "Scan to pair · " + deviceName
+	}
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>%s</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+font-family:ui-monospace,Menlo,Consolas,monospace;background:#020402;color:#3dff7a}
+.card{max-width:420px;padding:28px;border:1px solid #1a3a22;border-radius:16px;background:#081208;text-align:center}
+h1{font-size:1.15rem;margin:0 0 8px} .m{color:#6a9a78;font-size:.85rem;line-height:1.45}
+.code{font-size:2rem;font-weight:800;letter-spacing:.12em;margin:16px 0 8px}
+img{background:#fff;padding:12px;border-radius:12px;width:260px;height:260px}
+.p{font-size:.7rem;color:#6a9a78;word-break:break-all}
+</style></head><body><div class="card">
+<h1>%s</h1>
+<p class="m">Open the mobile app → <b>Scan QR</b>. Point the <b>phone camera</b> at this window.</p>
+<img alt="pair QR" src="data:image/png;base64,%s"/>
+<div class="code">%s</div>
+<p class="p">%s</p>
+<p class="m">Then on this PC: <b>gbr-agent run</b></p>
+</div></body></html>`,
+		htmlEscape(title), htmlEscape(title), b64, htmlEscape(code), htmlEscape(deepLink))
+
+	dir := filepath.Join(os.TempDir(), "gbr-pair")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, "pair-"+code+".html")
+	if err := os.WriteFile(path, []byte(html), 0o644); err != nil {
+		return "", err
+	}
+	// file:// URL
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path, nil
+	}
+	if runtime.GOOS == "windows" {
+		return "file:///" + strings.ReplaceAll(abs, "\\", "/"), nil
+	}
+	return "file://" + abs, nil
+}
+
+func htmlEscape(s string) string {
+	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\"", "&quot;")
+	return r.Replace(s)
+}
+
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Start()
 }
 
 func cmdRename(args []string) int {
@@ -890,11 +1386,38 @@ func cmdStatus(args []string) int {
 }
 
 func cmdDoctor(args []string) int {
-	_ = args
-	results := doctor.Run()
+	fs := flag.NewFlagSet("doctor", flag.ExitOnError)
+	full := fs.Bool("net", true, "include network/firewall checks (default true)")
+	_ = fs.Parse(args)
+	var results []doctor.Result
+	if *full {
+		results = doctor.RunAll()
+	} else {
+		results = doctor.Run()
+	}
 	fmt.Print(doctor.Format(results))
 	for _, r := range results {
-		if !r.OK {
+		// site.* optional warnings from netcheck embedded in RunAll
+		if !r.OK && !strings.HasPrefix(r.Name, "site.") {
+			return 1
+		}
+	}
+	return 0
+}
+
+func cmdNetcheck(args []string) int {
+	fs := flag.NewFlagSet("netcheck", flag.ExitOnError)
+	relayURL := fs.String("relay", "", "relay base URL (else GBR_RELAY_URL / default)")
+	showDoc := fs.Bool("doc", false, "print firewall/ports documentation and exit 0")
+	_ = fs.Parse(args)
+	if *showDoc {
+		fmt.Print(doctor.NetworkDoc)
+		return 0
+	}
+	results := doctor.RunNetwork(*relayURL)
+	fmt.Print(doctor.FormatNetwork(results))
+	for _, r := range results {
+		if !r.OK && !strings.HasPrefix(r.Name, "site.") {
 			return 1
 		}
 	}
