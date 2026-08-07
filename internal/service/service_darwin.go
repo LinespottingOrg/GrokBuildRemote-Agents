@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -35,7 +36,9 @@ const plistTmpl = `<?xml version="1.0" encoding="UTF-8"?>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>{{if .RelayURL}}
+    <key>GBR_RELAY_URL</key>
+    <string>{{.RelayURL}}</string>{{end}}
   </dict>
 </dict>
 </plist>
@@ -52,6 +55,11 @@ func installPlatform() error {
 	if err := os.MkdirAll(filepath.Dir(p.UnitPath), 0o755); err != nil {
 		return err
 	}
+	// User home — not the binary folder (install from dist/ used to create a "dist" session).
+	workDir, _ := os.UserHomeDir()
+	if workDir == "" {
+		workDir = p.DataDir
+	}
 	f, err := os.OpenFile(p.UnitPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -59,9 +67,10 @@ func installPlatform() error {
 	defer f.Close()
 	t := template.Must(template.New("plist").Parse(plistTmpl))
 	if err := t.Execute(f, map[string]string{
-		"Binary":  p.Binary,
-		"WorkDir": filepath.Dir(p.Binary),
-		"DataDir": p.DataDir,
+		"Binary":   p.Binary,
+		"WorkDir":  workDir,
+		"DataDir":  p.DataDir,
+		"RelayURL": strings.TrimSpace(os.Getenv("GBR_RELAY_URL")),
 	}); err != nil {
 		return err
 	}

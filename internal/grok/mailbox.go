@@ -264,9 +264,14 @@ type ControlPayload struct {
 }
 
 // HeartbeatPayload is type=heartbeat.
+// Agent 0.5.0+ may include AgentVersion / Relay / OS for in-app health checks.
+// Older phones ignore unknown fields.
 type HeartbeatPayload struct {
 	SessionCount int    `json:"session_count"`
 	Status       string `json:"status,omitempty"`
+	AgentVersion string `json:"agent_version,omitempty"`
+	Relay        string `json:"relay,omitempty"`
+	OS           string `json:"os,omitempty"`
 }
 
 // ErrorPayload is type=error.

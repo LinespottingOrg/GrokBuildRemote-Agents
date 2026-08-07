@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -22,7 +23,8 @@ WorkingDirectory={{.WorkDir}}
 Restart=on-failure
 RestartSec=3
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-# Uncomment if DISPLAY needed for xdotool:
+{{if .RelayURL}}Environment=GBR_RELAY_URL={{.RelayURL}}
+{{end}}# Uncomment if DISPLAY needed for xdotool:
 # Environment=DISPLAY=:0
 
 [Install]
@@ -40,6 +42,11 @@ func installPlatform() error {
 	if err := os.MkdirAll(filepath.Dir(p.UnitPath), 0o755); err != nil {
 		return err
 	}
+	// User home — not the binary folder (avoids a synthetic "dist" session).
+	workDir, _ := os.UserHomeDir()
+	if workDir == "" {
+		workDir = p.DataDir
+	}
 	f, err := os.OpenFile(p.UnitPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -47,8 +54,9 @@ func installPlatform() error {
 	defer f.Close()
 	t := template.Must(template.New("unit").Parse(unitTmpl))
 	if err := t.Execute(f, map[string]string{
-		"Binary":  p.Binary,
-		"WorkDir": filepath.Dir(p.Binary),
+		"Binary":   p.Binary,
+		"WorkDir":  workDir,
+		"RelayURL": strings.TrimSpace(os.Getenv("GBR_RELAY_URL")),
 	}); err != nil {
 		return err
 	}

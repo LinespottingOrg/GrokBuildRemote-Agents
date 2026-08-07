@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	version = "0.4.5"
+	version = "0.5.0"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -150,10 +150,13 @@ Usage:
       Minimal text feedback to phone (on/off · 5s|10s|1m|10m|1h · expand).
       Default OFF. Does not change inject behaviour.
   gbr-agent [-log=info] service install|uninstall|status
+      Auto-start in background at login (Windows Task Scheduler / macOS LaunchAgent /
+      Linux systemd --user). Pair first, then install so the agent keeps polling.
 
 Environment:
   GBR_API_KEY / XAI_API_KEY     xAI API key (optional if relay-only)
-  GBR_RELAY_URL                 durable mailbox relay (default production worker)
+  GBR_RELAY_URL                 durable mailbox relay (default production worker;
+                                set the same URL on the phone for self-hosted relay)
   GBR_BASE_URL / XAI_BASE_URL   xAI base (legacy Mode B)
   GBR_TRACE=0                   disable hop tracing entirely
   GBR_TRACE_REMOTE=0            trace to local file only (no relay mirror)
@@ -1009,6 +1012,9 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 			env, err := grok.NewEnvelope(grok.TypeHeartbeat, rt.dev.DeviceID, "", uuid.NewString(), grok.HeartbeatPayload{
 				SessionCount: n,
 				Status:       "alive",
+				AgentVersion: version,
+				Relay:        rt.relay.Base(),
+				OS:           runtime.GOOS,
 			})
 			if err != nil {
 				continue
@@ -1021,7 +1027,7 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 				Hop:    trace.HopAgentHeartbeat,
 				Type:   "heartbeat",
 				OK:     hbErr == nil,
-				Detail: fmt.Sprintf("sessions=%d", n),
+				Detail: fmt.Sprintf("sessions=%d version=%s", n, version),
 			})
 		}
 	}
@@ -1435,7 +1441,13 @@ func cmdService(args []string) int {
 			slog.Error("service install", "err", err)
 			return 1
 		}
-		fmt.Println("service installed and started (user session)")
+		fmt.Println("✓ gbr-agent auto-start installed (user session background)")
+		fmt.Println("  Windows: Task Scheduler logon · Mac: LaunchAgent · Linux: systemd --user")
+		fmt.Println("  Pair first if needed: gbr-agent pair")
+		fmt.Println("  Check: gbr-agent service status")
+		if u := strings.TrimSpace(os.Getenv("GBR_RELAY_URL")); u != "" {
+			fmt.Printf("  note: GBR_RELAY_URL=%s is set in this shell — ensure the service inherits it (see SELF-HOSTED-RELAY.md)\n", u)
+		}
 		st, _ := service.Status()
 		fmt.Print(st)
 		return 0
@@ -1444,7 +1456,7 @@ func cmdService(args []string) int {
 			slog.Error("service uninstall", "err", err)
 			return 1
 		}
-		fmt.Println("service uninstalled")
+		fmt.Println("service uninstalled (auto-start removed)")
 		return 0
 	case "status":
 		st, err := service.Status()

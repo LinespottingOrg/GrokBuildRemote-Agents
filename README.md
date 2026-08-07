@@ -87,9 +87,37 @@ Default install locations:
 ### Typical flow
 
 ```bash
-gbr-agent pair -code YOURCODE
+gbr-agent pair
+# opens browser QR — scan with the phone camera
+# legacy: gbr-agent pair -code YOURCODE
+
+# Firewall / VPN / ports (no inbound ports — outbound HTTPS 443 only)
+gbr-agent netcheck
+gbr-agent netcheck -doc
+# See NETWORK.md
 gbr-agent run
+
+# Optional: start at login in background (after pair)
+gbr-agent service install
+gbr-agent service status
 ```
+
+### Self-hosted relay
+
+Optional — most users keep the production Worker. See **[SELF-HOSTED-RELAY.md](SELF-HOSTED-RELAY.md)**.
+
+```bash
+export GBR_RELAY_URL=https://your-worker.workers.dev
+gbr-agent pair && gbr-agent run
+# same URL in phone Settings → Relay
+```
+
+### What’s new in 0.5.0
+
+- Richer heartbeat (`agent_version`, `relay`, `os`) for phone session health  
+- `service install` messaging + embed `GBR_RELAY_URL` into LaunchAgent / systemd when set  
+- Service working directory = user home (avoids synthetic `dist` sessions)  
+- Feedback peeks (0.4.5+) unchanged; inject/pair protocol still `gbr/1`  
 
 Optional: `sessions`, `status`, `version`, `rename -name MyPC`.
 
