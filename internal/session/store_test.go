@@ -96,6 +96,31 @@ func TestDefaultStorePath(t *testing.T) {
 	}
 }
 
+func TestStoreSetLabel(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sessions.json")
+	st, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetLabel("grok-build-40a22", "Phone Grok"); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := st.Label("grok-build-40a22")
+	if !ok || got != "Phone Grok" {
+		t.Fatalf("got %q ok=%v", got, ok)
+	}
+	st2, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got2, ok2 := st2.Label("grok-build-40a22")
+	if !ok2 || got2 != "Phone Grok" {
+		t.Fatalf("reload %q ok=%v", got2, ok2)
+	}
+}
+
 func TestOpenStoreMissingFile(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

@@ -104,10 +104,7 @@ func BuildSession(c Candidate, renames map[string]string) (*Session, error) {
 	if shell == "" {
 		shell = defaultShell()
 	}
-	title := c.Title
-	if title == "" {
-		title = shell
-	}
+	title := ResolveDisplayTitle(id, c.Title, shell, nil)
 	git := ""
 	if !strings.HasPrefix(cwd, "gbr-ui-") && !strings.Contains(cwd, "gbr-ui-") {
 		git = GitRemoteDisplay(cwd)

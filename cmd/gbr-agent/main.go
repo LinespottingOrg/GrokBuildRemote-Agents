@@ -140,7 +140,8 @@ Usage:
   gbr-agent [-log=info] pair [-code CODE] [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL] [-no-open]
       Default: PC generates the code, pairs this agent, opens a browser QR for the
       phone camera to scan (mobile does NOT show the QR — the phone reads it).
-  gbr-agent [-log=info] rename -name DEVICE_NAME [-session SESSION_ID]
+  gbr-agent [-log=info] rename -name DEVICE_NAME
+  gbr-agent [-log=info] rename -session SESSION_ID -name "Phone title"
   gbr-agent [-log=info] sessions
   gbr-agent [-log=info] logs [-f] [-n 50] [-command COMMAND_ID]
   gbr-agent [-log=info] support-log [-open]
@@ -1252,14 +1253,23 @@ func cmdRename(args []string) int {
 	_ = fs.Parse(args)
 
 	if *sessionID != "" {
-		if !grok.ValidSessionID(*sessionID) {
-			slog.Error("invalid session_id", "id", *sessionID)
-			return 2
-		}
 		store, err := session.OpenStore("")
 		if err != nil {
 			slog.Error("store", "err", err)
 			return 1
+		}
+		// -session + -name → phone display title (does not change session_id).
+		if strings.TrimSpace(*name) != "" {
+			if err := store.SetLabel(*sessionID, *name); err != nil {
+				slog.Error("session label", "err", err)
+				return 1
+			}
+			fmt.Printf("session %s title=%s\n", *sessionID, strings.TrimSpace(*name))
+			return 0
+		}
+		if !grok.ValidSessionID(*sessionID) {
+			slog.Error("invalid session_id", "id", *sessionID)
+			return 2
 		}
 		cwd, _ := os.Getwd()
 		if err := store.Rename(cwd, *sessionID); err != nil {
