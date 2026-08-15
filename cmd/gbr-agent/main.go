@@ -536,6 +536,11 @@ func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.
 		return rt.handleControl(ctx, mailboxID, env)
 
 	case grok.TypeList:
+		// Snapshots we pushed (device_id = this agent) come back on poll.
+		// Only answer list requests from the phone.
+		if env.DeviceID == rt.dev.DeviceID {
+			return nil
+		}
 		sessions := rt.listSessionPayloads()
 		out, err := grok.NewEnvelope(grok.TypeList, rt.dev.DeviceID, "", env.CommandID, map[string]any{
 			"sessions": sessions,
