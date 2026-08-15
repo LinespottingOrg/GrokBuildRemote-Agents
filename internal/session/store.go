@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -16,12 +17,15 @@ type Store struct {
 
 	mu      sync.RWMutex
 	renames map[string]string // normalized cwd → session_id
+	labels  map[string]string // session_id → phone display title
 }
 
 // sessionsFile is the on-disk JSON shape.
 type sessionsFile struct {
 	// Renames maps absolute cwd → session_id.
 	Renames map[string]string `json:"renames"`
+	// Labels maps session_id → human title shown on the phone.
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // DefaultStorePath returns %USERPROFILE%\.gbr\sessions.json (cross-platform home).
@@ -48,6 +52,7 @@ func OpenStore(path string) (*Store, error) {
 	s := &Store{
 		path:    path,
 		renames: make(map[string]string),
+		labels:  make(map[string]string),
 	}
 	if err := s.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		// Load returns nil for missing file; other errors propagate
@@ -74,6 +79,7 @@ func (s *Store) Load() error {
 		if os.IsNotExist(err) {
 			s.mu.Lock()
 			s.renames = make(map[string]string)
+			s.labels = make(map[string]string)
 			s.mu.Unlock()
 			return nil
 		}
@@ -82,6 +88,7 @@ func (s *Store) Load() error {
 	if len(data) == 0 {
 		s.mu.Lock()
 		s.renames = make(map[string]string)
+		s.labels = make(map[string]string)
 		s.mu.Unlock()
 		return nil
 	}
@@ -102,8 +109,18 @@ func (s *Store) Load() error {
 			m[nk] = v
 		}
 	}
+	labs := make(map[string]string, len(f.Labels))
+	for k, v := range f.Labels {
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		if k == "" || v == "" {
+			continue
+		}
+		labs[k] = v
+	}
 	s.mu.Lock()
 	s.renames = m
+	s.labels = labs
 	s.mu.Unlock()
 	return nil
 }
@@ -114,9 +131,15 @@ func (s *Store) Save() error {
 		return errors.New("session: nil store")
 	}
 	s.mu.RLock()
-	f := sessionsFile{Renames: make(map[string]string, len(s.renames))}
+	f := sessionsFile{
+		Renames: make(map[string]string, len(s.renames)),
+		Labels:  make(map[string]string, len(s.labels)),
+	}
 	for k, v := range s.renames {
 		f.Renames[k] = v
+	}
+	for k, v := range s.labels {
+		f.Labels[k] = v
 	}
 	path := s.path
 	s.mu.RUnlock()
@@ -196,6 +219,50 @@ func (s *Store) Lookup(cwd string) (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return lookupRename(s.renames, cwd)
+}
+
+// SetLabel stores a phone display title for sessionID.
+func (s *Store) SetLabel(sessionID, title string) error {
+	if s == nil {
+		return errors.New("session: nil store")
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	title = strings.TrimSpace(title)
+	if sessionID == "" || title == "" {
+		return errors.New("session: empty label")
+	}
+	s.mu.Lock()
+	if s.labels == nil {
+		s.labels = make(map[string]string)
+	}
+	s.labels[sessionID] = title
+	s.mu.Unlock()
+	return s.Save()
+}
+
+// Label returns a stored display title for sessionID.
+func (s *Store) Label(sessionID string) (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	v, ok := s.labels[strings.TrimSpace(sessionID)]
+	return v, ok && v != ""
+}
+
+// LabelsSnapshot returns a copy of session_id → display title.
+func (s *Store) LabelsSnapshot() map[string]string {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string]string, len(s.labels))
+	for k, v := range s.labels {
+		out[k] = v
+	}
+	return out
 }
 
 // Snapshot returns a copy of the rename map (cwd → session_id).
