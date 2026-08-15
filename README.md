@@ -121,6 +121,18 @@ gbr-agent pair && gbr-agent run
 
 Optional: `sessions`, `status`, `version`, `rename -name MyPC`.
 
+### Session names (this branch)
+
+The phone shows a **title**, not the raw `conhost` / folder slug. See **[SESSION-NAMES.md](SESSION-NAMES.md)**.
+
+```text
+/rename Phone Grok                  # in Grok Build (slash command)
+gbr-agent sessions                  # list grok-build-… ids
+gbr-agent rename -session grok-build-40a22 -name "Phone Grok"
+```
+
+No six-session feedback cap — every discovered window is advertised; Grok is first.
+
 ### API key
 
 Agent may read relay / model API credentials from env (`GBR_API_KEY`, `XAI_API_KEY`, etc.) or local config under `~/.gbr/` — see support docs on the website.
