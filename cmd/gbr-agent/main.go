@@ -287,45 +287,8 @@ Lock file: %s
 			slog.Warn("discover failed", "err", err)
 			return nil, err
 		}
-		// Sort Grok Build windows first so they never lose a collision race.
-		sort.SliceStable(wins, func(i, j int) bool {
-			gi := strings.Contains(string(wins[i].Kind), "grok")
-			gj := strings.Contains(string(wins[j].Kind), "grok")
-			if gi != gj {
-				return gi
-			}
-			return wins[i].Title < wins[j].Title
-		})
-		var out []session.Candidate
-		var grokN, otherN int
-		for _, w := range wins {
-			kind := string(w.Kind)
-			if kind == "" {
-				kind = "window"
-			}
-			// UNIQUE per HWND — never share agent cwd (that collapsed all terminals
-			// into one session_id and hid Grok Build on multi-window Windows desktops).
-			prefer := fmt.Sprintf("%s-%x", kind, w.HWND)
-			if strings.Contains(kind, "grok") {
-				prefer = fmt.Sprintf("grok-build-%x", w.HWND)
-				grokN++
-			} else {
-				otherN++
-			}
-			virtualCWD := fmt.Sprintf("gbr-ui-%s-%d-%x", kind, w.PID, w.HWND)
-			title := w.Title
-			if title == "" {
-				title = kind
-			}
-			out = append(out, session.Candidate{
-				CWD:      virtualCWD,
-				Shell:    kind,
-				PID:      int(w.PID),
-				HWND:     w.HWND,
-				Title:    title,
-				PreferID: prefer,
-			})
-		}
+		sortWindowsGrokFirst(wins)
+		out, grokN, otherN := windowsToCandidates(wins)
 		slog.Info("discover", "windows", len(out), "grok_build", grokN, "other_terminals", otherN)
 		trace.Emit(trace.Event{
 			Hop:    "agent.discover",
@@ -779,22 +742,11 @@ func (rt *agentRuntime) feedbackSessionIDs(cfg core.FeedbackConfig) []string {
 		}
 	}
 	for _, id := range rt.hybrid.ManagedIDs() {
-		found := false
-		for _, x := range ids {
-			if x == id {
-				found = true
-				break
-			}
-		}
-		if !found {
-			ids = append(ids, id)
-		}
+		ids = append(ids, id)
 	}
-	// Cap fan-out: first 6 sessions only
-	if len(ids) > 6 {
-		ids = ids[:6]
-	}
-	return ids
+	// Grok Build first, then the agent shell, then other terminals.
+	// Cap is 32 (was 6) so busy Windows desktops still advertise Grok to the phone.
+	return prioritizeSessionIDs(ids, feedbackMaxSessions())
 }
 
 func (rt *agentRuntime) pushFeedbackSample(ctx context.Context, mailboxID, sessionID, commandID string, force bool) error {
@@ -959,6 +911,20 @@ func (rt *agentRuntime) listSessionPayloads() []map[string]any {
 			"os":         runtime.GOOS,
 		})
 	}
+	sort.SliceStable(out, func(i, j int) bool {
+		idi, _ := out[i]["session_id"].(string)
+		idj, _ := out[j]["session_id"].(string)
+		ti, _ := out[i]["title"].(string)
+		tj, _ := out[j]["title"].(string)
+		si, _ := out[i]["shell"].(string)
+		sj, _ := out[j]["shell"].(string)
+		pi := sessionPriority(idi, ti, si)
+		pj := sessionPriority(idj, tj, sj)
+		if pi != pj {
+			return pi < pj
+		}
+		return false
+	})
 	return out
 }
 
@@ -978,7 +944,16 @@ func (rt *agentRuntime) registerLoop(ctx context.Context, mailboxID string) {
 }
 
 func (rt *agentRuntime) publishRegisters(ctx context.Context, mailboxID string) {
-	for _, msg := range rt.scanner.Registers(rt.dev.DeviceID) {
+	regs := rt.scanner.Registers(rt.dev.DeviceID)
+	sort.SliceStable(regs, func(i, j int) bool {
+		pi := sessionPriority(regs[i].SessionID, regs[i].Payload.Title, regs[i].Payload.Shell)
+		pj := sessionPriority(regs[j].SessionID, regs[j].Payload.Title, regs[j].Payload.Shell)
+		if pi != pj {
+			return pi < pj
+		}
+		return false
+	})
+	for _, msg := range regs {
 		// msg is session.RegisterMessage — convert to grok envelope map
 		b, err := json.Marshal(msg)
 		if err != nil {
@@ -1320,7 +1295,17 @@ func cmdSessions(args []string) int {
 		slog.Warn("store", "err", err)
 	}
 	reg := session.NewRegistry()
-	sc := session.NewScanner(store, reg, nil)
+	ui := inject.Default()
+	defer func() { _ = ui.Close() }()
+	sc := session.NewScanner(store, reg, func(ctx context.Context) ([]session.Candidate, error) {
+		wins, err := ui.Discover()
+		if err != nil {
+			return nil, err
+		}
+		sortWindowsGrokFirst(wins)
+		out, _, _ := windowsToCandidates(wins)
+		return out, nil
+	})
 	cwd, _ := os.Getwd()
 	sc.Track(session.Candidate{CWD: cwd, Shell: defaultShellName(), Title: "gbr-agent"})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -1328,7 +1313,16 @@ func cmdSessions(args []string) int {
 	if _, err := sc.ScanOnce(ctx); err != nil {
 		slog.Warn("scan", "err", err)
 	}
-	for _, s := range reg.List() {
+	list := reg.List()
+	sort.SliceStable(list, func(i, j int) bool {
+		pi := sessionPriority(list[i].ID, list[i].Title, list[i].Shell)
+		pj := sessionPriority(list[j].ID, list[j].Title, list[j].Shell)
+		if pi != pj {
+			return pi < pj
+		}
+		return list[i].ID < list[j].ID
+	})
+	for _, s := range list {
 		fmt.Printf("%-24s  cwd=%s  shell=%s  title=%s\n", s.ID, s.CWD, s.Shell, s.Title)
 	}
 	return 0
