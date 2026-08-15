@@ -71,3 +71,7 @@ iOS uses the same agent, so it had the same six-session limit.
 1. Leave `gbr-agent run` running (or restart it after install).
 2. Force-close **Build Remote Agent** on the phone and open it again.
 3. Step through **◀ n/m ▶** — Grok should be first and show the name you set.
+
+## App TODO
+
+Android currently has **no Unpair button**. Tracked in [APP-TODO.md](APP-TODO.md) and [issue #2](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/issues/2). Workaround: system Settings → Apps → Build Remote Agent → Clear data.
