@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -9,28 +8,6 @@ import (
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/inject"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/session"
 )
-
-// DefaultFeedbackMaxSessions is the fan-out cap for periodic phone feedback.
-// 0.5.0 used 6, which hid Grok Build on busy Windows desktops (many conhost
-// windows). 32 covers a typical multi-window machine without flooding the relay.
-const DefaultFeedbackMaxSessions = 32
-
-// feedbackMaxSessions returns the feedback fan-out cap.
-// Override with GBR_FEEDBACK_MAX_SESSIONS (1–128). 0 or unset → default.
-func feedbackMaxSessions() int {
-	raw := strings.TrimSpace(os.Getenv("GBR_FEEDBACK_MAX_SESSIONS"))
-	if raw == "" {
-		return DefaultFeedbackMaxSessions
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil || n <= 0 {
-		return DefaultFeedbackMaxSessions
-	}
-	if n > 128 {
-		return 128
-	}
-	return n
-}
 
 func isGrokSessionKey(s string) bool {
 	lt := strings.ToLower(s)
@@ -54,9 +31,9 @@ func sessionPriority(id, title, shell string) int {
 	return 2
 }
 
-// prioritizeSessionIDs stable-sorts ids (Grok first) then applies max.
-// max <= 0 means no cap.
-func prioritizeSessionIDs(ids []string, max int) []string {
+// prioritizeSessionIDs stable-sorts ids (Grok first). No fan-out cap —
+// 0.5.0 sliced to 6 and hid Grok Build on busy Windows desktops.
+func prioritizeSessionIDs(ids []string) []string {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -81,9 +58,6 @@ func prioritizeSessionIDs(ids []string, max int) []string {
 		}
 		return false
 	})
-	if max > 0 && len(out) > max {
-		out = out[:max]
-	}
 	return out
 }
 

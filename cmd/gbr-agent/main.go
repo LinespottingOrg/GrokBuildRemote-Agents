@@ -744,9 +744,8 @@ func (rt *agentRuntime) feedbackSessionIDs(cfg core.FeedbackConfig) []string {
 	for _, id := range rt.hybrid.ManagedIDs() {
 		ids = append(ids, id)
 	}
-	// Grok Build first, then the agent shell, then other terminals.
-	// Cap is 32 (was 6) so busy Windows desktops still advertise Grok to the phone.
-	return prioritizeSessionIDs(ids, feedbackMaxSessions())
+	// Grok Build first, then the agent shell, then other terminals. No cap.
+	return prioritizeSessionIDs(ids)
 }
 
 func (rt *agentRuntime) pushFeedbackSample(ctx context.Context, mailboxID, sessionID, commandID string, force bool) error {
