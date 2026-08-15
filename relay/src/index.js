@@ -18,7 +18,7 @@
 const MAX_QUEUE = 500;
 const MAX_TRACE = 400;
 const TRACE_TTL = 60 * 60 * 24 * 7; // 7 days
-const RELAY_VERSION = "0.5.0";
+const RELAY_VERSION = "0.5.1";
 
 // Pair throttling — see MailboxQueue "pairattempt".
 const PAIR_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -377,12 +377,15 @@ export class MailboxQueue {
     const action = url.pathname.replace(/^\//, "");
 
     if (action === "push") {
-      // Independent write to a unique key — never reads, so it cannot clobber
-      // a concurrent write. Serialization alone was not enough: during DO
-      // cold-start, concurrent requests briefly saw separate instances and two
-      // pushes both reported size=1, losing one envelope. Warm it was 8/8.
       const envelope = await request.json();
-      await this.state.storage.put(MailboxQueue.key(), envelope);
+      // Latest-wins for the live session roster. The agent re-registers and
+      // heartbeats often; keeping every copy made the queue grow (200+), so a
+      // phone that later polls still saw old titles / a 6-item cache.
+      // Inject/output/pair/control stay append-only (command_id / stream).
+      await this.state.blockConcurrencyWhile(async () => {
+        await this.dropStaleRoster(envelope);
+        await this.state.storage.put(MailboxQueue.key(), envelope);
+      });
       const size = await this.trim();
       return jsonResponse({ ok: true, size });
     }
@@ -470,6 +473,26 @@ export class MailboxQueue {
       out.push(envl);
     }
     return jsonResponse({ ok: true, envelopes: out });
+  }
+
+  /** Drop superseded roster envelopes so name/count changes stay current. */
+  async dropStaleRoster(envelope) {
+    if (!envelope || !envelope.type) return;
+    const all = await this.state.storage.list({ prefix: "e:" });
+    const doomed = [];
+    for (const [k, envl] of all) {
+      if (!envl || envl.type !== envelope.type) continue;
+      if (envelope.type === "register") {
+        if (envelope.session_id && String(envl.session_id) === String(envelope.session_id)) {
+          doomed.push(k);
+        }
+      } else if (envelope.type === "list" || envelope.type === "heartbeat") {
+        if (!envelope.device_id || String(envl.device_id) === String(envelope.device_id)) {
+          doomed.push(k);
+        }
+      }
+    }
+    if (doomed.length) await this.state.storage.delete(doomed);
   }
 
   /** Keep the queue bounded by dropping the oldest keys. */

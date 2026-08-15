@@ -267,11 +267,20 @@ type ControlPayload struct {
 // Agent 0.5.0+ may include AgentVersion / Relay / OS for in-app health checks.
 // Older phones ignore unknown fields.
 type HeartbeatPayload struct {
-	SessionCount int    `json:"session_count"`
-	Status       string `json:"status,omitempty"`
-	AgentVersion string `json:"agent_version,omitempty"`
-	Relay        string `json:"relay,omitempty"`
-	OS           string `json:"os,omitempty"`
+	SessionCount int                 `json:"session_count"`
+	Status       string              `json:"status,omitempty"`
+	AgentVersion string              `json:"agent_version,omitempty"`
+	Relay        string              `json:"relay,omitempty"`
+	OS           string              `json:"os,omitempty"`
+	// Sessions is the live roster (id + title). Additive; older phones ignore.
+	// Replaces a stale cached list when names change or windows open/close.
+	Sessions []HeartbeatSession `json:"sessions,omitempty"`
+}
+
+// HeartbeatSession is one row of the live session roster on heartbeat.
+type HeartbeatSession struct {
+	SessionID string `json:"session_id"`
+	Title     string `json:"title,omitempty"`
 }
 
 // ErrorPayload is type=error.

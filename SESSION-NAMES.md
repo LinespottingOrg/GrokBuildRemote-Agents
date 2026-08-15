@@ -72,6 +72,16 @@ iOS uses the same agent, so it had the same six-session limit.
 2. Force-close **Build Remote Agent** on the phone and open it again.
 3. Step through **◀ n/m ▶** — Grok should be first and show the name you set.
 
+## Live updates (agent + relay)
+
+The roster is **dynamic**. The agent pushes a full snapshot when a window appears or disappears, when a title changes (`/rename` or `gbr-agent rename -session … -name …`), and every ~15s.
+
+- Heartbeat `payload.sessions[]` = `{session_id, title}`
+- List envelopes use `replace: true`
+- Relay 0.5.1+ keeps only the **latest** register per session, latest list, and latest heartbeat
+
+The **app** must apply that snapshot (not freeze the first six names). See [APP-TODO.md](APP-TODO.md).
+
 ## App TODO
 
 Android currently has **no Unpair button**. Tracked in [APP-TODO.md](APP-TODO.md) and [issue #2](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/issues/2). Workaround: system Settings → Apps → Build Remote Agent → Clear data.

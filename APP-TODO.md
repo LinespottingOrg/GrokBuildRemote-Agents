@@ -5,6 +5,7 @@ The desktop agent is this repo. The **phone/tablet app** is a separate product. 
 | Status | Item | Where |
 |--------|------|--------|
 | Open | **Unpair button** on Android (and iOS if missing) | [LinespottingOrg/GrokBuildRemote-Agents#2](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/issues/2) |
+| Open | **Apply live session roster** (names + add/remove) from `list.replace` / `heartbeat.sessions` — do not freeze the first 6 titles | [issue #3](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/issues/3) |
 
 ## Unpair button
 

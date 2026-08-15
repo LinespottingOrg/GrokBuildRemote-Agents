@@ -204,6 +204,9 @@ type agentRuntime struct {
 	// lastFeedbackHash avoids spamming identical capture text on the periodic loop.
 	fbMu       sync.Mutex
 	fbLastHash map[string]string
+
+	snapMu   sync.Mutex
+	lastSnap string
 }
 
 func cmdRun(args []string) int {
@@ -358,6 +361,14 @@ Lock file: %s
 	defer stop()
 	defer func() { _ = hybrid.Close() }()
 
+	sc.OnScan = func(res session.ScanResult) {
+		if rt.noteSessionSnapshot(res.All) {
+			slog.Info("sessions changed",
+				"n", len(res.All), "added", len(res.Added), "removed", len(res.Removed))
+			go rt.publishSessionSnapshot(context.Background(), mailboxID)
+		}
+	}
+
 	// Background: session scanner
 	go func() {
 		if err := sc.Run(ctx); err != nil && ctx.Err() == nil {
@@ -365,7 +376,7 @@ Lock file: %s
 		}
 	}()
 
-	// Publish registers periodically
+	// Publish a full session snapshot periodically (and on add/remove/rename).
 	go rt.registerLoop(ctx, mailboxID)
 
 	// Heartbeat
@@ -931,16 +942,64 @@ func (rt *agentRuntime) listSessionPayloads() []map[string]any {
 func (rt *agentRuntime) registerLoop(ctx context.Context, mailboxID string) {
 	t := time.NewTicker(15 * time.Second)
 	defer t.Stop()
-	// immediate
-	rt.publishRegisters(ctx, mailboxID)
+	rt.publishSessionSnapshot(ctx, mailboxID)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			rt.publishRegisters(ctx, mailboxID)
+			rt.publishSessionSnapshot(ctx, mailboxID)
 		}
 	}
+}
+
+func (rt *agentRuntime) noteSessionSnapshot(all []*session.Session) bool {
+	parts := make([]string, 0, len(all))
+	for _, s := range all {
+		if s == nil {
+			continue
+		}
+		parts = append(parts, s.ID+"\t"+s.Title)
+	}
+	sort.Strings(parts)
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\n")))
+	fp := hex.EncodeToString(sum[:8])
+	rt.snapMu.Lock()
+	defer rt.snapMu.Unlock()
+	if fp == rt.lastSnap {
+		return false
+	}
+	rt.lastSnap = fp
+	return true
+}
+
+func (rt *agentRuntime) heartbeatSessions() []grok.HeartbeatSession {
+	raw := rt.listSessionPayloads()
+	out := make([]grok.HeartbeatSession, 0, len(raw))
+	for _, m := range raw {
+		id, _ := m["session_id"].(string)
+		if id == "" {
+			continue
+		}
+		title, _ := m["title"].(string)
+		out = append(out, grok.HeartbeatSession{SessionID: id, Title: title})
+	}
+	return out
+}
+
+func (rt *agentRuntime) publishSessionSnapshot(ctx context.Context, mailboxID string) {
+	sessions := rt.listSessionPayloads()
+	env, err := grok.NewEnvelope(grok.TypeList, rt.dev.DeviceID, "", uuid.NewString(), map[string]any{
+		"sessions": sessions,
+		"replace":  true,
+		"reason":   "snapshot",
+	})
+	if err == nil {
+		if err := rt.pushEnv(ctx, mailboxID, env); err != nil {
+			slog.Debug("list snapshot push", "err", err)
+		}
+	}
+	rt.publishRegisters(ctx, mailboxID)
 }
 
 func (rt *agentRuntime) publishRegisters(ctx context.Context, mailboxID string) {
@@ -980,16 +1039,14 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			n := 0
-			if rt.scanner != nil && rt.scanner.Registry != nil {
-				n = len(rt.scanner.Registry.List())
-			}
+			roster := rt.heartbeatSessions()
 			env, err := grok.NewEnvelope(grok.TypeHeartbeat, rt.dev.DeviceID, "", uuid.NewString(), grok.HeartbeatPayload{
-				SessionCount: n,
+				SessionCount: len(roster),
 				Status:       "alive",
 				AgentVersion: version,
 				Relay:        rt.relay.Base(),
 				OS:           runtime.GOOS,
+				Sessions:     roster,
 			})
 			if err != nil {
 				continue
@@ -1002,7 +1059,7 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 				Hop:    trace.HopAgentHeartbeat,
 				Type:   "heartbeat",
 				OK:     hbErr == nil,
-				Detail: fmt.Sprintf("sessions=%d version=%s", n, version),
+				Detail: fmt.Sprintf("sessions=%d version=%s", len(roster), version),
 			})
 		}
 	}
