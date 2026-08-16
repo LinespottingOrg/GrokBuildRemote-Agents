@@ -175,4 +175,5 @@ Do not commit `relay/wrangler.toml`, `~/.gbr/`, pairing codes, or keys.
 | [SELF-HOSTED-RELAY.md](SELF-HOSTED-RELAY.md) | Own Worker |
 | [protocol/v1.md](protocol/v1.md) | Envelopes |
 | [APP-TODO.md](APP-TODO.md) | Mobile follow-ups |
+| [FAQ.md](FAQ.md) | Same FAQ as grokbuildremote.com |
 | [llms.txt](llms.txt) | Short machine summary |

@@ -10,6 +10,7 @@
 | Read this | When |
 |-----------|------|
 | **[AGENTS.md](AGENTS.md)** | You are an AI installing or debugging |
+| **[FAQ.md](FAQ.md)** | Same FAQ as the website (humans + AIs + schema) |
 | **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | Something failed (401, empty sessions, stale names) |
 | **[SESSION-NAMES.md](SESSION-NAMES.md)** | Six identical titles / rename / 255 sessions |
 | **[NETWORK.md](NETWORK.md)** | Firewall / netcheck |
