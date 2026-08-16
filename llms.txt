@@ -5,23 +5,29 @@
 Website: https://grokbuildremote.com/
 Support: https://grokbuildremote.com/support
 Repo: https://github.com/LinespottingOrg/GrokBuildRemote-Agents
-Relay: https://gbr-relay.ekobrott.workers.dev/health  (expect version 0.5.1)
-Current agent: v0.5.1
+Relay: https://gbr-relay.ekobrott.workers.dev/health  (expect version 0.5.2, bot:true)
+Current agent: v0.5.2
 
 ## Install
 macOS/Linux: curl -fsSL https://grokbuildremote.com/install.sh | bash
 Windows: irm https://grokbuildremote.com/install.ps1 | iex
-Then: gbr-agent version   # must be v0.5.1+
+Then: gbr-agent version   # must be v0.5.2+
 
 ## Pair
 gbr-agent pair     # QR in browser — phone scans
 gbr-agent run      # keep running
 Phone: Unpair in Settings before pairing a new mailbox. Force-close is not enough.
 
+## Bot API (0.5.2+)
+Same PC: http://127.0.0.1:8788  (gbr-agent run; gbr-agent bot)
+Remote:  GET/POST https://gbr-relay.ekobrott.workers.dev/v1/mb/{id}/bot/*   header X-GBR-Key
+Phone Settings → Bot API copies URL + mailbox id + key.
+Docs: docs/BOT-API.md
+
 ## Debug
-gbr-agent status | sessions | netcheck | support-log
+gbr-agent status | sessions | bot | netcheck | support-log
 ./scripts/gbr-diag.sh
-Docs: AGENTS.md (AI), TROUBLESHOOTING.md, SESSION-NAMES.md, NETWORK.md
+Docs: AGENTS.md (AI), TROUBLESHOOTING.md, SESSION-NAMES.md, NETWORK.md, docs/BOT-API.md
 
 ## Session names
 0.5.0 capped at 6 sessions (stale conhost titles). 0.5.1 live roster, replace:true, max 255.

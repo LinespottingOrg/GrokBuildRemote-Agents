@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	version = "0.5.1"
+	version = "0.5.2"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -105,6 +105,8 @@ func run(args []string) int {
 		return cmdSessions(subArgs)
 	case "status":
 		return cmdStatus(subArgs)
+	case "bot":
+		return cmdBot(subArgs)
 	case "logs":
 		return cmdLogs(subArgs)
 	case "support-log", "supportlog", "support":
@@ -136,7 +138,9 @@ Usage:
   gbr-agent [-log=info] netcheck [-relay URL] [-doc]
       Firewall/VPN test: DNS + TCP/443 + TLS + HTTPS /health (no inbound ports).
   gbr-agent [-log=info] status
-  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force]
+  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force] [-bot-port 8788]
+  gbr-agent [-log=info] bot
+      Print localhost + relay Bot API curl examples (Grok bots).
   gbr-agent [-log=info] pair [-code CODE] [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL] [-no-open]
       Default: PC generates the code, pairs this agent, opens a browser QR for the
       phone camera to scan (mobile does NOT show the QR — the phone reads it).
@@ -162,6 +166,8 @@ Environment:
   GBR_TRACE=0                   disable hop tracing entirely
   GBR_TRACE_REMOTE=0            trace to local file only (no relay mirror)
   GBR_LOG_DIR                   override log directory
+  GBR_BOT_PORT                  localhost bot HTTP port (default 8788, 0=off)
+  GBR_BOT_REQUIRE_KEY=1         require mailbox key even on 127.0.0.1
 
 Device identity: %%USERPROFILE%%\.gbr\device.json
 Sessions rename: %%USERPROFILE%%\.gbr\sessions.json
@@ -207,6 +213,9 @@ type agentRuntime struct {
 
 	snapMu   sync.Mutex
 	lastSnap string
+
+	outMu  sync.Mutex
+	outLog []botOutputItem
 }
 
 func cmdRun(args []string) int {
@@ -215,6 +224,7 @@ func cmdRun(args []string) int {
 	conv := fs.String("conv", "", "mailbox conversation id (else from device.json)")
 	relayURL := fs.String("relay", "", "relay base URL (else GBR_RELAY_URL / default)")
 	force := fs.Bool("force", false, "start even if another agent holds the lock (unsafe)")
+	botPort := fs.Int("bot-port", botPortFromEnv(), "localhost bot HTTP port (0=off, default 8788)")
 	_ = fs.Parse(args)
 
 	// Config: API key optional when using durable relay only.
@@ -384,6 +394,9 @@ Lock file: %s
 
 	// Optional minimal text feedback (default OFF — does not alter inject path)
 	go rt.feedbackLoop(ctx, mailboxID)
+
+	// Localhost Bot API for Grok Build / coding agents on this PC.
+	go rt.startBotAPI(ctx, mailboxID, *botPort)
 
 	// Main poll loop
 	interval := time.Duration(cfg.PollIntervalSec) * time.Second
@@ -570,6 +583,16 @@ func (rt *agentRuntime) pushOutput(ctx context.Context, mailboxID, sessionID, co
 }
 
 func (rt *agentRuntime) pushOutputFull(ctx context.Context, mailboxID, sessionID, commandID, stream, chunk string, eof bool, reason, method string) error {
+	rt.recordBotOutput(botOutputItem{
+		TS:        time.Now().UTC().Format(time.RFC3339Nano),
+		SessionID: sessionID,
+		CommandID: commandID,
+		Stream:    stream,
+		Chunk:     chunk,
+		EOF:       eof,
+		Reason:    reason,
+		Method:    method,
+	})
 	out, err := grok.NewEnvelope(grok.TypeOutput, rt.dev.DeviceID, sessionID, commandID, grok.OutputPayload{
 		Stream: stream,
 		Chunk:  chunk,
@@ -1452,6 +1475,10 @@ func cmdStatus(args []string) int {
 		fmt.Printf("mailbox_key: NOT SET — unauthenticated; re-pair to obtain one\n")
 	}
 	fmt.Printf("relay:       %s (%s)\n", rc.Base(), relayOK)
+	if dev.MailboxConversationID != "" {
+		fmt.Printf("relay_bot:   %s/v1/mb/%s/bot\n", strings.TrimRight(rc.Base(), "/"), dev.MailboxConversationID)
+	}
+	fmt.Printf("local_bot:   http://127.0.0.1:%d  (while gbr-agent run; gbr-agent bot)\n", botPortFromEnv())
 	fmt.Printf("seen_cmds:   %d\n", seen.Len())
 	fmt.Printf("device_file: %s\n", dev.Path())
 	tl := trace.New(trace.Config{

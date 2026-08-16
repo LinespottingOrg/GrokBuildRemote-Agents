@@ -1,7 +1,7 @@
 # Build Remote Agent — desktop (`gbr-agent`)
 
 **Product brand:** Build Remote Agent  
-**Binary:** `gbr-agent` **v0.5.1**  
+**Binary:** `gbr-agent` **v0.5.2**  
 **License:** **MIT** (open source)  
 **Org:** LinespottingOrg / Linespotting AB  
 
@@ -14,6 +14,7 @@
 | **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | Something failed (401, empty sessions, stale names) |
 | **[SESSION-NAMES.md](SESSION-NAMES.md)** | Six identical titles / rename / 255 sessions |
 | **[NETWORK.md](NETWORK.md)** | Firewall / netcheck |
+| **[docs/BOT-API.md](docs/BOT-API.md)** | Grok bot / HTTP API (localhost + relay) |
 | **[llms.txt](llms.txt)** | Short machine summary |
 | https://grokbuildremote.com/support | End-user playbook |  
 

@@ -13,12 +13,24 @@
  *   POST /v1/mb/:id/trace body: event | { events: [...] }  — append trace events
  *   GET  /v1/mb/:id/trace?after=<iso>&limit=N              — read trace ring buffer
  *   DELETE /v1/mb/:id/trace                                — clear ring buffer
+ *
+ *   --- bot REST (additive, v0.5.2) — Grok bots / HTTP clients ---
+ *   GET  /v1/bot
+ *   GET  /v1/mb/:id/bot
+ *   GET  /v1/mb/:id/bot/sessions
+ *   POST /v1/mb/:id/bot/inject   body: { session_id, text, submit }
+ *   GET  /v1/mb/:id/bot/output?after=&session_id=&command_id=&limit=
+ *   GET  /v1/mb/:id/bot/status
+ *   Auth: X-GBR-Key or Authorization: Bearer <mailbox_key>
  */
 
 const MAX_QUEUE = 500;
 const MAX_TRACE = 400;
 const TRACE_TTL = 60 * 60 * 24 * 7; // 7 days
-const RELAY_VERSION = "0.5.1";
+const RELAY_VERSION = "0.5.2";
+const BOT_INJECT_WINDOW_MS = 60 * 1000;
+const BOT_INJECT_MAX = 60;
+const BOT_TEXT_MAX = 32 * 1024;
 
 // Pair throttling — see MailboxQueue "pairattempt".
 const PAIR_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -60,7 +72,20 @@ export default {
           auth_mode: authMode(env),
           auth_header: "X-GBR-Key",
           product: "Grok Build Remote",
+          bot: true,
+          bot_path: "/v1/mb/:id/bot",
         });
+      }
+      if (url.pathname === "/v1/bot" || url.pathname === "/bot") {
+        return json(botDiscovery(""));
+      }
+      const bot = url.pathname.match(
+        /^\/v1\/mb\/([^/]+)\/bot(?:\/(sessions|inject|output|status))?$/
+      );
+      if (bot) {
+        const mailboxId = sanitizeId(decodeURIComponent(bot[1]));
+        if (!mailboxId) return json({ error: "bad_mailbox" }, 400);
+        return handleBot(env, ctx, mailboxId, bot[2] || "", request, url);
       }
       const m = url.pathname.match(/^\/v1\/mb\/([^/]+)\/(push|poll|pair|ack|trace)$/);
       if (!m) return json({ error: "not_found" }, 404);
@@ -98,6 +123,15 @@ function sanitizeId(id) {
   if (!id || id.length > 128) return "";
   if (!/^[A-Za-z0-9._:-]+$/.test(id)) return "";
   return id;
+}
+
+/** X-GBR-Key, or Authorization: Bearer <key> for Grok bots / curl. */
+function presentedKey(request) {
+  const h = (request.headers.get("X-GBR-Key") || "").trim();
+  if (h) return h;
+  const auth = request.headers.get("Authorization") || "";
+  const m = auth.match(/^Bearer\s+(\S+)/i);
+  return m ? m[1].trim() : "";
 }
 
 /* ----------------------------- trace core ----------------------------- */
@@ -152,7 +186,7 @@ async function checkKey(env, mailboxId, presented) {
  * so the rollout can be measured before anything is enforced.
  */
 async function guard(env, ctx, mailboxId, request, op) {
-  const presented = request.headers.get("X-GBR-Key") || "";
+  const presented = presentedKey(request);
   const state = await checkKey(env, mailboxId, presented);
 
   // In enforce mode a mailbox must be PAIRED (keyed) before it accepts traffic.
@@ -433,6 +467,27 @@ export class MailboxQueue {
       return jsonResponse({ ok: true, ...res });
     }
 
+    if (action === "snapshot") {
+      const all = await this.state.storage.list({ prefix: "e:" });
+      const envelopes = [];
+      for (const envl of all.values()) {
+        if (envl) envelopes.push(envl);
+      }
+      return jsonResponse({ ok: true, envelopes, size: envelopes.length });
+    }
+
+    if (action === "botrate") {
+      const res = await this.state.blockConcurrencyWhile(async () => {
+        const now = Date.now();
+        let win = (await this.state.storage.get("bot_window")) || { start: now, n: 0 };
+        if (now - win.start > BOT_INJECT_WINDOW_MS) win = { start: now, n: 0 };
+        win.n += 1;
+        await this.state.storage.put("bot_window", win);
+        return { allowed: win.n <= BOT_INJECT_MAX, attempts: win.n };
+      });
+      return jsonResponse({ ok: true, ...res });
+    }
+
     if (action === "ack") {
       const { command_ids: ids, from_device: fromDevice } = await request.json();
       const set = new Set((Array.isArray(ids) ? ids : []).map(String));
@@ -664,6 +719,263 @@ async function handlePair(env, ctx, mailboxId, request) {
     device_name: deviceName,
     mailbox_key: key,
   });
+}
+
+/* ------------------------------ bot REST ------------------------------ */
+
+function botDiscovery(mailboxId) {
+  const base = mailboxId ? `/v1/mb/${mailboxId}/bot` : "/v1/mb/{mailbox_id}/bot";
+  return {
+    ok: true,
+    service: "gbr-relay-bot",
+    proto: "gbr/1",
+    version: RELAY_VERSION,
+    mailbox_id: mailboxId || undefined,
+    auth: ["X-GBR-Key", "Authorization: Bearer <mailbox_key>"],
+    endpoints: {
+      discovery: `GET ${base}`,
+      sessions: `GET ${base}/sessions`,
+      inject: `POST ${base}/inject`,
+      output: `GET ${base}/output?after=&session_id=&command_id=&limit=`,
+      status: `GET ${base}/status`,
+    },
+    inject_body: {
+      session_id: "grok-build-…",
+      text: "the prompt to type",
+      submit: true,
+      mode: "text",
+    },
+    note: "Mailbox id + key live in the phone app Settings → Bot API after pairing. Same key as X-GBR-Key on push/poll.",
+    local_agent: "http://127.0.0.1:8788 (loopback; gbr-agent run)",
+  };
+}
+
+async function mailboxSnapshot(env, mailboxId) {
+  const res = await queueStub(env, mailboxId).fetch("https://q/snapshot");
+  const body = await res.json().catch(() => ({}));
+  return Array.isArray(body.envelopes) ? body.envelopes : [];
+}
+
+function normalizeSession(s) {
+  if (!s || typeof s !== "object") return { session_id: String(s || "") };
+  return {
+    session_id: String(s.session_id || s.id || ""),
+    title: String(s.title || ""),
+    cwd: String(s.cwd || ""),
+    shell: String(s.shell || ""),
+    os: String(s.os || ""),
+    git_remote: String(s.git_remote || ""),
+  };
+}
+
+function extractSessions(envelopes) {
+  const list = Array.isArray(envelopes) ? envelopes : [];
+  let bestList = null;
+  let bestHb = null;
+  const regs = new Map();
+  for (const e of list) {
+    if (!e || !e.type) continue;
+    const ts = Date.parse(e.recv_ts || e.ts || 0) || 0;
+    if (e.type === "list" && e.payload && Array.isArray(e.payload.sessions)) {
+      if (!bestList || ts >= bestList._ts) bestList = { env: e, _ts: ts };
+    }
+    if (e.type === "heartbeat" && e.payload && Array.isArray(e.payload.sessions)) {
+      if (!bestHb || ts >= bestHb._ts) bestHb = { env: e, _ts: ts };
+    }
+    if (e.type === "register" && e.session_id) {
+      const prev = regs.get(e.session_id);
+      if (!prev || ts >= prev._ts) {
+        const p = e.payload || {};
+        regs.set(e.session_id, {
+          session_id: e.session_id,
+          title: p.title || e.session_id,
+          cwd: p.cwd || "",
+          shell: p.shell || "",
+          os: p.os || "",
+          git_remote: p.git_remote || "",
+          _ts: ts,
+        });
+      }
+    }
+  }
+  if (bestList && bestList._ts >= (bestHb ? bestHb._ts : 0)) {
+    return bestList.env.payload.sessions.map(normalizeSession);
+  }
+  if (bestHb) {
+    return bestHb.env.payload.sessions.map(normalizeSession);
+  }
+  return [...regs.values()].map(({ _ts, ...s }) => s);
+}
+
+function extractOutputs(envelopes, opts) {
+  const after = opts.after || "";
+  const sessionId = opts.sessionId || "";
+  const commandId = opts.commandId || "";
+  const limit = opts.limit || 50;
+  const afterMs = after ? Date.parse(after) : 0;
+  const items = [];
+  for (const e of envelopes || []) {
+    if (!e || e.type !== "output") continue;
+    const ts = e.recv_ts || e.ts || "";
+    const tsMs = ts ? Date.parse(ts) : 0;
+    if (afterMs && tsMs && tsMs <= afterMs) continue;
+    if (sessionId && String(e.session_id) !== sessionId) continue;
+    if (commandId && String(e.command_id) !== commandId) continue;
+    const p = e.payload || {};
+    items.push({
+      ts,
+      session_id: e.session_id || "",
+      command_id: e.command_id || "",
+      stream: p.stream || "stdout",
+      chunk: p.chunk || "",
+      eof: !!p.eof,
+      reason: p.reason || "",
+      method: p.method || "",
+    });
+  }
+  items.sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+  return items.slice(-limit);
+}
+
+function extractStatus(envelopes) {
+  let hb = null;
+  let lastActivity = "";
+  for (const e of envelopes || []) {
+    if (!e) continue;
+    const ts = e.recv_ts || e.ts || "";
+    if (ts > lastActivity) lastActivity = ts;
+    if (e.type === "heartbeat") {
+      const t = Date.parse(ts) || 0;
+      if (!hb || t >= hb._ts) hb = { env: e, _ts: t };
+    }
+  }
+  const p = (hb && hb.env && hb.env.payload) || {};
+  const sessions = extractSessions(envelopes);
+  const last = hb ? hb.env.recv_ts || hb.env.ts || "" : "";
+  const lastMs = last ? Date.parse(last) : 0;
+  const age = lastMs ? Math.max(0, Date.now() - lastMs) : null;
+  const online = age !== null && age < 90 * 1000;
+  return {
+    agent_online: online,
+    last_seen: last || null,
+    last_activity: lastActivity || null,
+    age_ms: age,
+    session_count: Array.isArray(p.sessions) ? p.sessions.length : sessions.length,
+    agent_version: p.agent_version || "",
+    os: p.os || "",
+    status: p.status || (online ? "alive" : "unknown"),
+    sessions,
+  };
+}
+
+async function handleBot(env, ctx, mailboxId, action, request, url) {
+  const denied = await guard(env, ctx, mailboxId, request, "bot." + (action || "discover"));
+  if (denied) return denied;
+
+  if (!action) {
+    if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+    return json(botDiscovery(mailboxId));
+  }
+
+  if (action === "sessions") {
+    if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+    const snap = await mailboxSnapshot(env, mailboxId);
+    return json({
+      ok: true,
+      mailbox_id: mailboxId,
+      sessions: extractSessions(snap),
+      replace: true,
+      now: new Date().toISOString(),
+    });
+  }
+
+  if (action === "inject") {
+    if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+    const rate = await queueStub(env, mailboxId).fetch("https://q/botrate", { method: "POST" });
+    const rateBody = await rate.json().catch(() => ({ allowed: true }));
+    if (!rateBody.allowed) {
+      return json({ error: "rate_limited", retry_after_s: 60 }, 429);
+    }
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: "invalid_json" }, 400);
+    }
+    const text = String(body.text || body.prompt || body.nl_prompt || "").slice(0, BOT_TEXT_MAX);
+    if (!text.trim()) return json({ error: "empty_text" }, 400);
+    const sessionId = String(body.session_id || body.session || "").trim();
+    const submit = body.submit !== false;
+    const mode = String(body.mode || "text").slice(0, 16);
+    const commandId = String(body.command_id || cryptoId());
+    const envelope = {
+      proto: "gbr/1",
+      type: "inject",
+      device_id: "gbr-bot",
+      session_id: sessionId,
+      command_id: commandId,
+      ts: new Date().toISOString(),
+      payload: {
+        mode,
+        text,
+        nl_prompt: mode === "nl" ? text : "",
+        submit,
+        source: "bot",
+      },
+    };
+    const pushReq = new Request(`https://q/push`, {
+      method: "POST",
+      headers: request.headers,
+      body: JSON.stringify(envelope),
+    });
+    const pushed = await handlePush(env, ctx, mailboxId, pushReq);
+    if (pushed.status >= 400) return pushed;
+    const result = await pushed.json().catch(() => ({}));
+    selfTrace(env, ctx, mailboxId, {
+      hop: "relay.bot_inject",
+      type: "inject",
+      session_id: sessionId,
+      command_id: commandId,
+      detail: `chars=${text.length} submit=${submit}`,
+    });
+    return json({
+      ok: true,
+      command_id: commandId,
+      session_id: sessionId,
+      queued: true,
+      size: result.size,
+    });
+  }
+
+  if (action === "output") {
+    if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+    const snap = await mailboxSnapshot(env, mailboxId);
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "50", 10) || 50, 200);
+    return json({
+      ok: true,
+      mailbox_id: mailboxId,
+      items: extractOutputs(snap, {
+        after: url.searchParams.get("after") || "",
+        sessionId: url.searchParams.get("session_id") || "",
+        commandId: url.searchParams.get("command_id") || "",
+        limit,
+      }),
+      now: new Date().toISOString(),
+    });
+  }
+
+  if (action === "status") {
+    if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+    const snap = await mailboxSnapshot(env, mailboxId);
+    return json({
+      ok: true,
+      mailbox_id: mailboxId,
+      ...extractStatus(snap),
+      now: new Date().toISOString(),
+    });
+  }
+
+  return json({ error: "not_found" }, 404);
 }
 
 function json(obj, status = 200) {

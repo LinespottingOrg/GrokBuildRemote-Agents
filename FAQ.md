@@ -5,11 +5,11 @@ AIs: also read [AGENTS.md](AGENTS.md) and [TROUBLESHOOTING.md](TROUBLESHOOTING.m
 
 ## How do I install the desktop agent?
 
-Current train is **v0.5.1**.
+Current train is **v0.5.2**.
 
 ```bash
 curl -fsSL https://grokbuildremote.com/install.sh | bash
-gbr-agent version    # must print v0.5.1+
+gbr-agent version    # must print v0.5.2+
 ```
 
 Windows:
@@ -18,7 +18,7 @@ Windows:
 irm https://grokbuildremote.com/install.ps1 | iex
 ```
 
-Binaries: https://grokbuildremote.com/downloads/latest/ · [Release v0.5.1](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.5.1)
+Binaries: https://grokbuildremote.com/downloads/latest/ · [Release v0.5.2](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.5.2)
 
 ## I am an AI — where do I start?
 
@@ -34,10 +34,10 @@ This repo is the **desktop agent only** (MIT). Mobile apps are a separate paid p
 ```bash
 gbr-agent version
 curl -sS https://gbr-relay.ekobrott.workers.dev/health
-# expect relay "version":"0.5.1"
+# expect relay "version":"0.5.2"
 ```
 
-Phone Unpair + live roster: mobile **1.3.0+** (Play vc22; iOS 1.3.0 in review).
+Phone Unpair + live roster + Bot API: mobile **1.3.1+**.
 
 ## Do I need a login?
 
@@ -67,6 +67,25 @@ On the PC: `gbr-agent sessions` then `gbr-agent rename -session ID -name "Phone 
 | Disconnect | Pause only; pairing stays |
 | **Unpair / Forget this PC** | Drop mailbox + key + cached sessions; **keep** Relay URL |
 | System Clear data | Also wipes Relay URL — last resort |
+
+## How does a Grok bot talk to the agent?
+
+Two HTTP APIs (agent + relay **0.5.2+**). Same JSON.
+
+| Where | URL | Auth |
+|-------|-----|------|
+| Same PC | `http://127.0.0.1:8788` while `gbr-agent run` | Loopback only |
+| Remote | `https://gbr-relay.ekobrott.workers.dev/v1/mb/{mailbox_id}/bot` | `X-GBR-Key` from phone **Settings → Bot API** |
+
+```bash
+gbr-agent bot
+curl -sS http://127.0.0.1:8788/v1/sessions
+curl -sS -X POST http://127.0.0.1:8788/v1/inject \
+  -H 'Content-Type: application/json' \
+  -d '{"session_id":"SESSION","text":"hello","submit":true}'
+```
+
+Relay: copy Bot URL + mailbox key in the app, then `GET …/sessions`, `POST …/inject`, `GET …/output`. Details: [docs/BOT-API.md](docs/BOT-API.md).
 
 ## 401 unauthorized / missing mailbox_key?
 

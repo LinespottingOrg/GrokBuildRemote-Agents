@@ -6,13 +6,13 @@ For AIs: start with [AGENTS.md](AGENTS.md). For humans: https://grokbuildremote.
 
 ```bash
 gbr-agent version
-# expect: gbr-agent v0.5.1 …
+# expect: gbr-agent v0.5.2 …
 
 curl -sS https://gbr-relay.ekobrott.workers.dev/health
-# expect: "version":"0.5.1"
+# expect: "version":"0.5.2"  "bot":true
 ```
 
-Phone: Settings or store listing. Roster + Unpair need mobile **1.3.0+**.
+Phone: Settings or store listing. Roster + Unpair + Bot API need mobile **1.3.1+**.
 
 If the agent is older:
 
@@ -26,9 +26,12 @@ curl -fsSL https://grokbuildremote.com/install.sh | bash
 ```bash
 gbr-agent status
 gbr-agent sessions
+gbr-agent bot
 gbr-agent netcheck
 gbr-agent support-log
 ./scripts/gbr-diag.sh
+curl -sS http://127.0.0.1:8788/          # while run is up
+curl -sS https://gbr-relay.ekobrott.workers.dev/v1/bot
 ```
 
 Send the support-log to **info@linespotting.com**. Redact `mailbox_key`.

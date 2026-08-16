@@ -8,8 +8,8 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 | **This repo** | Desktop agent only · MIT · https://github.com/LinespottingOrg/GrokBuildRemote-Agents |
 | **Website** | https://grokbuildremote.com/ |
 | **Support** | https://grokbuildremote.com/support |
-| **Relay (production)** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · expect `/health` `version: 0.5.1` |
-| **Current agent** | **v0.5.1** (live roster, no 6-name cap, soft max 255) |
+| **Relay (production)** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · expect `/health` `version: 0.5.2` · Bot API `/v1/mb/:id/bot` |
+| **Current agent** | **v0.5.2** (Bot API on `127.0.0.1:8788` + relay; live roster, soft max 255) |
 | **Mobile apps** | Separate private product. iOS/Android store name **Build Remote Agent**. Not in this repo. |
 
 Do **not** invent a second code root. Official agent source is this GitHub repo (or the Dropbox workfolder `APPAR/Grok Build Remote/agents/` for LineSpotting machines).
@@ -18,12 +18,12 @@ Do **not** invent a second code root. Official agent source is this GitHub repo 
 
 ## Install (do this first)
 
-Prefer website binaries (already **v0.5.1**):
+Prefer website binaries (already **v0.5.2**):
 
 ```bash
 # macOS / Linux
 curl -fsSL https://grokbuildremote.com/install.sh | bash
-gbr-agent version    # must print v0.5.1 or newer
+gbr-agent version    # must print v0.5.2 or newer
 ```
 
 ```powershell
@@ -39,10 +39,10 @@ git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents
 make build          # → dist/gbr-agent
 # or
-VERSION=v0.5.1 ./scripts/build-all.sh
+VERSION=v0.5.2 ./scripts/build-all.sh
 ```
 
-GitHub Releases: tagged `v*`. Website `latest` + `v0.5.1` are the install source of truth if the latest tag lags.
+GitHub Releases: tagged `v*`. Website `latest` + `v0.5.2` are the install source of truth if the latest tag lags.
 
 ---
 
@@ -75,11 +75,14 @@ See [NETWORK.md](NETWORK.md). Self-host: [SELF-HOSTED-RELAY.md](SELF-HOSTED-RELA
 gbr-agent version
 gbr-agent status
 gbr-agent sessions
+gbr-agent bot                  # localhost + relay Bot API curl examples
 gbr-agent netcheck
 gbr-agent support-log          # zip-friendly dump for info@linespotting.com
 ./scripts/gbr-diag.sh          # status + hops
 ./scripts/gbr-diag.sh faults
 curl -sS https://gbr-relay.ekobrott.workers.dev/health
+curl -sS https://gbr-relay.ekobrott.workers.dev/v1/bot
+curl -sS http://127.0.0.1:8788/   # while gbr-agent run
 ```
 
 Logs: `~/.gbr/logs/agent-YYYY-MM-DD.jsonl`  
@@ -87,6 +90,22 @@ Pair state: `~/.gbr/device.json` (`mailbox_conversation_id`, `mailbox_key`)
 Session labels: `~/.gbr/sessions.json`
 
 **Never paste `mailbox_key` or `device.json` into a public issue.** Redact keys. `gbr-agent support-log` already summarizes key length.
+
+---
+
+## Bot API (Grok bots / HTTP)
+
+0.5.2+. Full spec: [docs/BOT-API.md](docs/BOT-API.md) · [FAQ](FAQ.md#how-does-a-grok-bot-talk-to-the-agent).
+
+- **Same PC:** `http://127.0.0.1:8788` while `gbr-agent run` (loopback only).
+- **Remote:** `https://gbr-relay.ekobrott.workers.dev/v1/mb/{mailbox_id}/bot` with `X-GBR-Key` from phone **Settings → Bot API**.
+
+```
+GET  /v1/sessions
+POST /v1/inject   { session_id, text, submit }
+GET  /v1/output?command_id=
+GET  /v1/status
+```
 
 ---
 
