@@ -116,6 +116,7 @@ func (sc *Scanner) Rename(cwd, sessionID string) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
+	sess.Title = ResolveDisplayTitle(sess.ID, sess.Title, sess.Shell, sc.labels())
 	stored, _ := sc.Registry.Upsert(sess)
 	return stored, nil
 }
@@ -161,6 +162,12 @@ func (sc *Scanner) ScanOnce(ctx context.Context) (ScanResult, error) {
 		return res, err
 	}
 
+	// Reload disk so `gbr-agent rename -session … -name …` (other process)
+	// is visible without restarting the running agent.
+	if sc.Store != nil {
+		_ = sc.Store.Load()
+	}
+
 	renames := sc.renames()
 	seenCWD := make(map[string]struct{})
 	candidates := make([]Candidate, 0, 8)
@@ -204,6 +211,7 @@ func (sc *Scanner) ScanOnce(ctx context.Context) (ScanResult, error) {
 		if err != nil {
 			continue
 		}
+		sess.Title = ResolveDisplayTitle(sess.ID, c.Title, sess.Shell, sc.labels())
 		// if registry had different id for same cwd, remove old
 		if old, ok := sc.Registry.GetByCWD(sess.CWD); ok && old.ID != sess.ID {
 			sc.Registry.Remove(old.ID)
@@ -264,6 +272,13 @@ func (sc *Scanner) renames() map[string]string {
 		return nil
 	}
 	return sc.Store.Snapshot()
+}
+
+func (sc *Scanner) labels() map[string]string {
+	if sc == nil || sc.Store == nil {
+		return nil
+	}
+	return sc.Store.LabelsSnapshot()
 }
 
 var errNilScanner = errString("session: nil scanner")

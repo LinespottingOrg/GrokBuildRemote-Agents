@@ -37,6 +37,27 @@ func TestSerializeTaggedAndParse(t *testing.T) {
 	}
 }
 
+func TestHeartbeatSessionsRosterRoundTrip(t *testing.T) {
+	env, err := NewEnvelope(TypeHeartbeat, "11111111-1111-1111-1111-111111111111", "", "22222222-2222-2222-2222-222222222222", HeartbeatPayload{
+		SessionCount: 2,
+		Status:       "alive",
+		Sessions: []HeartbeatSession{
+			{SessionID: "grok-build-40a22", Title: "Phone Grok"},
+			{SessionID: "admin", Title: "gbr-agent"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p HeartbeatPayload
+	if err := env.UnmarshalPayload(&p); err != nil {
+		t.Fatal(err)
+	}
+	if p.SessionCount != 2 || len(p.Sessions) != 2 || p.Sessions[0].Title != "Phone Grok" {
+		t.Fatalf("payload: %+v", p)
+	}
+}
+
 func TestParseTaggedEmbedded(t *testing.T) {
 	raw := `Sure, here you go:
 [GBR] {"proto":"gbr/1","type":"pair","device_id":"11111111-1111-1111-1111-111111111111","ts":"2026-07-15T17:00:00Z","payload":{"pairing_code":"A1B2C3D4"}}

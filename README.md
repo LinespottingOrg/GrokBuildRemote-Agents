@@ -1,9 +1,20 @@
 # Build Remote Agent — desktop (`gbr-agent`)
 
 **Product brand:** Build Remote Agent  
-**Binary:** `gbr-agent`  
+**Binary:** `gbr-agent` **v0.5.1**  
 **License:** **MIT** (open source)  
 **Org:** LinespottingOrg / Linespotting AB  
+
+### Docs (humans + AIs)
+
+| Read this | When |
+|-----------|------|
+| **[AGENTS.md](AGENTS.md)** | You are an AI installing or debugging |
+| **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | Something failed (401, empty sessions, stale names) |
+| **[SESSION-NAMES.md](SESSION-NAMES.md)** | Six identical titles / rename / 255 sessions |
+| **[NETWORK.md](NETWORK.md)** | Firewall / netcheck |
+| **[llms.txt](llms.txt)** | Short machine summary |
+| https://grokbuildremote.com/support | End-user playbook |  
 
 Desktop agents for **Windows**, **macOS**, and **Linux**. They discover local terminal / **Grok Build** sessions, inject input, capture output, and exchange **protocol `gbr/1`** envelopes over HTTPS — your phone and PC never open ports to each other.
 
@@ -112,6 +123,14 @@ gbr-agent pair && gbr-agent run
 # same URL in phone Settings → Relay
 ```
 
+### What’s new in 0.5.1
+
+- Dynamic session roster: pushed `list` with `replace: true` + `reason: "snapshot"`, and `heartbeat.payload.sessions[]` (`session_id` + `title`)
+- No six-session cap — soft max **255** (extras dropped with a log, never crash); Grok Build is sorted first
+- `gbr-agent rename -session ID -name "Phone title"` updates the live title without restart
+- Later `register` envelopes update the title for an existing id
+- Relay 0.5.1 latest-wins (one register per session, one list, one heartbeat)
+
 ### What’s new in 0.5.0
 
 - Richer heartbeat (`agent_version`, `relay`, `os`) for phone session health  
@@ -120,6 +139,18 @@ gbr-agent pair && gbr-agent run
 - Feedback peeks (0.4.5+) unchanged; inject/pair protocol still `gbr/1`  
 
 Optional: `sessions`, `status`, `version`, `rename -name MyPC`.
+
+### Session names
+
+The phone shows a **title**, not the raw `conhost` / folder slug. See **[SESSION-NAMES.md](SESSION-NAMES.md)**.
+
+```text
+/rename Phone Grok                  # in Grok Build (slash command)
+gbr-agent sessions                  # list grok-build-… ids
+gbr-agent rename -session grok-build-40a22 -name "Phone Grok"
+```
+
+Soft max 255 advertised sessions; Grok is first. The app must apply `list.replace` / `heartbeat.sessions` (issue #3).
 
 ### API key
 

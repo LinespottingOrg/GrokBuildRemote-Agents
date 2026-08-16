@@ -149,3 +149,42 @@ func TestScannerIDChangeOnGrokSession(t *testing.T) {
 		t.Fatalf("list=%+v old=%s res=%+v", list, oldID, res)
 	}
 }
+
+func TestScannerReloadsLabelFromDisk(t *testing.T) {
+	t.Setenv("GROK_HOME", t.TempDir())
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sessions.json")
+	st, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := NewRegistry()
+	sc := NewScanner(st, reg, func(ctx context.Context) ([]Candidate, error) {
+		return []Candidate{{
+			CWD:      "gbr-ui-grok-1",
+			Shell:    "grok-build",
+			Title:    "conhost",
+			PreferID: "grok-build-40a22",
+			HWND:     0x40a22,
+		}}, nil
+	})
+	sc.StaleAfter = time.Hour
+	if _, err := sc.ScanOnce(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// Other process: gbr-agent rename -session … -name
+	other, err := OpenStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := other.SetLabel("grok-build-40a22", "Phone Grok"); err != nil {
+		t.Fatal(err)
+	}
+	res, err := sc.ScanOnce(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.All) != 1 || res.All[0].Title != "Phone Grok" {
+		t.Fatalf("title not live after rename: %+v", res.All)
+	}
+}

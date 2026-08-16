@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	version = "0.5.0"
+	version = "0.5.1"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -140,7 +140,8 @@ Usage:
   gbr-agent [-log=info] pair [-code CODE] [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL] [-no-open]
       Default: PC generates the code, pairs this agent, opens a browser QR for the
       phone camera to scan (mobile does NOT show the QR — the phone reads it).
-  gbr-agent [-log=info] rename -name DEVICE_NAME [-session SESSION_ID]
+  gbr-agent [-log=info] rename -name DEVICE_NAME
+  gbr-agent [-log=info] rename -session SESSION_ID -name "Phone title"
   gbr-agent [-log=info] sessions
   gbr-agent [-log=info] logs [-f] [-n 50] [-command COMMAND_ID]
   gbr-agent [-log=info] support-log [-open]
@@ -203,6 +204,9 @@ type agentRuntime struct {
 	// lastFeedbackHash avoids spamming identical capture text on the periodic loop.
 	fbMu       sync.Mutex
 	fbLastHash map[string]string
+
+	snapMu   sync.Mutex
+	lastSnap string
 }
 
 func cmdRun(args []string) int {
@@ -287,45 +291,8 @@ Lock file: %s
 			slog.Warn("discover failed", "err", err)
 			return nil, err
 		}
-		// Sort Grok Build windows first so they never lose a collision race.
-		sort.SliceStable(wins, func(i, j int) bool {
-			gi := strings.Contains(string(wins[i].Kind), "grok")
-			gj := strings.Contains(string(wins[j].Kind), "grok")
-			if gi != gj {
-				return gi
-			}
-			return wins[i].Title < wins[j].Title
-		})
-		var out []session.Candidate
-		var grokN, otherN int
-		for _, w := range wins {
-			kind := string(w.Kind)
-			if kind == "" {
-				kind = "window"
-			}
-			// UNIQUE per HWND — never share agent cwd (that collapsed all terminals
-			// into one session_id and hid Grok Build on multi-window Windows desktops).
-			prefer := fmt.Sprintf("%s-%x", kind, w.HWND)
-			if strings.Contains(kind, "grok") {
-				prefer = fmt.Sprintf("grok-build-%x", w.HWND)
-				grokN++
-			} else {
-				otherN++
-			}
-			virtualCWD := fmt.Sprintf("gbr-ui-%s-%d-%x", kind, w.PID, w.HWND)
-			title := w.Title
-			if title == "" {
-				title = kind
-			}
-			out = append(out, session.Candidate{
-				CWD:      virtualCWD,
-				Shell:    kind,
-				PID:      int(w.PID),
-				HWND:     w.HWND,
-				Title:    title,
-				PreferID: prefer,
-			})
-		}
+		sortWindowsGrokFirst(wins)
+		out, grokN, otherN := windowsToCandidates(wins)
 		slog.Info("discover", "windows", len(out), "grok_build", grokN, "other_terminals", otherN)
 		trace.Emit(trace.Event{
 			Hop:    "agent.discover",
@@ -394,6 +361,14 @@ Lock file: %s
 	defer stop()
 	defer func() { _ = hybrid.Close() }()
 
+	sc.OnScan = func(res session.ScanResult) {
+		if rt.noteSessionSnapshot(res.All) {
+			slog.Info("sessions changed",
+				"n", len(res.All), "added", len(res.Added), "removed", len(res.Removed))
+			go rt.publishSessionSnapshot(context.Background(), mailboxID)
+		}
+	}
+
 	// Background: session scanner
 	go func() {
 		if err := sc.Run(ctx); err != nil && ctx.Err() == nil {
@@ -401,7 +376,7 @@ Lock file: %s
 		}
 	}()
 
-	// Publish registers periodically
+	// Publish a full session snapshot periodically (and on add/remove/rename).
 	go rt.registerLoop(ctx, mailboxID)
 
 	// Heartbeat
@@ -561,9 +536,16 @@ func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.
 		return rt.handleControl(ctx, mailboxID, env)
 
 	case grok.TypeList:
+		// Snapshots we pushed (device_id = this agent) come back on poll.
+		// Only answer list requests from the phone.
+		if env.DeviceID == rt.dev.DeviceID {
+			return nil
+		}
 		sessions := rt.listSessionPayloads()
 		out, err := grok.NewEnvelope(grok.TypeList, rt.dev.DeviceID, "", env.CommandID, map[string]any{
 			"sessions": sessions,
+			"replace":  true,
+			"reason":   "snapshot",
 		})
 		if err != nil {
 			return err
@@ -779,22 +761,10 @@ func (rt *agentRuntime) feedbackSessionIDs(cfg core.FeedbackConfig) []string {
 		}
 	}
 	for _, id := range rt.hybrid.ManagedIDs() {
-		found := false
-		for _, x := range ids {
-			if x == id {
-				found = true
-				break
-			}
-		}
-		if !found {
-			ids = append(ids, id)
-		}
+		ids = append(ids, id)
 	}
-	// Cap fan-out: first 6 sessions only
-	if len(ids) > 6 {
-		ids = ids[:6]
-	}
-	return ids
+	// Grok Build first, then the agent shell, then other terminals. No cap.
+	return prioritizeSessionIDs(ids)
 }
 
 func (rt *agentRuntime) pushFeedbackSample(ctx context.Context, mailboxID, sessionID, commandID string, force bool) error {
@@ -917,15 +887,35 @@ func (rt *agentRuntime) pushEnv(ctx context.Context, mailboxID string, env *grok
 	return rt.relay.Push(pctx, mailboxID, wire)
 }
 
+func (rt *agentRuntime) refreshSessionStore() {
+	if rt == nil || rt.store == nil {
+		return
+	}
+	if err := rt.store.Load(); err != nil {
+		slog.Debug("session store reload", "err", err)
+	}
+}
+
 func (rt *agentRuntime) listSessionPayloads() []map[string]any {
+	rt.refreshSessionStore()
+	var labels map[string]string
+	if rt.store != nil {
+		labels = rt.store.LabelsSnapshot()
+	}
 	var out []map[string]any
 	if rt.scanner != nil && rt.scanner.Registry != nil {
 		for _, s := range rt.scanner.Registry.List() {
+			title := session.ResolveDisplayTitle(s.ID, s.Title, s.Shell, labels)
+			if title != "" && title != s.Title {
+				upd := s.Clone()
+				upd.Title = title
+				rt.scanner.Registry.Upsert(upd)
+			}
 			out = append(out, map[string]any{
 				"session_id": s.ID,
 				"cwd":        s.CWD,
 				"shell":      s.Shell,
-				"title":      s.Title,
+				"title":      title,
 				"os":         runtime.GOOS,
 				"git_remote": s.GitRemote,
 			})
@@ -938,16 +928,19 @@ func (rt *agentRuntime) listSessionPayloads() []map[string]any {
 			seen[id] = true
 		}
 	}
-	for _, id := range rt.hybrid.ManagedIDs() {
-		if seen[id] {
-			continue
+	if rt.hybrid != nil {
+		for _, id := range rt.hybrid.ManagedIDs() {
+			if seen[id] {
+				continue
+			}
+			title := session.ResolveDisplayTitle(id, "gbr managed shell", "managed", labels)
+			out = append(out, map[string]any{
+				"session_id": id,
+				"shell":      "managed",
+				"title":      title,
+				"os":         runtime.GOOS,
+			})
 		}
-		out = append(out, map[string]any{
-			"session_id": id,
-			"shell":      "managed",
-			"title":      "gbr managed shell",
-			"os":         runtime.GOOS,
-		})
 	}
 	if len(out) == 0 {
 		cwd, _ := os.Getwd()
@@ -959,26 +952,98 @@ func (rt *agentRuntime) listSessionPayloads() []map[string]any {
 			"os":         runtime.GOOS,
 		})
 	}
-	return out
+	sort.SliceStable(out, func(i, j int) bool {
+		idi, _ := out[i]["session_id"].(string)
+		idj, _ := out[j]["session_id"].(string)
+		ti, _ := out[i]["title"].(string)
+		tj, _ := out[j]["title"].(string)
+		si, _ := out[i]["shell"].(string)
+		sj, _ := out[j]["shell"].(string)
+		pi := sessionPriority(idi, ti, si)
+		pj := sessionPriority(idj, tj, sj)
+		if pi != pj {
+			return pi < pj
+		}
+		return false
+	})
+	return clipAndLog(out, "list")
 }
 
 func (rt *agentRuntime) registerLoop(ctx context.Context, mailboxID string) {
 	t := time.NewTicker(15 * time.Second)
 	defer t.Stop()
-	// immediate
-	rt.publishRegisters(ctx, mailboxID)
+	rt.publishSessionSnapshot(ctx, mailboxID)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			rt.publishRegisters(ctx, mailboxID)
+			rt.publishSessionSnapshot(ctx, mailboxID)
 		}
 	}
 }
 
+func (rt *agentRuntime) noteSessionSnapshot(all []*session.Session) bool {
+	parts := make([]string, 0, len(all))
+	for _, s := range all {
+		if s == nil {
+			continue
+		}
+		parts = append(parts, s.ID+"\t"+s.Title)
+	}
+	sort.Strings(parts)
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\n")))
+	fp := hex.EncodeToString(sum[:8])
+	rt.snapMu.Lock()
+	defer rt.snapMu.Unlock()
+	if fp == rt.lastSnap {
+		return false
+	}
+	rt.lastSnap = fp
+	return true
+}
+
+func (rt *agentRuntime) heartbeatSessions() []grok.HeartbeatSession {
+	raw := rt.listSessionPayloads()
+	out := make([]grok.HeartbeatSession, 0, len(raw))
+	for _, m := range raw {
+		id, _ := m["session_id"].(string)
+		if id == "" {
+			continue
+		}
+		title, _ := m["title"].(string)
+		out = append(out, grok.HeartbeatSession{SessionID: id, Title: title})
+	}
+	return out
+}
+
+func (rt *agentRuntime) publishSessionSnapshot(ctx context.Context, mailboxID string) {
+	sessions := rt.listSessionPayloads()
+	env, err := grok.NewEnvelope(grok.TypeList, rt.dev.DeviceID, "", uuid.NewString(), map[string]any{
+		"sessions": sessions,
+		"replace":  true,
+		"reason":   "snapshot",
+	})
+	if err == nil {
+		if err := rt.pushEnv(ctx, mailboxID, env); err != nil {
+			slog.Debug("list snapshot push", "err", err)
+		}
+	}
+	rt.publishRegisters(ctx, mailboxID)
+}
+
 func (rt *agentRuntime) publishRegisters(ctx context.Context, mailboxID string) {
-	for _, msg := range rt.scanner.Registers(rt.dev.DeviceID) {
+	regs := rt.scanner.Registers(rt.dev.DeviceID)
+	sort.SliceStable(regs, func(i, j int) bool {
+		pi := sessionPriority(regs[i].SessionID, regs[i].Payload.Title, regs[i].Payload.Shell)
+		pj := sessionPriority(regs[j].SessionID, regs[j].Payload.Title, regs[j].Payload.Shell)
+		if pi != pj {
+			return pi < pj
+		}
+		return false
+	})
+	regs = clipAndLog(regs, "register")
+	for _, msg := range regs {
 		// msg is session.RegisterMessage — convert to grok envelope map
 		b, err := json.Marshal(msg)
 		if err != nil {
@@ -1005,16 +1070,14 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			n := 0
-			if rt.scanner != nil && rt.scanner.Registry != nil {
-				n = len(rt.scanner.Registry.List())
-			}
+			roster := rt.heartbeatSessions()
 			env, err := grok.NewEnvelope(grok.TypeHeartbeat, rt.dev.DeviceID, "", uuid.NewString(), grok.HeartbeatPayload{
-				SessionCount: n,
+				SessionCount: len(roster),
 				Status:       "alive",
 				AgentVersion: version,
 				Relay:        rt.relay.Base(),
 				OS:           runtime.GOOS,
+				Sessions:     roster,
 			})
 			if err != nil {
 				continue
@@ -1027,7 +1090,7 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 				Hop:    trace.HopAgentHeartbeat,
 				Type:   "heartbeat",
 				OK:     hbErr == nil,
-				Detail: fmt.Sprintf("sessions=%d version=%s", n, version),
+				Detail: fmt.Sprintf("sessions=%d version=%s", len(roster), version),
 			})
 		}
 	}
@@ -1278,14 +1341,23 @@ func cmdRename(args []string) int {
 	_ = fs.Parse(args)
 
 	if *sessionID != "" {
-		if !grok.ValidSessionID(*sessionID) {
-			slog.Error("invalid session_id", "id", *sessionID)
-			return 2
-		}
 		store, err := session.OpenStore("")
 		if err != nil {
 			slog.Error("store", "err", err)
 			return 1
+		}
+		// -session + -name → phone display title (does not change session_id).
+		if strings.TrimSpace(*name) != "" {
+			if err := store.SetLabel(*sessionID, *name); err != nil {
+				slog.Error("session label", "err", err)
+				return 1
+			}
+			fmt.Printf("session %s title=%s\n", *sessionID, strings.TrimSpace(*name))
+			return 0
+		}
+		if !grok.ValidSessionID(*sessionID) {
+			slog.Error("invalid session_id", "id", *sessionID)
+			return 2
 		}
 		cwd, _ := os.Getwd()
 		if err := store.Rename(cwd, *sessionID); err != nil {
@@ -1320,7 +1392,17 @@ func cmdSessions(args []string) int {
 		slog.Warn("store", "err", err)
 	}
 	reg := session.NewRegistry()
-	sc := session.NewScanner(store, reg, nil)
+	ui := inject.Default()
+	defer func() { _ = ui.Close() }()
+	sc := session.NewScanner(store, reg, func(ctx context.Context) ([]session.Candidate, error) {
+		wins, err := ui.Discover()
+		if err != nil {
+			return nil, err
+		}
+		sortWindowsGrokFirst(wins)
+		out, _, _ := windowsToCandidates(wins)
+		return out, nil
+	})
 	cwd, _ := os.Getwd()
 	sc.Track(session.Candidate{CWD: cwd, Shell: defaultShellName(), Title: "gbr-agent"})
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -1328,7 +1410,16 @@ func cmdSessions(args []string) int {
 	if _, err := sc.ScanOnce(ctx); err != nil {
 		slog.Warn("scan", "err", err)
 	}
-	for _, s := range reg.List() {
+	list := reg.List()
+	sort.SliceStable(list, func(i, j int) bool {
+		pi := sessionPriority(list[i].ID, list[i].Title, list[i].Shell)
+		pj := sessionPriority(list[j].ID, list[j].Title, list[j].Shell)
+		if pi != pj {
+			return pi < pj
+		}
+		return list[i].ID < list[j].ID
+	})
+	for _, s := range list {
 		fmt.Printf("%-24s  cwd=%s  shell=%s  title=%s\n", s.ID, s.CWD, s.Shell, s.Title)
 	}
 	return 0

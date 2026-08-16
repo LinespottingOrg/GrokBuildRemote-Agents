@@ -1,0 +1,32 @@
+# Build Remote Agent — desktop gbr-agent
+
+> MIT open-source PC agent (Windows / macOS / Linux). Pairs with the paid Build Remote Agent iOS/Android apps. Independent Linespotting AB product.
+
+Website: https://grokbuildremote.com/
+Support: https://grokbuildremote.com/support
+Repo: https://github.com/LinespottingOrg/GrokBuildRemote-Agents
+Relay: https://gbr-relay.ekobrott.workers.dev/health  (expect version 0.5.1)
+Current agent: v0.5.1
+
+## Install
+macOS/Linux: curl -fsSL https://grokbuildremote.com/install.sh | bash
+Windows: irm https://grokbuildremote.com/install.ps1 | iex
+Then: gbr-agent version   # must be v0.5.1+
+
+## Pair
+gbr-agent pair     # QR in browser — phone scans
+gbr-agent run      # keep running
+Phone: Unpair in Settings before pairing a new mailbox. Force-close is not enough.
+
+## Debug
+gbr-agent status | sessions | netcheck | support-log
+./scripts/gbr-diag.sh
+Docs: AGENTS.md (AI), TROUBLESHOOTING.md, SESSION-NAMES.md, NETWORK.md
+
+## Session names
+0.5.0 capped at 6 sessions (stale conhost titles). 0.5.1 live roster, replace:true, max 255.
+Rename: /rename in Grok Build, or gbr-agent rename -session ID -name "Title"
+
+## Do not
+Do not commit ~/.gbr, mailbox_key, wrangler.toml secrets.
+Do not tell users to system-Clear-data if the app has Unpair (1.3.0+).

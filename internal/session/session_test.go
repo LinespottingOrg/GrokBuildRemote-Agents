@@ -47,6 +47,20 @@ func TestRegistryUpsertGetList(t *testing.T) {
 	}
 }
 
+func TestRegistryUpsert_UpdatesTitle(t *testing.T) {
+	t.Parallel()
+	r := NewRegistry()
+	r.Upsert(&Session{ID: "grok-build-1", CWD: "gbr-ui-a", Title: "conhost"})
+	_, isNew := r.Upsert(&Session{ID: "grok-build-1", CWD: "gbr-ui-a", Title: "Phone Grok"})
+	if isNew {
+		t.Fatal("expected update of existing id, not new")
+	}
+	got, ok := r.Get("grok-build-1")
+	if !ok || got.Title != "Phone Grok" {
+		t.Fatalf("title=%q ok=%v (later register must update title)", got.Title, ok)
+	}
+}
+
 func TestRegistryRemoveStale(t *testing.T) {
 	t.Parallel()
 	r := NewRegistry()
