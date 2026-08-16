@@ -68,6 +68,17 @@ On the PC: `gbr-agent sessions` then `gbr-agent rename -session ID -name "Phone 
 | **Unpair / Forget this PC** | Drop mailbox + key + cached sessions; **keep** Relay URL |
 | System Clear data | Also wipes Relay URL — last resort |
 
+## Can one Grok bot drive several PCs (Mac + Linux)?
+
+Yes (agent/relay **0.5.3+**). One Grok instance, one API.
+
+1. Pair the **hub** PC (the phone stays on this mailbox).
+2. Pair each extra PC. On the hub: `gbr-agent fleet add -name studio-linux -mailbox gbr-XXXX -key KEY`
+3. Bot calls `http://127.0.0.1:8788` **or** the hub relay Bot URL.
+4. `POST /inject` with `"device":"local"` or `"device":"studio-linux"`.
+
+The phone on the hub sees short lines like `bot · studio-linux · inject queued`. See [docs/BOT-API.md](docs/BOT-API.md).
+
 ## How does a Grok bot talk to the agent?
 
 Two HTTP APIs (agent + relay **0.5.2+**). Same JSON.

@@ -27,7 +27,8 @@
 const MAX_QUEUE = 500;
 const MAX_TRACE = 400;
 const TRACE_TTL = 60 * 60 * 24 * 7; // 7 days
-const RELAY_VERSION = "0.5.2";
+const RELAY_VERSION = "0.5.3";
+const MAX_FLEET = 32;
 const BOT_INJECT_WINDOW_MS = 60 * 1000;
 const BOT_INJECT_MAX = 60;
 const BOT_TEXT_MAX = 32 * 1024;
@@ -74,18 +75,18 @@ export default {
           product: "Grok Build Remote",
           bot: true,
           bot_path: "/v1/mb/:id/bot",
+          fleet: true,
         });
       }
       if (url.pathname === "/v1/bot" || url.pathname === "/bot") {
         return json(botDiscovery(""));
       }
-      const bot = url.pathname.match(
-        /^\/v1\/mb\/([^/]+)\/bot(?:\/(sessions|inject|output|status))?$/
-      );
-      if (bot) {
-        const mailboxId = sanitizeId(decodeURIComponent(bot[1]));
+      const botPath = url.pathname.match(/^\/v1\/mb\/([^/]+)\/bot(?:\/(.*))?$/);
+      if (botPath) {
+        const mailboxId = sanitizeId(decodeURIComponent(botPath[1]));
         if (!mailboxId) return json({ error: "bad_mailbox" }, 400);
-        return handleBot(env, ctx, mailboxId, bot[2] || "", request, url);
+        const rest = (botPath[2] || "").replace(/\/+$/, "");
+        return handleBot(env, ctx, mailboxId, rest, request, url);
       }
       const m = url.pathname.match(/^\/v1\/mb\/([^/]+)\/(push|poll|pair|ack|trace)$/);
       if (!m) return json({ error: "not_found" }, 404);
@@ -476,6 +477,18 @@ export class MailboxQueue {
       return jsonResponse({ ok: true, envelopes, size: envelopes.length });
     }
 
+    if (action === "fleetget") {
+      const fleet = (await this.state.storage.get("fleet")) || { devices: [] };
+      return jsonResponse({ ok: true, devices: Array.isArray(fleet.devices) ? fleet.devices : [] });
+    }
+
+    if (action === "fleetput") {
+      const body = await request.json().catch(() => ({}));
+      const devices = Array.isArray(body.devices) ? body.devices.slice(0, MAX_FLEET) : [];
+      await this.state.storage.put("fleet", { devices, updated: new Date().toISOString() });
+      return jsonResponse({ ok: true, n: devices.length });
+    }
+
     if (action === "botrate") {
       const res = await this.state.blockConcurrencyWhile(async () => {
         const now = Date.now();
@@ -734,20 +747,143 @@ function botDiscovery(mailboxId) {
     auth: ["X-GBR-Key", "Authorization: Bearer <mailbox_key>"],
     endpoints: {
       discovery: `GET ${base}`,
-      sessions: `GET ${base}/sessions`,
+      devices: `GET ${base}/devices`,
+      add_device: `POST ${base}/devices`,
+      sessions: `GET ${base}/sessions?device=`,
       inject: `POST ${base}/inject`,
-      output: `GET ${base}/output?after=&session_id=&command_id=&limit=`,
-      status: `GET ${base}/status`,
+      output: `GET ${base}/output?device=&after=&session_id=&command_id=&limit=`,
+      status: `GET ${base}/status?device=`,
     },
     inject_body: {
+      device: "local | studio-linux | mac-mini",
       session_id: "grok-build-…",
       text: "the prompt to type",
       submit: true,
-      mode: "text",
+      notify_phone: true,
     },
-    note: "Mailbox id + key live in the phone app Settings → Bot API after pairing. Same key as X-GBR-Key on push/poll.",
-    local_agent: "http://127.0.0.1:8788 (loopback; gbr-agent run)",
+    note: "One hub mailbox + key. Register other Mac/Linux PCs on /devices. Grok bot talks to this one URL. Short status lines sync to the phone on the hub mailbox.",
+    local_agent: "http://127.0.0.1:8788 (loopback; gbr-agent run — same fleet)",
   };
+}
+
+function fleetSlug(id) {
+  return String(id || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[_\s]+/g, "-");
+}
+
+function isLocalDevice(id) {
+  const s = fleetSlug(id);
+  return !s || s === "local" || s === "this" || s === "hub" || s === "self" || s === "here";
+}
+
+function publicFleetDevice(d) {
+  if (!d) return null;
+  return {
+    id: d.id,
+    name: d.name || d.id,
+    kind: d.kind || "relay",
+    mailbox_id: d.mailbox_id || "",
+    os: d.os || "",
+    has_key: !!(d.mailbox_key && String(d.mailbox_key).length),
+    added_at: d.added_at || "",
+  };
+}
+
+async function fleetList(env, mailboxId) {
+  const res = await queueStub(env, mailboxId).fetch("https://q/fleetget");
+  const body = await res.json().catch(() => ({}));
+  return Array.isArray(body.devices) ? body.devices : [];
+}
+
+async function fleetSave(env, mailboxId, devices) {
+  await queueStub(env, mailboxId).fetch("https://q/fleetput", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ devices }),
+  });
+}
+
+async function fleetFind(env, mailboxId, id) {
+  if (isLocalDevice(id)) {
+    return { id: "local", name: "this PC", kind: "local", mailbox_id: mailboxId };
+  }
+  const slug = fleetSlug(id);
+  const list = await fleetList(env, mailboxId);
+  return list.find((d) => d && (d.id === slug || fleetSlug(d.name) === slug)) || null;
+}
+
+async function pushHubStatus(env, ctx, hubMailbox, request, text, commandId, sessionId) {
+  const envelope = {
+    proto: "gbr/1",
+    type: "output",
+    device_id: "gbr-bot",
+    session_id: sessionId || "bot",
+    command_id: commandId || cryptoId(),
+    ts: new Date().toISOString(),
+    payload: {
+      stream: "system",
+      chunk: String(text || "").slice(0, 500),
+      eof: true,
+      reason: "bot",
+      method: "status",
+    },
+  };
+  const pushReq = new Request("https://q/push", {
+    method: "POST",
+    headers: request.headers,
+    body: JSON.stringify(envelope),
+  });
+  await handlePush(env, ctx, hubMailbox, pushReq);
+}
+
+async function botInjectInto(env, ctx, targetMailbox, presentedKey, body) {
+  const text = String(body.text || body.prompt || body.nl_prompt || "").slice(0, BOT_TEXT_MAX);
+  if (!text.trim()) return json({ error: "empty_text" }, 400);
+  const sessionId = String(body.session_id || body.session || "").trim();
+  const submit = body.submit !== false;
+  const mode = String(body.mode || "text").slice(0, 16);
+  const commandId = String(body.command_id || cryptoId());
+  const rate = await queueStub(env, targetMailbox).fetch("https://q/botrate", { method: "POST" });
+  const rateBody = await rate.json().catch(() => ({ allowed: true }));
+  if (!rateBody.allowed) {
+    return json({ error: "rate_limited", retry_after_s: 60 }, 429);
+  }
+  const envelope = {
+    proto: "gbr/1",
+    type: "inject",
+    device_id: "gbr-bot",
+    session_id: sessionId,
+    command_id: commandId,
+    ts: new Date().toISOString(),
+    payload: {
+      mode,
+      text,
+      nl_prompt: mode === "nl" ? text : "",
+      submit,
+      source: "bot",
+    },
+  };
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  if (presentedKey) headers.set("X-GBR-Key", presentedKey);
+  const pushReq = new Request("https://q/push", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(envelope),
+  });
+  const pushed = await handlePush(env, ctx, targetMailbox, pushReq);
+  if (pushed.status >= 400) return pushed;
+  const result = await pushed.json().catch(() => ({}));
+  return json({
+    ok: true,
+    command_id: commandId,
+    session_id: sessionId,
+    mailbox_id: targetMailbox,
+    queued: true,
+    size: result.size,
+  });
 }
 
 async function mailboxSnapshot(env, mailboxId) {
@@ -868,92 +1004,107 @@ function extractStatus(envelopes) {
   };
 }
 
-async function handleBot(env, ctx, mailboxId, action, request, url) {
-  const denied = await guard(env, ctx, mailboxId, request, "bot." + (action || "discover"));
+async function handleBot(env, ctx, mailboxId, rest, request, url) {
+  const denied = await guard(env, ctx, mailboxId, request, "bot." + (rest || "discover"));
   if (denied) return denied;
+
+  const parts = rest ? rest.split("/").filter(Boolean) : [];
+  let action = parts[0] || "";
+  let deviceId = url.searchParams.get("device") || "";
+  const sub = parts[0] === "devices" ? parts[2] || "" : "";
+  if (parts[0] === "devices" && parts[1]) deviceId = parts[1];
+  if (action === "devices" && deviceId && ["sessions", "inject", "output", "status"].includes(sub)) {
+    action = sub;
+  }
 
   if (!action) {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
-    return json(botDiscovery(mailboxId));
+    const fleet = await fleetList(env, mailboxId);
+    const disc = botDiscovery(mailboxId);
+    disc.devices = [
+      { id: "local", name: "this PC", kind: "local", mailbox_id: mailboxId, has_key: true },
+      ...fleet.map(publicFleetDevice),
+    ];
+    return json(disc);
   }
 
-  if (action === "sessions") {
+  if (action === "devices") {
+    return handleBotDevices(env, ctx, mailboxId, deviceId, sub, request, url);
+  }
+
+  if (action === "sessions" || sub === "sessions") {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
-    const snap = await mailboxSnapshot(env, mailboxId);
+    const target = await resolveBotTarget(env, mailboxId, deviceId || url.searchParams.get("device"));
+    if (target.error) return target.error;
+    const snap = await mailboxSnapshot(env, target.mailbox);
     return json({
       ok: true,
-      mailbox_id: mailboxId,
+      mailbox_id: target.mailbox,
+      device: target.public,
       sessions: extractSessions(snap),
       replace: true,
       now: new Date().toISOString(),
     });
   }
 
-  if (action === "inject") {
+  if (action === "inject" || sub === "inject") {
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-    const rate = await queueStub(env, mailboxId).fetch("https://q/botrate", { method: "POST" });
-    const rateBody = await rate.json().catch(() => ({ allowed: true }));
-    if (!rateBody.allowed) {
-      return json({ error: "rate_limited", retry_after_s: 60 }, 429);
-    }
     let body = {};
     try {
       body = await request.json();
     } catch {
       return json({ error: "invalid_json" }, 400);
     }
-    const text = String(body.text || body.prompt || body.nl_prompt || "").slice(0, BOT_TEXT_MAX);
-    if (!text.trim()) return json({ error: "empty_text" }, 400);
-    const sessionId = String(body.session_id || body.session || "").trim();
-    const submit = body.submit !== false;
-    const mode = String(body.mode || "text").slice(0, 16);
-    const commandId = String(body.command_id || cryptoId());
-    const envelope = {
-      proto: "gbr/1",
-      type: "inject",
-      device_id: "gbr-bot",
-      session_id: sessionId,
-      command_id: commandId,
-      ts: new Date().toISOString(),
-      payload: {
-        mode,
-        text,
-        nl_prompt: mode === "nl" ? text : "",
-        submit,
-        source: "bot",
-      },
-    };
-    const pushReq = new Request(`https://q/push`, {
-      method: "POST",
-      headers: request.headers,
-      body: JSON.stringify(envelope),
-    });
-    const pushed = await handlePush(env, ctx, mailboxId, pushReq);
-    if (pushed.status >= 400) return pushed;
-    const result = await pushed.json().catch(() => ({}));
+    const want = deviceId || body.device || body.device_id || "";
+    const target = await resolveBotTarget(env, mailboxId, want);
+    if (target.error) return target.error;
+    const keyForTarget = target.kind === "local" ? presentedKey(request) : target.mailbox_key;
+    const injected = await botInjectInto(env, ctx, target.mailbox, keyForTarget, body);
+    if (injected.status >= 400) return injected;
+    const result = await injected.json().catch(() => ({}));
+    const notify = body.notify_phone !== false;
+    const label = target.public.id || "local";
+    const sid = result.session_id || "";
+    if (notify) {
+      await pushHubStatus(
+        env,
+        ctx,
+        mailboxId,
+        request,
+        `bot · ${label} · inject queued · session ${sid || "(default)"}`,
+        result.command_id,
+        sid || "bot"
+      );
+    }
     selfTrace(env, ctx, mailboxId, {
       hop: "relay.bot_inject",
       type: "inject",
-      session_id: sessionId,
-      command_id: commandId,
-      detail: `chars=${text.length} submit=${submit}`,
+      session_id: sid,
+      command_id: result.command_id,
+      detail: `device=${label} mailbox=${target.mailbox}`,
     });
     return json({
       ok: true,
-      command_id: commandId,
-      session_id: sessionId,
+      command_id: result.command_id,
+      session_id: sid,
+      device: target.public,
+      mailbox_id: target.mailbox,
       queued: true,
       size: result.size,
+      phone_status: notify,
     });
   }
 
-  if (action === "output") {
+  if (action === "output" || sub === "output") {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
-    const snap = await mailboxSnapshot(env, mailboxId);
+    const target = await resolveBotTarget(env, mailboxId, deviceId || url.searchParams.get("device"));
+    if (target.error) return target.error;
+    const snap = await mailboxSnapshot(env, target.mailbox);
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "50", 10) || 50, 200);
     return json({
       ok: true,
-      mailbox_id: mailboxId,
+      mailbox_id: target.mailbox,
+      device: target.public,
       items: extractOutputs(snap, {
         after: url.searchParams.get("after") || "",
         sessionId: url.searchParams.get("session_id") || "",
@@ -964,18 +1115,125 @@ async function handleBot(env, ctx, mailboxId, action, request, url) {
     });
   }
 
-  if (action === "status") {
+  if (action === "status" || sub === "status") {
     if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
-    const snap = await mailboxSnapshot(env, mailboxId);
+    const want = deviceId || url.searchParams.get("device") || "";
+    if (!want) {
+      const hub = extractStatus(await mailboxSnapshot(env, mailboxId));
+      const fleet = await fleetList(env, mailboxId);
+      const devices = [{ id: "local", name: "this PC", kind: "local", mailbox_id: mailboxId, ...hub }];
+      for (const d of fleet) {
+        const st = extractStatus(await mailboxSnapshot(env, d.mailbox_id));
+        devices.push({ ...publicFleetDevice(d), ...st });
+      }
+      return json({
+        ok: true,
+        mailbox_id: mailboxId,
+        hub: true,
+        device_count: devices.length,
+        devices,
+        now: new Date().toISOString(),
+      });
+    }
+    const target = await resolveBotTarget(env, mailboxId, want);
+    if (target.error) return target.error;
+    const snap = await mailboxSnapshot(env, target.mailbox);
     return json({
       ok: true,
-      mailbox_id: mailboxId,
+      mailbox_id: target.mailbox,
+      device: target.public,
       ...extractStatus(snap),
       now: new Date().toISOString(),
     });
   }
 
   return json({ error: "not_found" }, 404);
+}
+
+async function resolveBotTarget(env, hubMailbox, deviceId) {
+  if (isLocalDevice(deviceId)) {
+    return {
+      kind: "local",
+      mailbox: hubMailbox,
+      public: { id: "local", name: "this PC", kind: "local", mailbox_id: hubMailbox },
+    };
+  }
+  const found = await fleetFind(env, hubMailbox, deviceId);
+  if (!found) return { error: json({ error: "unknown_device", device: deviceId }, 404) };
+  if (!found.mailbox_id || !found.mailbox_key) {
+    return { error: json({ error: "device_missing_key", device: found.id }, 400) };
+  }
+  return {
+    kind: "relay",
+    mailbox: found.mailbox_id,
+    mailbox_key: found.mailbox_key,
+    public: publicFleetDevice(found),
+  };
+}
+
+async function handleBotDevices(env, ctx, mailboxId, deviceId, sub, request, url) {
+  if (!deviceId) {
+    if (request.method === "GET") {
+      const fleet = await fleetList(env, mailboxId);
+      return json({
+        ok: true,
+        mailbox_id: mailboxId,
+        devices: [
+          { id: "local", name: "this PC", kind: "local", mailbox_id: mailboxId, has_key: true },
+          ...fleet.map(publicFleetDevice),
+        ],
+      });
+    }
+    if (request.method === "POST") {
+      let body = {};
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      const id = fleetSlug(body.id || body.name);
+      if (!id || isLocalDevice(id) || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(id)) {
+        return json({ error: "bad_device_id" }, 400);
+      }
+      const mb = sanitizeId(String(body.mailbox_id || ""));
+      const key = String(body.mailbox_key || body.key || "").trim();
+      if (!mb || !key) return json({ error: "mailbox_id_and_key_required" }, 400);
+      const fleet = await fleetList(env, mailboxId);
+      const rec = {
+        id,
+        name: String(body.name || id),
+        kind: "relay",
+        mailbox_id: mb,
+        mailbox_key: key,
+        os: String(body.os || "").slice(0, 32),
+        added_at: new Date().toISOString(),
+      };
+      const next = fleet.filter((d) => d.id !== id);
+      if (next.length >= MAX_FLEET) return json({ error: "fleet_full" }, 400);
+      next.push(rec);
+      await fleetSave(env, mailboxId, next);
+      await pushHubStatus(env, ctx, mailboxId, request, `bot · fleet + ${id} (${mb})`, "", "bot");
+      return json({ ok: true, device: publicFleetDevice(rec) });
+    }
+    return json({ error: "method_not_allowed" }, 405);
+  }
+
+  if (request.method === "GET") {
+    const found = await fleetFind(env, mailboxId, deviceId);
+    if (!found) return json({ error: "unknown_device" }, 404);
+    return json({ ok: true, device: publicFleetDevice(found) });
+  }
+  if (request.method === "DELETE") {
+    if (isLocalDevice(deviceId)) return json({ error: "cannot_delete_local" }, 400);
+    const slug = fleetSlug(deviceId);
+    const fleet = await fleetList(env, mailboxId);
+    const next = fleet.filter((d) => d.id !== slug);
+    if (next.length === fleet.length) return json({ error: "unknown_device" }, 404);
+    await fleetSave(env, mailboxId, next);
+    await pushHubStatus(env, ctx, mailboxId, request, `bot · fleet − ${slug}`, "", "bot");
+    return json({ ok: true, removed: slug });
+  }
+  return json({ error: "method_not_allowed" }, 405);
 }
 
 function json(obj, status = 200) {

@@ -99,6 +99,7 @@ Session labels: `~/.gbr/sessions.json`
 
 - **Same PC:** `http://127.0.0.1:8788` while `gbr-agent run` (loopback only).
 - **Remote:** `https://gbr-relay.ekobrott.workers.dev/v1/mb/{mailbox_id}/bot` with `X-GBR-Key` from phone **Settings → Bot API**.
+- **One bot · many PCs (0.5.3+):** `gbr-agent fleet add -name linux -mailbox ID -key KEY` then `POST /inject` with `"device":"linux"`. Phone on the hub mailbox gets short `bot · linux · inject queued` lines.
 
 ```
 GET  /v1/sessions

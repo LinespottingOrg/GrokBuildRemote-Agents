@@ -77,6 +77,70 @@ func New(base string, timeout time.Duration) *Client {
 // Base returns the configured relay origin.
 func (c *Client) Base() string { return c.base }
 
+// BotJSON calls a Bot API path on a mailbox with an explicit key.
+func (c *Client) BotJSON(ctx context.Context, mailboxID, key, method, path string, body any) (json.RawMessage, int, error) {
+	if path == "" {
+		path = ""
+	}
+	u := fmt.Sprintf("%s/v1/mb/%s/bot%s", c.base, url.PathEscape(mailboxID), path)
+	var rdr io.Reader
+	if body != nil && method != http.MethodGet {
+		raw, err := json.Marshal(body)
+		if err != nil {
+			return nil, 0, err
+		}
+		rdr = bytes.NewReader(raw)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u, rdr)
+	if err != nil {
+		return nil, 0, err
+	}
+	if rdr != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if k := strings.TrimSpace(key); k != "" {
+		req.Header.Set("X-GBR-Key", k)
+	} else {
+		c.auth(req)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("relay bot: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	return json.RawMessage(raw), resp.StatusCode, nil
+}
+
+// PushWithKey posts an envelope using a mailbox key that may differ from this client.
+func (c *Client) PushWithKey(ctx context.Context, mailboxID, key string, envelope any) error {
+	raw, err := json.Marshal(envelope)
+	if err != nil {
+		return err
+	}
+	u := fmt.Sprintf("%s/v1/mb/%s/push", c.base, url.PathEscape(mailboxID))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if k := strings.TrimSpace(key); k != "" {
+		req.Header.Set("X-GBR-Key", k)
+	} else {
+		c.auth(req)
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("relay push: %w", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("relay push HTTP %d: %s", resp.StatusCode, truncate(string(body), 200))
+	}
+	return nil
+}
+
 // Push posts one envelope JSON object to the mailbox.
 func (c *Client) Push(ctx context.Context, mailboxID string, envelope any) error {
 	raw, err := json.Marshal(envelope)

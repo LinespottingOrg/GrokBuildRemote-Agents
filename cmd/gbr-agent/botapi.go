@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/inject"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/core"
 	"github.com/google/uuid"
 )
 
@@ -203,6 +203,42 @@ func (s *botServer) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.writeSessions(w)
+	case path == "/v1/devices":
+		if r.Method == http.MethodGet {
+			s.writeDevices(w)
+			return
+		}
+		if r.Method == http.MethodPost {
+			s.handleDeviceWrite(w, r)
+			return
+		}
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
+	case strings.HasPrefix(path, "/v1/devices/"):
+		rest := strings.TrimPrefix(path, "/v1/devices/")
+		parts := strings.Split(rest, "/")
+		id := parts[0]
+		sub := ""
+		if len(parts) > 1 {
+			sub = parts[1]
+		}
+		if id != "" && sub == "" && r.Method == http.MethodDelete {
+			s.handleDeviceDelete(w, id)
+			return
+		}
+		if sub == "inject" && r.Method == http.MethodPost {
+			r.URL.RawQuery = "device=" + id + "&" + r.URL.RawQuery
+			s.handleInject(w, r)
+			return
+		}
+		if sub == "sessions" && r.Method == http.MethodGet {
+			s.writeSessions(w)
+			return
+		}
+		if sub == "status" && r.Method == http.MethodGet {
+			s.writeStatus(w)
+			return
+		}
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not_found"})
 	case path == "/v1/inject":
 		if r.Method != http.MethodPost {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
@@ -240,18 +276,22 @@ func (s *botServer) writeDiscovery(w http.ResponseWriter) {
 		"require_key": os.Getenv("GBR_BOT_REQUIRE_KEY") == "1",
 		"endpoints": map[string]string{
 			"discovery": "GET /  or  GET /v1",
-			"sessions":  "GET /v1/sessions",
+			"devices":   "GET /v1/devices",
+			"add_device": "POST /v1/devices",
+			"sessions":  "GET /v1/sessions?device=",
 			"inject":    "POST /v1/inject",
 			"output":    "GET /v1/output?session_id=&command_id=&after=&limit=",
 			"status":    "GET /v1/status",
 		},
 		"inject_body": map[string]any{
+			"device":     "local | studio-linux | mac-mini",
 			"session_id": "grok-build-…",
 			"text":       "the prompt to type",
 			"submit":     true,
+			"notify_phone": true,
 		},
 		"relay_bot": s.relayBotURL(),
-		"note":      "This port is loopback-only. Remote bots use the relay Bot API with the mailbox key from the phone Settings.",
+		"note":      "One Grok bot instance. Local loopback + remotes (Mac/Linux) via relay fleet. Short status lines sync to the phone on this mailbox.",
 	})
 }
 
@@ -290,6 +330,8 @@ func (s *botServer) handleInject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
+		Device    string `json:"device"`
+		DeviceID  string `json:"device_id"`
 		SessionID string `json:"session_id"`
 		Session   string `json:"session"`
 		Text      string `json:"text"`
@@ -298,6 +340,7 @@ func (s *botServer) handleInject(w http.ResponseWriter, r *http.Request) {
 		Submit    *bool  `json:"submit"`
 		Mode      string `json:"mode"`
 		CommandID string `json:"command_id"`
+		Notify    *bool  `json:"notify_phone"`
 	}
 	if len(strings.TrimSpace(string(raw))) > 0 {
 		if err := json.Unmarshal(raw, &body); err != nil {
@@ -319,42 +362,19 @@ func (s *botServer) handleInject(w http.ResponseWriter, r *http.Request) {
 	if commandID == "" {
 		commandID = uuid.NewString()
 	}
-
-	if s.rt == nil || s.rt.hybrid == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "agent_not_ready"})
-		return
+	notify := true
+	if body.Notify != nil {
+		notify = *body.Notify
 	}
-
-	if s.rt.scanner != nil && s.rt.scanner.Registry != nil {
-		if sess, ok := s.rt.scanner.Registry.Get(sessionID); ok && sess != nil && sess.HWND != 0 {
-			_ = s.rt.hybrid.Bind(sessionID, inject.TerminalWindow{
-				HWND:  sess.HWND,
-				PID:   uint32(sess.PID),
-				Title: sess.Title,
-			})
+	want := firstFilled(body.Device, body.DeviceID, r.URL.Query().Get("device"))
+	f, _ := core.LoadFleet()
+	if f != nil {
+		if d, ok := f.Get(want); ok && d.Kind == "relay" {
+			s.injectRemote(w, d, sessionID, text, submit, commandID, notify)
+			return
 		}
 	}
-	req := inject.InjectRequest{
-		SessionID: sessionID,
-		CommandID: commandID,
-		Text:      text,
-		Submit:    submit,
-	}
-	injErr := s.rt.hybrid.Inject(sessionID, req)
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer cancel()
-		_ = s.rt.captureAndPushAfterInject(ctx, s.mailboxID, sessionID, commandID, injErr)
-	}()
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":         injErr == nil,
-		"command_id": commandID,
-		"session_id": sessionID,
-		"queued":     false,
-		"local":      true,
-		"error":      errString(injErr),
-	})
+	s.injectLocal(w, sessionID, text, submit, commandID, notify)
 }
 
 func (s *botServer) writeOutput(w http.ResponseWriter, r *http.Request) {
@@ -455,28 +475,27 @@ func errString(err error) string {
 
 func cmdBot(args []string) int {
 	_ = args
-	fmt.Print(`gbr-agent bot API (localhost, loopback only)
+	fmt.Print(`gbr-agent bot API — one Grok bot instance, many PCs
 
-While gbr-agent run is up (default port 8788):
-
+Local hub (this PC, loopback):
   curl -sS http://127.0.0.1:8788/
-  curl -sS http://127.0.0.1:8788/v1/sessions
+  curl -sS http://127.0.0.1:8788/v1/devices
   curl -sS -X POST http://127.0.0.1:8788/v1/inject \
     -H 'Content-Type: application/json' \
-    -d '{"session_id":"SESSION","text":"hello from bot","submit":true}'
-  curl -sS 'http://127.0.0.1:8788/v1/output?session_id=SESSION&live=1'
-  curl -sS http://127.0.0.1:8788/v1/status
+    -d '{"device":"local","text":"hello","submit":true}'
+  curl -sS -X POST http://127.0.0.1:8788/v1/inject \
+    -d '{"device":"studio-linux","text":"make test","submit":true}'
 
-Flags / env:
-  gbr-agent run -bot-port 8788     default
-  gbr-agent run -bot-port 0        disable
-  GBR_BOT_PORT=8788
-  GBR_BOT_REQUIRE_KEY=1            require X-GBR-Key even on loopback
+Add a remote Mac/Linux PC (pair that agent first, copy mailbox id+key):
+  gbr-agent fleet add -name studio-linux -mailbox gbr-XXXX -key KEY -os linux
 
-Remote (phone Settings → Bot API for mailbox id + key):
+Same API on the relay (phone Settings → Bot API = the HUB mailbox):
+  curl -sS -H "X-GBR-Key: HUBKEY" $RELAY/v1/mb/HUB/bot/devices
+  curl -sS -H "X-GBR-Key: HUBKEY" -X POST $RELAY/v1/mb/HUB/bot/inject \
+    -d '{"device":"studio-linux","text":"make test"}'
 
-  curl -sS -H "X-GBR-Key: KEY" \
-    https://gbr-relay.ekobrott.workers.dev/v1/mb/MAILBOX/bot/sessions
+Short status lines ("bot · studio-linux · inject queued") appear on the
+phone paired to the hub mailbox.
 
 `)
 	return 0

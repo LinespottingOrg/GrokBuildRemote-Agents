@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	version = "0.5.2"
+	version = "0.5.3"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -107,6 +107,8 @@ func run(args []string) int {
 		return cmdStatus(subArgs)
 	case "bot":
 		return cmdBot(subArgs)
+	case "fleet":
+		return cmdFleet(subArgs)
 	case "logs":
 		return cmdLogs(subArgs)
 	case "support-log", "supportlog", "support":
@@ -141,6 +143,10 @@ Usage:
   gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force] [-bot-port 8788]
   gbr-agent [-log=info] bot
       Print localhost + relay Bot API curl examples (Grok bots).
+  gbr-agent [-log=info] fleet
+  gbr-agent [-log=info] fleet add -name studio-linux -mailbox gbr-ID -key KEY [-os linux]
+      One Grok bot instance drives this PC (local) plus remotes via the relay.
+      Short status lines sync to the phone on this mailbox.
   gbr-agent [-log=info] pair [-code CODE] [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL] [-no-open]
       Default: PC generates the code, pairs this agent, opens a browser QR for the
       phone camera to scan (mobile does NOT show the QR — the phone reads it).
