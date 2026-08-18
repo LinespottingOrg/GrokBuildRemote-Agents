@@ -1,0 +1,53 @@
+{
+  "name": "@linespotting/gbr-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for the Grok Build Remote agent Bot API \u2014 drive Grok Build / CLI sessions across a fleet of Mac, Linux and Windows machines from any MCP client.",
+  "license": "MIT",
+  "type": "module",
+  "mcpName": "io.github.LinespottingOrg/gbr-mcp",
+  "bin": {
+    "gbr-mcp": "bin/gbr-mcp.js"
+  },
+  "main": "src/server.js",
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "INSTALL.md",
+    "TROUBLESHOOTING.md",
+    "LICENSE",
+    "test/"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node bin/gbr-mcp.js",
+    "diagnose": "node bin/gbr-mcp.js --diagnose",
+    "test": "node test/unit.mjs && node test/smoke.mjs",
+    "test:unit": "node test/unit.mjs",
+    "test:smoke": "node test/smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "grok",
+    "grok-build",
+    "gbr-agent",
+    "remote",
+    "fleet",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git",
+    "directory": "mcp/gbr-mcp"
+  },
+  "homepage": "https://grokbuildremote.com/",
+  "publishConfig": {
+    "access": "public"
+  }
+}
