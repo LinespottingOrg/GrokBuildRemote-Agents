@@ -49,6 +49,14 @@ func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 	if err := ValidateRequest(sessionID, req); err != nil {
 		return err
 	}
+	// A session we spawned (open / managed shell) must stay on the PTY.
+	// UI-first was typing into some other Terminal window while Capture
+	// kept reading the PTY banner — so `echo gbr-e2e-ok` never came back.
+	if h.PTY != nil {
+		if s := h.PTY.Get(sessionID); s != nil && !s.IsClosed() {
+			return h.PTY.Inject(sessionID, req)
+		}
+	}
 	if h.UI != nil {
 		// Prefer already-bound session. Re-discover only if inject will need a window.
 		// Prefer Grok Build / matching title over the agent's own PowerShell host.
