@@ -140,7 +140,7 @@ func (rt *agentRuntime) startBotAPI(ctx context.Context, mailboxID string, port 
 		Handler:           mux,
 		ReadHeaderTimeout: 8 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		WriteTimeout:      180 * time.Second, // idle-wait on /result and inject wait_idle
 		IdleTimeout:       60 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
@@ -172,7 +172,7 @@ func (s *botServer) handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method == http.MethodOptions {
-		w.Header().Set("Allow", "GET, POST, OPTIONS")
+		w.Header().Set("Allow", "GET, POST, DELETE, OPTIONS")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -245,6 +245,22 @@ func (s *botServer) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.handleInject(w, r)
+	case path == "/v1/sessions/open" || path == "/v1/open":
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
+			return
+		}
+		s.handleOpen(w, r)
+	case path == "/v1/result":
+		if r.Method != http.MethodGet {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
+			return
+		}
+		s.handleResult(w, r)
+	case path == "/v1/lock":
+		s.handleLock(w, r)
+	case path == "/v1/tasks":
+		s.handleTasks(w, r)
 	case path == "/v1/output":
 		if r.Method != http.MethodGet {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
@@ -279,9 +295,18 @@ func (s *botServer) writeDiscovery(w http.ResponseWriter) {
 			"devices":   "GET /v1/devices",
 			"add_device": "POST /v1/devices",
 			"sessions":  "GET /v1/sessions?device=",
+			"open":      "POST /v1/sessions/open",
 			"inject":    "POST /v1/inject",
+			"result":    "GET /v1/result?session_id=&wait_ms=&idle_ms=",
+			"lock":      "GET|POST|DELETE /v1/lock",
+			"tasks":     "GET|POST /v1/tasks",
 			"output":    "GET /v1/output?session_id=&command_id=&after=&limit=",
 			"status":    "GET /v1/status",
+		},
+		"chain": []string{
+			"diagnose", "open or attach", "lock", "inject",
+			"wait idle (GET /result?wait_ms=)", "harvest excerpt",
+			"judge and iterate or close + notify",
 		},
 		"inject_body": map[string]any{
 			"device":     "local | studio-linux | mac-mini",
@@ -341,6 +366,9 @@ func (s *botServer) handleInject(w http.ResponseWriter, r *http.Request) {
 		Mode      string `json:"mode"`
 		CommandID string `json:"command_id"`
 		Notify    *bool  `json:"notify_phone"`
+		WaitIdle  *bool  `json:"wait_idle"`
+		WaitMS    int    `json:"wait_ms"`
+		IdleMS    int    `json:"idle_ms"`
 	}
 	if len(strings.TrimSpace(string(raw))) > 0 {
 		if err := json.Unmarshal(raw, &body); err != nil {
@@ -374,7 +402,8 @@ func (s *botServer) handleInject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.injectLocal(w, sessionID, text, submit, commandID, notify)
+	waitIdle := body.WaitIdle != nil && *body.WaitIdle
+	s.injectLocal(w, sessionID, text, submit, commandID, notify, waitIdle, body.WaitMS, body.IdleMS)
 }
 
 func (s *botServer) writeOutput(w http.ResponseWriter, r *http.Request) {
@@ -477,20 +506,30 @@ func cmdBot(args []string) int {
 	_ = args
 	fmt.Print(`gbr-agent bot API — one Grok bot instance, many PCs
 
+Chain (Grok bot + Claude Cowork, same JSON):
+  diagnose → POST /v1/sessions/open → POST /v1/lock
+  → POST /v1/inject → GET /v1/result?wait_ms=60000
+  → judge excerpt → iterate or DELETE /v1/lock + notify
+
 Local hub (this PC, loopback):
   curl -sS http://127.0.0.1:8788/
   curl -sS http://127.0.0.1:8788/v1/devices
+  curl -sS -X POST http://127.0.0.1:8788/v1/sessions/open \
+    -d '{"cwd":"'"$PWD"'","holder":"grok-bot","goal":"fix tests"}'
   curl -sS -X POST http://127.0.0.1:8788/v1/inject \
     -H 'Content-Type: application/json' \
     -d '{"device":"local","text":"hello","submit":true}'
-  curl -sS -X POST http://127.0.0.1:8788/v1/inject \
-    -d '{"device":"studio-linux","text":"make test","submit":true}'
+  curl -sS 'http://127.0.0.1:8788/v1/result?session_id=SESSION&wait_ms=60000'
+  curl -sS -X POST http://127.0.0.1:8788/v1/lock \
+    -d '{"session_id":"SESSION","holder":"grok-bot"}'
 
 Add a remote Mac/Linux PC (pair that agent first, copy mailbox id+key):
   gbr-agent fleet add -name studio-linux -mailbox gbr-XXXX -key KEY -os linux
 
 Same API on the relay (phone Settings → Bot API = the HUB mailbox):
   curl -sS -H "X-GBR-Key: HUBKEY" $RELAY/v1/mb/HUB/bot/devices
+  curl -sS -H "X-GBR-Key: HUBKEY" -X POST $RELAY/v1/mb/HUB/bot/sessions/open \
+    -d '{"device":"local","holder":"grok-bot","goal":"fix tests"}'
   curl -sS -H "X-GBR-Key: HUBKEY" -X POST $RELAY/v1/mb/HUB/bot/inject \
     -d '{"device":"studio-linux","text":"make test"}'
 

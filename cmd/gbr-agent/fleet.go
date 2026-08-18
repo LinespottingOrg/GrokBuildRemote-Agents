@@ -228,7 +228,7 @@ func (s *botServer) handleDeviceDelete(w http.ResponseWriter, id string) {
 }
 
 func (s *botServer) notifyPhone(line string) {
-	if s.rt == nil || s.mailboxID == "" {
+	if s.rt == nil || s.rt.dev == nil || s.rt.relay == nil || s.mailboxID == "" {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -270,10 +270,21 @@ func (s *botServer) injectRemote(w http.ResponseWriter, d core.FleetDevice, sess
 	writeJSON(w, http.StatusOK, parsed)
 }
 
-func (s *botServer) injectLocal(w http.ResponseWriter, sessionID, text string, submit bool, commandID string, notify bool) {
+func (s *botServer) injectLocal(w http.ResponseWriter, sessionID, text string, submit bool, commandID string, notify bool, waitIdle bool, waitMS, idleMS int) {
 	if s.rt == nil || s.rt.hybrid == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "agent_not_ready"})
 		return
+	}
+	if sessionID == "session" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"ok": false, "error": "inject: empty session_id refused",
+			"hint": "session_id \"session\" is the agent pseudo-session. Call GET /v1/sessions or POST /v1/sessions/open.",
+		})
+		return
+	}
+	if l, ok := core.GetLease(sessionID); ok {
+		// Advisory: still inject, but tell the caller who holds the window.
+		_ = l
 	}
 	if s.rt.scanner != nil && s.rt.scanner.Registry != nil {
 		if sess, ok := s.rt.scanner.Registry.Get(sessionID); ok && sess != nil && sess.HWND != 0 {
@@ -292,9 +303,19 @@ func (s *botServer) injectLocal(w http.ResponseWriter, sessionID, text string, s
 	if notify {
 		s.notifyPhone(fmt.Sprintf("bot · local · inject · session %s", sessionID))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	out := map[string]any{
 		"ok": injErr == nil, "command_id": commandID, "session_id": sessionID,
 		"device": map[string]any{"id": "local", "kind": "local", "mailbox_id": s.mailboxID, "os": runtime.GOOS},
 		"queued": false, "local": true, "phone_status": notify, "error": errString(injErr),
-	})
+	}
+	if l, ok := core.GetLease(sessionID); ok {
+		out["lock"] = l.Public(false)
+	}
+	if waitIdle && injErr == nil {
+		if waitMS <= 0 {
+			waitMS = 60000
+		}
+		out["result"] = s.collectResult(sessionID, commandID, waitMS, idleMS, 4000)
+	}
+	writeJSON(w, http.StatusOK, out)
 }

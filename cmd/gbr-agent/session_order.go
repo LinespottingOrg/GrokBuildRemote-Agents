@@ -83,17 +83,25 @@ func sortWindowsGrokFirst(wins []inject.TerminalWindow) {
 }
 
 func windowsToCandidates(wins []inject.TerminalWindow) (out []session.Candidate, grokN, otherN int) {
+	procs := session.ScanGrokProcesses()
 	out = make([]session.Candidate, 0, len(wins))
 	for _, w := range wins {
 		kind := string(w.Kind)
 		if kind == "" {
 			kind = "window"
 		}
+		gp, fromProc := session.MatchGrokProcess(int(w.PID), procs)
+		isGrok := fromProc || session.LooksLikeGrokWindow(w.Title, w.ExeName, kind) ||
+			isGrokSessionKey(kind) || isGrokSessionKey(w.Title)
 		// UNIQUE per HWND — never share agent cwd (that collapsed all terminals
 		// into one session_id and hid Grok Build on multi-window Windows desktops).
 		prefer := kind + "-" + hexHWND(w.HWND)
-		if isGrokSessionKey(kind) || isGrokSessionKey(w.Title) {
-			prefer = "grok-build-" + hexHWND(w.HWND)
+		if isGrok {
+			prefer = session.SuggestGrokSessionID(gp.ResumeID, w.HWND, int(w.PID))
+			if prefer == "grok-build" || prefer == "" {
+				prefer = "grok-build-" + hexHWND(w.HWND)
+			}
+			kind = string(inject.KindGrokBuild)
 			grokN++
 		} else {
 			otherN++

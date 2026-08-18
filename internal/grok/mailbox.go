@@ -254,13 +254,27 @@ type OutputPayload struct {
 	Method string `json:"method,omitempty"`
 }
 
-// ControlPayload is type=control (phone → agent settings; never typed into a terminal).
+// ControlPayload is type=control (phone / bot / MCP → agent; never typed into a terminal).
 type ControlPayload struct {
-	Action      string `json:"action"`                 // feedback | feedback_now
+	Action      string `json:"action"`                 // feedback | open | lock | unlock | result | task
 	Enabled     *bool  `json:"enabled,omitempty"`      // for action=feedback
 	IntervalSec int    `json:"interval_sec,omitempty"` // 5|10|60|600|3600
 	Expand      *bool  `json:"expand,omitempty"`
 	SessionID   string `json:"session_id,omitempty"`
+	CWD         string `json:"cwd,omitempty"`
+	Resume      string `json:"resume,omitempty"`
+	Holder      string `json:"holder,omitempty"`
+	TTLSec      int    `json:"ttl_s,omitempty"`
+	Steal       bool   `json:"steal,omitempty"`
+	Goal        string `json:"goal,omitempty"`
+	WaitMS      int    `json:"wait_ms,omitempty"`
+	IdleMS      int    `json:"idle_ms,omitempty"`
+	Command     string `json:"command,omitempty"`
+	Title       string `json:"title,omitempty"`
+	TaskID      string `json:"task_id,omitempty"`
+	Status      string `json:"status,omitempty"`
+	Excerpt     string `json:"excerpt,omitempty"`
+	Judge       string `json:"judge,omitempty"`
 }
 
 // HeartbeatPayload is type=heartbeat.

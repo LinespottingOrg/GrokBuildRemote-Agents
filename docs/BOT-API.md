@@ -1,6 +1,6 @@
 # Bot API — Grok bots and HTTP clients
 
-**Agent / relay 0.5.3+.** One Grok bot instance drives **this PC locally** and **other Mac / Linux / Windows PCs** over the relay. The phone paired to the hub mailbox gets short status lines.
+**Agent / relay 0.5.4+.** One Grok bot instance *or* Claude Cowork (via `gbr-mcp`) drives **this PC locally** and **other Mac / Linux / Windows PCs** over the relay. Same JSON. The phone paired to the hub mailbox is spectator + veto (status lines), not the orchestrator.
 
 | Surface | Who | Bind | Auth |
 |---------|-----|------|------|
@@ -121,11 +121,57 @@ Set `"notify_phone": false` to skip. The remote PC still runs the inject; only t
 
 Fleet list is stored on the hub mailbox (relay) as well as `~/.gbr/fleet.json`, so a cloud Grok bot using the hub Bot URL sees the same devices.
 
+## Feedback loop (0.5.4+) — Grok bot **and** Claude Cowork
+
+Same contract on `http://127.0.0.1:8788` and `…/v1/mb/{hub}/bot`. MCP tools map 1:1 (`gbr_open`, `gbr_lock`, `gbr_inject`, `gbr_result`, `gbr_tasks`).
+
+```
+diagnose → open/attach → lock → inject → wait idle → harvest excerpt → judge → iterate or close
+```
+
+| Step | HTTP | MCP |
+|------|------|-----|
+| See what's there | `GET /` + `GET /v1/sessions` | `gbr_diagnose` then `gbr_sessions` |
+| Start or attach | `POST /v1/sessions/open` | `gbr_open` |
+| Exclusive window | `POST /v1/lock` | `gbr_lock` `action=acquire` |
+| Type the task | `POST /v1/inject` | `gbr_inject` / `gbr_inject_and_wait` |
+| Wait + excerpt | `GET /v1/result?session_id=&wait_ms=60000` | `gbr_result` |
+| Persist the loop | `GET\|POST /v1/tasks` | `gbr_tasks` |
+| Let go | `DELETE /v1/lock` | `gbr_lock` `action=release` |
+
+Rules that keep the two ecosystems from fighting:
+
+- **Do not hide `unknown-*`.** Those windows are injectable. Only the literal id `session` is the agent pseudo-session (inject hangs).
+- **One lease per window.** Grok bot and Claude Cowork must not share a `session_id` without `steal=true`. Holders: `grok-bot`, `claude-coworker`, `phone`.
+- **Do not wait for full Grok TUI scrollback.** `/result` stops on a prompt, ~2.5s of quiet output, or `wait_ms`. Empty excerpt on a Grok UI window is honest — judge what you have.
+- **Phone is spectator.** Short `bot · local · open|lock|inject` lines. It does not orchestrate.
+- **Relay `/result` is a snapshot harvest.** Local `127.0.0.1:8788/v1/result?wait_ms=` is the one that actually waits for idle.
+
+```bash
+# Open (or attach) and take a lease
+curl -sS -X POST http://127.0.0.1:8788/v1/sessions/open \
+  -H 'Content-Type: application/json' \
+  -d '{"cwd":"'"$PWD"'","holder":"grok-bot","goal":"fix the tests"}'
+# { session_id, opened|attached, lock: {holder, token, expires}, task? }
+
+# Work + wait until idle, then read the tail
+curl -sS -X POST http://127.0.0.1:8788/v1/inject \
+  -d '{"session_id":"SESSION","text":"fix the failing tests","submit":true,"wait_idle":true,"wait_ms":60000}'
+
+curl -sS 'http://127.0.0.1:8788/v1/result?session_id=SESSION&wait_ms=60000'
+# { state: idle|busy|timeout, excerpt, prompt, lock }
+
+# Other client is blocked until you release
+curl -sS -X DELETE 'http://127.0.0.1:8788/v1/lock?session_id=SESSION&holder=grok-bot'
+```
+
+`POST /v1/sessions/open` with `"resume":"<uuid>"` runs `grok --resume`. `"attach":true` only leases an existing id. `"command":"shell"` opens a managed shell if the grok CLI is missing.
+
 ## Grok bot recipe
 
 1. Pair the **hub** phone + `gbr-agent pair` / `gbr-agent run`.
 2. Pair every extra Mac/Linux PC. Add them with `gbr-agent fleet add`.
 3. Point **one** Grok bot at `127.0.0.1:8788` or the hub relay Bot URL.
-4. `GET /devices` → `POST /inject` with `device` → phone shows status.
+4. Run the loop above (`open` → `lock` → `inject` → `result`). Phone shows status.
 
 Never put the mailbox key in a public issue, screenshot, or store listing.

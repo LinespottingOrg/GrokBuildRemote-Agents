@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	version = "0.5.3"
+	version = "0.5.4"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -599,6 +599,9 @@ func (rt *agentRuntime) pushOutputFull(ctx context.Context, mailboxID, sessionID
 		Reason:    reason,
 		Method:    method,
 	})
+	if rt.dev == nil {
+		return fmt.Errorf("no device")
+	}
 	out, err := grok.NewEnvelope(grok.TypeOutput, rt.dev.DeviceID, sessionID, commandID, grok.OutputPayload{
 		Stream: stream,
 		Chunk:  chunk,
@@ -747,10 +750,91 @@ func (rt *agentRuntime) handleControl(ctx context.Context, mailboxID string, env
 			sid = env.SessionID
 		}
 		return rt.pushFeedbackSample(ctx, mailboxID, sid, env.CommandID, true)
+	case "open":
+		return rt.controlOpen(ctx, mailboxID, env.CommandID, p)
+	case "lock":
+		sid := firstNonEmpty(p.SessionID, env.SessionID)
+		lease, err := core.AcquireLease(sid, p.Holder, p.Goal, time.Duration(p.TTLSec)*time.Second, p.Steal)
+		msg := "lock ok · " + sid
+		if err != nil {
+			msg = "lock failed · " + err.Error()
+		} else {
+			msg = fmt.Sprintf("lock · %s · %s until %s", sid, lease.Holder, lease.Expires.UTC().Format(time.RFC3339))
+		}
+		return rt.pushOutputFull(ctx, mailboxID, sid, env.CommandID, "system", msg, true, "control", "lock")
+	case "unlock", "release":
+		sid := firstNonEmpty(p.SessionID, env.SessionID)
+		err := core.ReleaseLease(sid, p.Holder, p.Steal)
+		msg := "unlock · " + sid
+		if err != nil {
+			msg = "unlock failed · " + err.Error()
+		}
+		return rt.pushOutputFull(ctx, mailboxID, sid, env.CommandID, "system", msg, true, "control", "unlock")
+	case "result":
+		sid := firstNonEmpty(p.SessionID, env.SessionID)
+		text, method := "", ""
+		if rt.hybrid != nil {
+			cap, _ := rt.hybrid.Capture(sid)
+			text, method = cap.Text, cap.Method
+		}
+		idle := inject.PeekIdle(text, method)
+		chunk := idle.Excerpt
+		if chunk == "" {
+			chunk = "result empty · method=" + method
+		}
+		return rt.pushOutputFull(ctx, mailboxID, sid, env.CommandID, "stdout",
+			trimChunk(chunk, 12*1024), true, "result", method)
+	case "task":
+		t, err := core.UpsertTask(core.Task{
+			ID: p.TaskID, SessionID: firstNonEmpty(p.SessionID, env.SessionID),
+			Holder: p.Holder, Goal: p.Goal, Status: p.Status,
+			LastExcerpt: p.Excerpt, LastJudge: p.Judge, CommandID: env.CommandID,
+		})
+		msg := "task " + t.ID + " · " + t.Status
+		if err != nil {
+			msg = "task failed · " + err.Error()
+		}
+		return rt.pushOutputFull(ctx, mailboxID, t.SessionID, env.CommandID, "system", msg, true, "control", "task")
 	default:
 		return rt.pushOutputFull(ctx, mailboxID, env.SessionID, env.CommandID, "system",
 			"unknown control action: "+action, true, "control", "")
 	}
+}
+
+func (rt *agentRuntime) controlOpen(ctx context.Context, mailboxID, commandID string, p grok.ControlPayload) error {
+	if rt.hybrid == nil || rt.hybrid.PTY == nil {
+		return rt.pushOutputFull(ctx, mailboxID, p.SessionID, commandID, "system",
+			"open failed: no session manager", true, "control", "open")
+	}
+	res, err := rt.hybrid.PTY.OpenOrAttach(inject.OpenRequest{
+		SessionID: p.SessionID, CWD: p.CWD, Resume: p.Resume,
+		Command: p.Command, Title: p.Title, Holder: p.Holder,
+	})
+	if err != nil {
+		return rt.pushOutputFull(ctx, mailboxID, p.SessionID, commandID, "system",
+			"open failed: "+err.Error(), true, "control", "open")
+	}
+	if rt.scanner != nil {
+		cwd := res.CWD
+		if cwd == "" {
+			cwd = "gbr-open-" + res.SessionID
+		}
+		rt.scanner.Track(session.Candidate{
+			CWD: cwd, Shell: firstNonEmpty(res.Command, "grok-build"),
+			PID: res.PID, Title: firstNonEmpty(p.Title, "Grok Build"), PreferID: res.SessionID,
+		})
+	}
+	if _, lerr := core.AcquireLease(res.SessionID, p.Holder, p.Goal, time.Duration(p.TTLSec)*time.Second, p.Steal); lerr != nil {
+		res.Note = strings.TrimSpace(res.Note + " · lease: " + lerr.Error())
+	}
+	if strings.TrimSpace(p.Goal) != "" {
+		_, _ = core.UpsertTask(core.Task{SessionID: res.SessionID, Holder: p.Holder, Goal: p.Goal, Status: core.TaskOpen})
+	}
+	msg := fmt.Sprintf("opened %s · method=%s · %s", res.SessionID, res.Method, res.Note)
+	if res.Attached {
+		msg = fmt.Sprintf("attached %s · %s", res.SessionID, res.Note)
+	}
+	return rt.pushOutputFull(ctx, mailboxID, res.SessionID, commandID, "system", msg, true, "control", "open")
 }
 
 func (rt *agentRuntime) feedbackLoop(ctx context.Context, mailboxID string) {
@@ -940,14 +1024,18 @@ func (rt *agentRuntime) listSessionPayloads() []map[string]any {
 				upd.Title = title
 				rt.scanner.Registry.Upsert(upd)
 			}
-			out = append(out, map[string]any{
+			row := map[string]any{
 				"session_id": s.ID,
 				"cwd":        s.CWD,
 				"shell":      s.Shell,
 				"title":      title,
 				"os":         runtime.GOOS,
 				"git_remote": s.GitRemote,
-			})
+			}
+			if l, ok := core.GetLease(s.ID); ok {
+				row["lock"] = l.Public(false)
+			}
+			out = append(out, row)
 		}
 	}
 	// Include managed PTY sessions not already listed
@@ -963,12 +1051,16 @@ func (rt *agentRuntime) listSessionPayloads() []map[string]any {
 				continue
 			}
 			title := session.ResolveDisplayTitle(id, "gbr managed shell", "managed", labels)
-			out = append(out, map[string]any{
+			row := map[string]any{
 				"session_id": id,
 				"shell":      "managed",
 				"title":      title,
 				"os":         runtime.GOOS,
-			})
+			}
+			if l, ok := core.GetLease(id); ok {
+				row["lock"] = l.Public(false)
+			}
+			out = append(out, row)
 		}
 	}
 	if len(out) == 0 {

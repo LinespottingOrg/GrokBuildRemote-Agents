@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/inject"
@@ -54,6 +55,19 @@ func TestPrioritizeSessionIDs_SoftMax255KeepsGrok(t *testing.T) {
 	}
 	if got[1] != "gbr-agent" {
 		t.Fatalf("second=%q want gbr-agent", got[1])
+	}
+}
+
+func TestWindowsToCandidates_MacTitleIsGrok(t *testing.T) {
+	wins := []inject.TerminalWindow{
+		{HWND: 1, PID: 10, Title: "ProjectA - grok — agent · clang", Kind: "unknown"},
+	}
+	out, grokN, otherN := windowsToCandidates(wins)
+	if grokN != 1 || otherN != 0 {
+		t.Fatalf("counts grok=%d other=%d", grokN, otherN)
+	}
+	if !strings.HasPrefix(out[0].PreferID, "grok") {
+		t.Fatalf("prefer=%q — macOS Grok title must not stay unknown-*", out[0].PreferID)
 	}
 }
 

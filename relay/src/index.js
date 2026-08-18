@@ -27,7 +27,7 @@
 const MAX_QUEUE = 500;
 const MAX_TRACE = 400;
 const TRACE_TTL = 60 * 60 * 24 * 7; // 7 days
-const RELAY_VERSION = "0.5.3";
+const RELAY_VERSION = "0.5.4";
 const MAX_FLEET = 32;
 const BOT_INJECT_WINDOW_MS = 60 * 1000;
 const BOT_INJECT_MAX = 60;
@@ -489,6 +489,30 @@ export class MailboxQueue {
       return jsonResponse({ ok: true, n: devices.length });
     }
 
+    if (action === "leaseget") {
+      const leases = (await this.state.storage.get("leases")) || { items: [] };
+      return jsonResponse({ ok: true, leases: Array.isArray(leases.items) ? leases.items : [] });
+    }
+
+    if (action === "leaseput") {
+      const body = await request.json().catch(() => ({}));
+      const items = Array.isArray(body.leases) ? body.leases.slice(0, 128) : [];
+      await this.state.storage.put("leases", { items, updated: new Date().toISOString() });
+      return jsonResponse({ ok: true, n: items.length });
+    }
+
+    if (action === "taskget") {
+      const tasks = (await this.state.storage.get("tasks")) || { items: [] };
+      return jsonResponse({ ok: true, tasks: Array.isArray(tasks.items) ? tasks.items : [] });
+    }
+
+    if (action === "taskput") {
+      const body = await request.json().catch(() => ({}));
+      const items = Array.isArray(body.tasks) ? body.tasks.slice(0, 200) : [];
+      await this.state.storage.put("tasks", { items, updated: new Date().toISOString() });
+      return jsonResponse({ ok: true, n: items.length });
+    }
+
     if (action === "botrate") {
       const res = await this.state.blockConcurrencyWhile(async () => {
         const now = Date.now();
@@ -751,9 +775,22 @@ function botDiscovery(mailboxId) {
       add_device: `POST ${base}/devices`,
       sessions: `GET ${base}/sessions?device=`,
       inject: `POST ${base}/inject`,
+      open: `POST ${base}/sessions/open`,
+      result: `GET ${base}/result?session_id=&wait_ms=&idle_ms=`,
+      lock: `GET|POST|DELETE ${base}/lock`,
+      tasks: `GET|POST ${base}/tasks`,
       output: `GET ${base}/output?device=&after=&session_id=&command_id=&limit=`,
       status: `GET ${base}/status?device=`,
     },
+    chain: [
+      "diagnose",
+      "open or attach",
+      "lock",
+      "inject",
+      "wait idle via GET /result",
+      "harvest excerpt",
+      "judge and iterate or close + notify",
+    ],
     inject_body: {
       device: "local | studio-linux | mac-mini",
       session_id: "grok-build-…",
@@ -1013,8 +1050,11 @@ async function handleBot(env, ctx, mailboxId, rest, request, url) {
   let deviceId = url.searchParams.get("device") || "";
   const sub = parts[0] === "devices" ? parts[2] || "" : "";
   if (parts[0] === "devices" && parts[1]) deviceId = parts[1];
-  if (action === "devices" && deviceId && ["sessions", "inject", "output", "status"].includes(sub)) {
+  if (action === "devices" && deviceId && ["sessions", "inject", "output", "status", "open", "result", "lock", "tasks"].includes(sub)) {
     action = sub;
+  }
+  if (parts[0] === "sessions" && parts[1] === "open") {
+    action = "open";
   }
 
   if (!action) {
@@ -1147,7 +1187,265 @@ async function handleBot(env, ctx, mailboxId, rest, request, url) {
     });
   }
 
+  if (action === "open") {
+    if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: "invalid_json" }, 400);
+    }
+    const want = deviceId || body.device || body.device_id || "";
+    const target = await resolveBotTarget(env, mailboxId, want);
+    if (target.error) return target.error;
+    const keyForTarget = target.kind === "local" ? presentedKey(request) : target.mailbox_key;
+    const pushed = await botControl(env, ctx, target.mailbox, keyForTarget, "open", body);
+    if (pushed.status >= 400) return pushed;
+    const result = await pushed.json().catch(() => ({}));
+    if (body.notify_phone !== false) {
+      await pushHubStatus(
+        env, ctx, mailboxId, request,
+        `bot · ${target.public.id || "local"} · open queued · ${body.session_id || body.cwd || "new"}`,
+        result.command_id, body.session_id || "bot"
+      );
+    }
+    return json({
+      ok: true,
+      queued: true,
+      command_id: result.command_id,
+      device: target.public,
+      mailbox_id: target.mailbox,
+      hint: "Poll GET /sessions then GET /result?session_id= after the agent opens the window.",
+    });
+  }
+
+  if (action === "result") {
+    if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+    const target = await resolveBotTarget(env, mailboxId, deviceId || url.searchParams.get("device"));
+    if (target.error) return target.error;
+    const snap = await mailboxSnapshot(env, target.mailbox);
+    const sessionId = url.searchParams.get("session_id") || "";
+    const commandId = url.searchParams.get("command_id") || "";
+    const items = extractOutputs(snap, { sessionId, commandId, limit: 30 });
+    const excerpt = excerptFromItems(items, 4000);
+    const lastTs = items.length ? items[items.length - 1].ts : "";
+    const lastMs = lastTs ? Date.parse(lastTs) : 0;
+    const quietMs = lastMs ? Math.max(0, Date.now() - lastMs) : 0;
+    const prompt = looksLikePromptRelay(excerpt);
+    const idle = prompt || (excerpt && quietMs >= 2500);
+    const leases = await leaseList(env, target.mailbox);
+    const lock = leases.find((l) => l && l.session_id === sessionId) || null;
+    return json({
+      ok: true,
+      session_id: sessionId,
+      command_id: commandId,
+      state: idle ? "idle" : excerpt ? "busy" : "timeout",
+      idle: !!idle,
+      reason: prompt ? "prompt" : idle ? "quiet" : excerpt ? "output" : "empty",
+      excerpt,
+      excerpt_bytes: excerpt.length,
+      prompt,
+      quiet_ms: quietMs,
+      method: "relay-snapshot",
+      lock,
+      device: target.public,
+      mailbox_id: target.mailbox,
+      now: new Date().toISOString(),
+      note: "Relay result is a snapshot harvest — local GET /result?wait_ms= on 127.0.0.1:8788 waits for idle.",
+    });
+  }
+
+  if (action === "lock") {
+    const want = deviceId || url.searchParams.get("device") || "";
+    const target = await resolveBotTarget(env, mailboxId, want);
+    if (target.error) return target.error;
+    if (request.method === "GET") {
+      const leases = await leaseList(env, target.mailbox);
+      const sid = url.searchParams.get("session_id") || "";
+      if (sid) {
+        return json({ ok: true, lock: leases.find((l) => l.session_id === sid) || null, device: target.public });
+      }
+      return json({ ok: true, locks: leases, device: target.public });
+    }
+    if (request.method === "POST") {
+      let body = {};
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      const sid = String(body.session_id || "").trim();
+      if (!sid || sid === "session") return json({ error: "session_id_required" }, 400);
+      const holder = normalizeHolderRelay(body.holder);
+      const leases = await leaseList(env, target.mailbox);
+      const now = Date.now();
+      const live = leases.filter((l) => l && Date.parse(l.expires || 0) > now);
+      const cur = live.find((l) => l.session_id === sid);
+      if (cur && cur.holder !== holder && !body.steal) {
+        return json({ ok: false, error: "locked", lock: cur, hint: `held by ${cur.holder}` }, 409);
+      }
+      const ttl = Math.min(Math.max(Number(body.ttl_s) || 900, 30), 7200);
+      const rec = {
+        session_id: sid,
+        holder,
+        goal: String(body.goal || (cur && cur.goal) || "").slice(0, 500),
+        acquired: (cur && cur.holder === holder && cur.acquired) || new Date().toISOString(),
+        expires: new Date(now + ttl * 1000).toISOString(),
+      };
+      const next = live.filter((l) => l.session_id !== sid);
+      next.push(rec);
+      await leaseSave(env, target.mailbox, next);
+      const keyForTarget = target.kind === "local" ? presentedKey(request) : target.mailbox_key;
+      await botControl(env, ctx, target.mailbox, keyForTarget, "lock", {
+        session_id: sid, holder, ttl_s: ttl, steal: !!body.steal, goal: rec.goal,
+      });
+      if (body.notify_phone !== false) {
+        await pushHubStatus(env, ctx, mailboxId, request, `bot · ${target.public.id || "local"} · lock · ${sid} · ${holder}`, "", sid);
+      }
+      return json({ ok: true, lock: rec, device: target.public });
+    }
+    if (request.method === "DELETE") {
+      let body = {};
+      try {
+        body = await request.json();
+      } catch { /* query-only */ }
+      const sid = url.searchParams.get("session_id") || body.session_id || "";
+      const holder = normalizeHolderRelay(url.searchParams.get("holder") || body.holder || "");
+      const force = url.searchParams.get("force") === "1" || body.force;
+      if (!sid) return json({ error: "session_id_required" }, 400);
+      const leases = await leaseList(env, target.mailbox);
+      const cur = leases.find((l) => l.session_id === sid);
+      if (cur && holder && cur.holder !== holder && !force) {
+        return json({ ok: false, error: "lease held by " + cur.holder, lock: cur }, 409);
+      }
+      await leaseSave(env, target.mailbox, leases.filter((l) => l.session_id !== sid));
+      const keyForTarget = target.kind === "local" ? presentedKey(request) : target.mailbox_key;
+      await botControl(env, ctx, target.mailbox, keyForTarget, "unlock", { session_id: sid, holder, steal: force });
+      return json({ ok: true, released: sid, device: target.public });
+    }
+    return json({ error: "method_not_allowed" }, 405);
+  }
+
+  if (action === "tasks") {
+    const want = deviceId || url.searchParams.get("device") || "";
+    const target = await resolveBotTarget(env, mailboxId, want);
+    if (target.error) return target.error;
+    if (request.method === "GET") {
+      const tasks = await taskList(env, target.mailbox);
+      const sid = url.searchParams.get("session_id") || "";
+      const id = url.searchParams.get("id") || "";
+      if (id) return json({ ok: true, task: tasks.find((t) => t.id === id) || null });
+      return json({ ok: true, tasks: sid ? tasks.filter((t) => t.session_id === sid) : tasks });
+    }
+    if (request.method === "POST") {
+      let body = {};
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      const tasks = await taskList(env, target.mailbox);
+      const now = new Date().toISOString();
+      const rec = {
+        id: String(body.id || cryptoId()),
+        session_id: String(body.session_id || "").trim(),
+        holder: normalizeHolderRelay(body.holder),
+        goal: String(body.goal || "").slice(0, 2000),
+        status: String(body.status || "open").slice(0, 32),
+        iteration: Number(body.iteration) || 0,
+        last_excerpt: String(body.last_excerpt || "").slice(0, 4000),
+        last_judge: String(body.last_judge || "").slice(0, 500),
+        updated: now,
+        created: body.created || now,
+      };
+      const next = tasks.filter((t) => t.id !== rec.id);
+      next.push(rec);
+      await taskSave(env, target.mailbox, next);
+      const keyForTarget = target.kind === "local" ? presentedKey(request) : target.mailbox_key;
+      await botControl(env, ctx, target.mailbox, keyForTarget, "task", rec);
+      return json({ ok: true, task: rec });
+    }
+    return json({ error: "method_not_allowed" }, 405);
+  }
+
   return json({ error: "not_found" }, 404);
+}
+
+async function botControl(env, ctx, targetMailbox, presentedKey, action, body) {
+  const commandId = String((body && body.command_id) || cryptoId());
+  const envelope = {
+    proto: "gbr/1",
+    type: "control",
+    device_id: "gbr-bot",
+    session_id: String((body && (body.session_id || body.session)) || ""),
+    command_id: commandId,
+    ts: new Date().toISOString(),
+    payload: { action, ...(body || {}) },
+  };
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  if (presentedKey) headers.set("X-GBR-Key", presentedKey);
+  const pushReq = new Request("https://q/push", { method: "POST", headers, body: JSON.stringify(envelope) });
+  const pushed = await handlePush(env, ctx, targetMailbox, pushReq);
+  if (pushed.status >= 400) return pushed;
+  return json({ ok: true, command_id: commandId, queued: true });
+}
+
+function normalizeHolderRelay(h) {
+  const s = String(h || "").toLowerCase().trim().replace(/_/g, "-");
+  if (!s || s === "bot" || s === "grok" || s === "gbr-bot") return "grok-bot";
+  if (s === "claude" || s === "coworker" || s === "cowork" || s === "mcp") return "claude-coworker";
+  if (s === "phone" || s === "mobile") return "phone";
+  return s.slice(0, 64);
+}
+
+function excerptFromItems(items, max) {
+  let s = "";
+  for (const it of items || []) {
+    if (!it || !it.chunk) continue;
+    s += it.chunk;
+    if (!String(it.chunk).endsWith("\n")) s += "\n";
+  }
+  if (s.length > max) s = s.slice(s.length - max);
+  return s;
+}
+
+function looksLikePromptRelay(text) {
+  const t = String(text || "").trim();
+  if (!t) return false;
+  const tail = t.slice(-400);
+  return /(?:bash|zsh|sh|fish)[-0-9.]*\$\s*$/im.test(tail) ||
+    /(?:^|\n)\s*[$#%>❯➜]\s*$/m.test(tail) ||
+    /what (?:do you want|next)/i.test(tail);
+}
+
+async function leaseList(env, mailboxId) {
+  const res = await queueStub(env, mailboxId).fetch("https://q/leaseget");
+  const body = await res.json().catch(() => ({}));
+  const now = Date.now();
+  return (Array.isArray(body.leases) ? body.leases : []).filter((l) => l && Date.parse(l.expires || 0) > now);
+}
+
+async function leaseSave(env, mailboxId, leases) {
+  await queueStub(env, mailboxId).fetch("https://q/leaseput", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ leases }),
+  });
+}
+
+async function taskList(env, mailboxId) {
+  const res = await queueStub(env, mailboxId).fetch("https://q/taskget");
+  const body = await res.json().catch(() => ({}));
+  return Array.isArray(body.tasks) ? body.tasks : [];
+}
+
+async function taskSave(env, mailboxId, tasks) {
+  await queueStub(env, mailboxId).fetch("https://q/taskput", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tasks }),
+  });
 }
 
 async function resolveBotTarget(env, hubMailbox, deviceId) {

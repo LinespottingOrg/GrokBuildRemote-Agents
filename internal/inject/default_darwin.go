@@ -33,13 +33,19 @@ func (a *darwinAdapter) Discover() ([]TerminalWindow, error) {
 	}
 	out := make([]TerminalWindow, 0, len(wins))
 	for _, w := range wins {
+		kind := KindUnknown
+		lt := strings.ToLower(w.Title + " " + w.ExeName)
+		if strings.Contains(lt, "grok") {
+			kind = KindGrokBuild
+		}
 		out = append(out, TerminalWindow{
 			HWND:      w.HWND,
 			PID:       w.PID,
 			Title:     w.Title,
 			ClassName: w.ClassName,
 			ExeName:   w.ExeName,
-			Kind:      KindUnknown,
+			Kind:      kind,
+			TTY:       w.TTY,
 		})
 	}
 	return out, nil

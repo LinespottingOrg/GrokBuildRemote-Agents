@@ -104,6 +104,11 @@ func (m *Manager) Get(sessionID string) *ManagedSession {
 
 // Ensure starts (or returns) a managed shell for sessionID.
 func (m *Manager) Ensure(sessionID, cwd string) (*ManagedSession, error) {
+	return m.EnsureCmd(sessionID, cwd, "", nil)
+}
+
+// EnsureCmd starts (or returns) a managed process. Empty cmd uses DefaultShell.
+func (m *Manager) EnsureCmd(sessionID, cwd, cmd string, args []string) (*ManagedSession, error) {
 	if sessionID == "" {
 		return nil, ErrEmptySession
 	}
@@ -114,8 +119,13 @@ func (m *Manager) Ensure(sessionID, cwd string) (*ManagedSession, error) {
 		return s, nil
 	}
 
-	shell := m.Shell
-	args := m.Args
+	shell := cmd
+	if shell == "" {
+		shell = m.Shell
+	}
+	if len(args) == 0 {
+		args = m.Args
+	}
 	if shell == "" {
 		shell, args = DefaultShell()
 	}

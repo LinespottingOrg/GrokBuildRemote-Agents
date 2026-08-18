@@ -95,6 +95,49 @@ func TestIsLoopback(t *testing.T) {
 	}
 }
 
+func TestBotDiscoveryHasChainEndpoints(t *testing.T) {
+	s := &botServer{mailboxID: "gbr-testcode", port: 8788}
+	w := httptest.NewRecorder()
+	s.writeDiscovery(w)
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	eps, _ := got["endpoints"].(map[string]any)
+	for _, k := range []string{"open", "result", "lock", "tasks"} {
+		if eps[k] == nil {
+			t.Fatalf("missing endpoint %s: %s", k, w.Body.String())
+		}
+	}
+	if got["chain"] == nil {
+		t.Fatal("discovery must advertise the chain recipe")
+	}
+}
+
+func TestHandleLockAndResult(t *testing.T) {
+	t.Setenv("USERPROFILE", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	s := &botServer{rt: &agentRuntime{}, mailboxID: "gbr-x"}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/lock", strings.NewReader(`{"session_id":"proj-a","holder":"grok-bot"}`))
+	s.handleLock(w, r)
+	if w.Code != 200 {
+		t.Fatalf("lock %d %s", w.Code, w.Body.String())
+	}
+	w2 := httptest.NewRecorder()
+	r2 := httptest.NewRequest(http.MethodPost, "/v1/lock", strings.NewReader(`{"session_id":"proj-a","holder":"claude-coworker"}`))
+	s.handleLock(w2, r2)
+	if w2.Code != http.StatusConflict {
+		t.Fatalf("want 409, got %d %s", w2.Code, w2.Body.String())
+	}
+	w3 := httptest.NewRecorder()
+	r3 := httptest.NewRequest(http.MethodGet, "/v1/result", nil)
+	s.handleResult(w3, r3)
+	if w3.Code != http.StatusBadRequest {
+		t.Fatalf("result without session should 400, got %d", w3.Code)
+	}
+}
+
 func TestBotOutputsFilter(t *testing.T) {
 	rt := &agentRuntime{}
 	rt.recordBotOutput(botOutputItem{TS: "2026-08-16T00:00:00Z", SessionID: "a", CommandID: "1", Chunk: "one"})

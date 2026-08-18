@@ -79,6 +79,18 @@ Yes (agent/relay **0.5.3+**). One Grok instance, one API.
 
 The phone on the hub sees short lines like `bot · studio-linux · inject queued`. See [docs/BOT-API.md](docs/BOT-API.md).
 
+## Can Grok bot and Claude Cowork drive Grok Build together?
+
+Yes (agent/relay/MCP **0.5.4+**). They share one contract:
+
+1. `gbr_diagnose` / `GET /`
+2. `gbr_open` / `POST /v1/sessions/open` (spawn `grok` / `grok --resume`, or attach)
+3. `gbr_lock` / `POST /v1/lock` so they do **not** type into the same window
+4. `gbr_inject` then `gbr_result` (`GET /v1/result?wait_ms=`) — wait for a prompt or quiet output, harvest an excerpt, iterate
+5. Release the lock when the task is done
+
+`unknown-N` sessions are injectable. Only the literal id `session` is forbidden. The phone is spectator (status lines), not orchestrator. Claude Cowork talks through **gbr-mcp**; Grok bot talks HTTP to `127.0.0.1:8788` or the hub Bot URL.
+
 ## How does a Grok bot talk to the agent?
 
 Two HTTP APIs (agent + relay **0.5.2+**). Same JSON.

@@ -41,6 +41,7 @@ const (
 	KindConhost         Kind = "conhost"
 	KindPowerShell      Kind = "powershell"
 	KindCmd             Kind = "cmd"
+	KindGrokBuild       Kind = "grok-build"
 	KindUnknown         Kind = "unknown"
 )
 
@@ -53,6 +54,7 @@ type TerminalWindow struct {
 	ClassName string
 	ExeName   string
 	Kind      Kind
+	TTY       string
 }
 
 // InjectRequest is one keyboard inject attempt (maps to gbr/1 inject payload).
