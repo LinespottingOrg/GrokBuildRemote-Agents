@@ -20,7 +20,7 @@ import { GbrClient, GbrError } from './client.js';
 import { diagnose } from './diagnose.js';
 import { log, withCorrelation, clampBody, redact, registerSecret, logMeta } from './logger.js';
 import { TOOLS } from './tools.js';
-import { isInjectable } from './sessions.js';
+import { isInjectable, isUnnamed } from './sessions.js';
 
 const VERSION = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'),
@@ -108,12 +108,14 @@ async function dispatch(client, name, args, cid) {
       // Filter rather than length-check: a roster of [pseudo, stale] would
       // otherwise produce no warning at all.
       const real = sessions.filter(isInjectable);
-      return {
-        ...res,
-        _note: real.length === 0
-          ? 'No real sessions — only the agent pseudo-session is present. Injecting into it will hang until timeout. Open a Grok Build window first.'
-          : undefined,
-      };
+      const unnamed = real.filter(isUnnamed);
+      let note;
+      if (real.length === 0) {
+        note = 'No injectable sessions — only the agent pseudo-session "session" is present. Injecting into it hangs until timeout. Open a terminal or Grok Build window first.';
+      } else if (unnamed.length === real.length) {
+        note = `All ${real.length} session(s) are unnamed (title "unknown"). They ARE injectable — verified — but the agent could not classify them, so titles are useless. This is the known grok_build=0 classifier bug; check: grep '"hop":"agent.discover"' ~/.gbr/logs/agent-$(date +%F).jsonl | tail -1`;
+      }
+      return { ...res, _note: note };
     }
 
     case 'gbr_devices':

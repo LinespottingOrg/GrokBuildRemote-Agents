@@ -12,7 +12,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir, platform, release } from 'node:os';
 import { GbrClient } from './client.js';
-import { isInjectable } from './sessions.js';
+import { isInjectable, isUnnamed } from './sessions.js';
 import { logMeta, log } from './logger.js';
 
 const exec = promisify(execFile);
@@ -138,15 +138,19 @@ export async function diagnose(clientOpts = {}, cid) {
       `${list.length} session(s): ${list.map((x) => `${x.session_id}(${x.title})`).join(', ') || 'none'}`,
       list.length ? null : 'Open a Grok Build window on this machine, then re-run.',
     );
+    const unnamed = realSessions.filter(isUnnamed);
     add(
-      'real_grok_session',
+      'injectable_session',
       realSessions.length > 0,
       realSessions.length
-        ? `${realSessions.length} real session(s)`
+        ? `${realSessions.length} injectable session(s)` +
+          (unnamed.length ? ` — ${unnamed.length} unnamed (classifier could not title them; still injectable)` : '')
         : 'only the agent pseudo-session "session" is present',
       realSessions.length
-        ? null
-        : 'IMPORTANT: injecting into the pseudo-session "session" will hang until timeout. Open an actual Grok Build / terminal window first.',
+        ? (unnamed.length
+            ? 'Sessions are injectable but unnamed — the agent enumerated the windows without classifying them. Check: grep \'"hop":"agent.discover"\' ~/.gbr/logs/agent-$(date +%F).jsonl | tail -1'
+            : null)
+        : 'IMPORTANT: injecting into the pseudo-session "session" hangs until timeout. Open a terminal or Grok Build window first.',
     );
   } catch (err) {
     add('sessions_available', false, err.message, err.hint);
