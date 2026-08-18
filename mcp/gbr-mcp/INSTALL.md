@@ -2,21 +2,22 @@
 
 **Kind:** MCP server (stdio)
 **Platforms:** macOS · Linux · Windows
-**Requires:** Node ≥20 · `gbr-agent` ≥ 0.5.3 running
+**Requires:** Node ≥20 · `gbr-agent` ≥ 0.5.4 running
 **Official:** yes — Linespotting AB · https://grokbuildremote.com/
 
 ## What it gives you
 
-Nine tools that let any MCP client drive Grok Build / CLI sessions on this machine
+Thirteen tools that let any MCP client drive Grok Build / CLI sessions on this machine
 and on every machine registered in the fleet:
 
-`gbr_diagnose` · `gbr_status` · `gbr_sessions` · `gbr_devices` · `gbr_inject`
-`gbr_inject_and_wait` · `gbr_output` · `gbr_fleet_add` · `gbr_discovery`
+`gbr_diagnose` · `gbr_status` · `gbr_sessions` · `gbr_devices` · `gbr_open` · `gbr_lock`
+`gbr_result` · `gbr_tasks` · `gbr_inject` · `gbr_inject_and_wait` · `gbr_output`
+`gbr_fleet_add` · `gbr_discovery`
 
 ## Prerequisite: the agent
 
-The Bot API landed in **0.5.3**. Anything older has no HTTP surface at all and
-`gbr-mcp` cannot work.
+The Bot API landed in **0.5.3**. Open / lock / idle-wait result need **0.5.4**.
+Anything older than 0.5.3 has no HTTP surface at all and `gbr-mcp` cannot work.
 
 **bash (macOS):**
 ```
@@ -43,7 +44,7 @@ The installer writes to `~/.local/bin` and appends that to `~/.zshrc` — but it
 cd ~ && export PATH="$HOME/.local/bin:$PATH" && gbr-agent version
 ```
 
-Must print `v0.5.3` or higher. Then pair and run:
+Must print `v0.5.4` or higher. Then pair and run:
 
 **bash (macOS):**
 ```
@@ -76,22 +77,21 @@ cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr
 cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
 ```
 
-Or just use the published package — no clone needed: `npx -y @linespotting/gbr-mcp`.
+There is **no npm package**. Always run from this clone.
 
 ## Config block
 
 ```json
 {
   "gbr": {
-    "command": "npx",
-    "args": ["-y", "@linespotting/gbr-mcp"],
+    "command": "node",
+    "args": ["/ABSOLUTE/PATH/GrokBuildRemote-Agents/mcp/gbr-mcp/bin/gbr-mcp.js"],
     "env": { "GBR_MCP_LOG_LEVEL": "info" }
   }
 }
 ```
 
-Running from a clone instead of npm? Point `command` at `node` and `args` at
-the absolute path of your checkout's `bin/gbr-mcp.js`.
+On this Mac the Dropbox work copy is `/Users/user/Dropbox/MCP/gbr-mcp/bin/gbr-mcp.js`.
 
 Merge into `~/.claude.json` under `mcpServers`.
 
@@ -102,7 +102,7 @@ To declare it natively in Grok instead:
 
 **bash (macOS):**
 ```
-cd ~ && grok mcp add gbr -- npx -y @linespotting/gbr-mcp
+cd ~ && grok mcp add gbr -- node /ABSOLUTE/PATH/GrokBuildRemote-Agents/mcp/gbr-mcp/bin/gbr-mcp.js
 ```
 
 ## Verify
@@ -126,7 +126,7 @@ Expect `37 passed` (unit) then `30 passed` (smoke; 25 without a live agent). The
 cd ~ && grok mcp doctor 2>&1 | grep -A4 "^  gbr "
 ```
 
-Expect `✓ handshake OK` and `✓ 9 tools discovered`.
+Expect `✓ handshake OK` and `✓ 13 tools discovered`.
 
 ## Environment
 
@@ -162,7 +162,7 @@ Raise verbosity:
 
 **bash (macOS):**
 ```
-cd ~ && GBR_MCP_LOG_LEVEL=trace npx -y @linespotting/gbr-mcp --diagnose
+cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && GBR_MCP_LOG_LEVEL=trace node bin/gbr-mcp.js --diagnose
 ```
 
 Follow live:

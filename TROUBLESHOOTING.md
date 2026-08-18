@@ -6,10 +6,10 @@ For AIs: start with [AGENTS.md](AGENTS.md). For humans: https://grokbuildremote.
 
 ```bash
 gbr-agent version
-# expect: gbr-agent v0.5.2 …
+# expect: gbr-agent v0.5.4 …
 
 curl -sS https://gbr-relay.ekobrott.workers.dev/health
-# expect: "version":"0.5.2"  "bot":true
+# expect: "version":"0.5.4"  "bot":true
 ```
 
 Phone: Settings or store listing. Roster + Unpair + Bot API need mobile **1.3.1+**.

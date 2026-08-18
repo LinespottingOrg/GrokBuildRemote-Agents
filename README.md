@@ -1,7 +1,7 @@
 # Build Remote Agent — desktop (`gbr-agent`)
 
 **Product brand:** Build Remote Agent  
-**Binary:** `gbr-agent` **v0.5.2**  
+**Binary:** `gbr-agent` **v0.5.4**  
 **License:** **MIT** (open source)  
 **Org:** LinespottingOrg / Linespotting AB  
 
