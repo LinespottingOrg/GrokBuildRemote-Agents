@@ -147,3 +147,73 @@ func TestBotOutputsFilter(t *testing.T) {
 		t.Fatalf("filter session: %+v", got)
 	}
 }
+
+func TestWriteStatusIncludesDevices(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	s := &botServer{mailboxID: "gbr-testcode", port: 8788, key: "secret"}
+
+	decode := func(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
+		t.Helper()
+		var got map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+			t.Fatalf("json: %v body=%s", err, w.Body.String())
+		}
+		return got
+	}
+	devicesOf := func(t *testing.T, got map[string]any) []any {
+		t.Helper()
+		devs, _ := got["devices"].([]any)
+		if len(devs) == 0 {
+			t.Fatalf("devices must be a non-empty array: %v", got["devices"])
+		}
+		for i, raw := range devs {
+			d, ok := raw.(map[string]any)
+			if !ok {
+				t.Fatalf("device %d not an object: %v", i, raw)
+			}
+			if _, leak := d["mailbox_key"]; leak {
+				t.Fatalf("device %d leaked mailbox_key: %v", i, d)
+			}
+		}
+		return devs
+	}
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/v1/status", nil)
+	s.writeStatus(w, r)
+	if w.Code != 200 {
+		t.Fatalf("status %d %s", w.Code, w.Body.String())
+	}
+	got := decode(t, w)
+	devs := devicesOf(t, got)
+	first, _ := devs[0].(map[string]any)
+	if first["id"] != "local" || first["kind"] != "local" {
+		t.Fatalf("first device want local: %v", first)
+	}
+
+	w2 := httptest.NewRecorder()
+	r2 := httptest.NewRequest(http.MethodGet, "/v1/status?device=local", nil)
+	s.writeStatus(w2, r2)
+	if w2.Code != 200 {
+		t.Fatalf("status?device=local %d %s", w2.Code, w2.Body.String())
+	}
+	got2 := decode(t, w2)
+	_ = devicesOf(t, got2)
+	sel, _ := got2["device"].(map[string]any)
+	if sel == nil || sel["id"] != "local" {
+		t.Fatalf("device selector want id=local: %v", got2["device"])
+	}
+
+	w3 := httptest.NewRecorder()
+	r3 := httptest.NewRequest(http.MethodGet, "/v1/status?device=no-such-box", nil)
+	s.writeStatus(w3, r3)
+	if w3.Code < 400 || w3.Code > 499 {
+		t.Fatalf("unknown device want 4xx, got %d %s", w3.Code, w3.Body.String())
+	}
+	got3 := decode(t, w3)
+	if got3["error"] != "unknown_device" {
+		t.Fatalf("want unknown_device, got %s", w3.Body.String())
+	}
+}

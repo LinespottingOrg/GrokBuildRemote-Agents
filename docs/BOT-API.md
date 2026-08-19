@@ -18,7 +18,9 @@ Treat the mailbox key like a password. Anyone who has it can type into the paire
 ```bash
 gbr-agent bot                  # print curl examples
 curl -sS http://127.0.0.1:8788/
+curl -sS http://127.0.0.1:8788/v1/devices
 curl -sS http://127.0.0.1:8788/v1/sessions
+curl -sS "http://127.0.0.1:8788/v1/status?device=local"
 curl -sS -X POST http://127.0.0.1:8788/v1/inject \
   -H 'Content-Type: application/json' \
   -d '{"session_id":"SESSION","text":"hello from bot","submit":true}'
@@ -58,6 +60,7 @@ Relay inject is rate-limited (60/min per mailbox). The agent must be running (`g
 
 ```json
 {
+  "device": "local",
   "session_id": "grok-build-40a22",
   "text": "the prompt to type",
   "submit": true,
@@ -80,7 +83,11 @@ Aliases: `prompt` / `nl_prompt` for `text`, `session` for `session_id`.
 
 ### `GET …/status`
 
-`agent_online`, `last_seen`, `session_count`, `agent_version`, `sessions`.
+Hub fields: `ok`, `mailbox_id`, `agent_online`, `last_seen` (relay), `session_count`, `agent_version`, `os`, `sessions`, `bot`, `relay_bot`, `uptime_s`, `now`.
+
+`devices[]`: `{ id, name, kind, mailbox_id, os, has_key, online? }`. Local is always `id=local`, `kind=local`, `online=true`. Remotes come from the hub fleet. `mailbox_key` is never included (`has_key` only). `online` is omitted or `false` when unknown — this process does not invent remote liveness.
+
+`GET /v1/status?device=NAME` (or `GET /v1/devices/:id/status`) still returns the full `devices[]` plus `"device": { … }` for the selected machine. Unknown name → `404 {"error":"unknown_device"}`.
 
 ## One Grok bot · many PCs (0.5.3+)
 
@@ -105,12 +112,14 @@ gbr-agent fleet add -name studio-linux -mailbox gbr-XXXX -key KEY -os linux
 gbr-agent fleet add -name mac-mini     -mailbox gbr-YYYY -key KEY -os darwin
 gbr-agent fleet
 
-# Grok bot — local OR remote, same JSON:
+# List → pick → inject → status (same JSON local or remote):
 curl -sS http://127.0.0.1:8788/v1/devices
+curl -sS "http://127.0.0.1:8788/v1/status?device=local"
 curl -sS -X POST http://127.0.0.1:8788/v1/inject \
   -d '{"device":"local","text":"fix tests","submit":true}'
 curl -sS -X POST http://127.0.0.1:8788/v1/inject \
   -d '{"device":"studio-linux","text":"make test","submit":true}'
+curl -sS http://127.0.0.1:8788/v1/status
 ```
 
 The phone on the **hub** mailbox shows short system lines:
