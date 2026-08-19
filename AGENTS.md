@@ -99,10 +99,11 @@ Session labels: `~/.gbr/sessions.json`
 
 - **Same PC:** `http://127.0.0.1:8788` while `gbr-agent run` (loopback only).
 - **Remote:** `https://gbr-relay.ekobrott.workers.dev/v1/mb/{mailbox_id}/bot` with `X-GBR-Key` from phone **Settings → Bot API**.
-- **One bot · many PCs (0.5.3+):** `gbr-agent fleet add -name linux -mailbox ID -key KEY` then `POST /inject` with `"device":"linux"`. Phone on the hub mailbox gets short `bot · linux · inject queued` lines.
+- **One bot · many PCs (0.5.3+):** `gbr-agent fleet add -name linux -mailbox ID -key KEY` then `POST /inject` with `"device":"linux"`. Phone on the hub mailbox gets short `bot · linux · inject queued` lines. `gbr-agent status` lists fleet; `gbr-agent fleet add` registers remotes.
 - **Chain (0.5.4+):** same JSON for Grok bot and Claude Cowork (`gbr-mcp`). `POST /v1/sessions/open` → `POST /v1/lock` → `POST /v1/inject` → `GET /v1/result?wait_ms=` → `DELETE /v1/lock`. Do not hide `unknown-*`. Do not share a window without a lease.
 
 ```
+GET  /v1/devices
 GET  /v1/sessions
 POST /v1/sessions/open   { cwd, resume, holder, goal }
 POST /v1/lock            { session_id, holder, ttl_s }
@@ -110,7 +111,7 @@ POST /v1/inject          { session_id, text, submit, wait_idle? }
 GET  /v1/result          ?session_id=&wait_ms=
 GET|POST /v1/tasks
 GET  /v1/output?command_id=
-GET  /v1/status
+GET  /v1/status          # includes devices[]
 ```
 
 ---

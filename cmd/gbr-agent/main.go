@@ -140,6 +140,7 @@ Usage:
   gbr-agent [-log=info] netcheck [-relay URL] [-doc]
       Firewall/VPN test: DNS + TCP/443 + TLS + HTTPS /health (no inbound ports).
   gbr-agent [-log=info] status
+      Also lists local + remotes (gbr-agent fleet).
   gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force] [-bot-port 8788]
   gbr-agent [-log=info] bot
       Print localhost + relay Bot API curl examples (Grok bots).
@@ -1599,6 +1600,7 @@ func cmdStatus(args []string) int {
 	} else {
 		fmt.Printf("agent_lock:  none — no agent running\n")
 	}
+	printStatusFleet(dev.MailboxConversationID, dev.MailboxKey != "")
 	if dev.MailboxConversationID == "" {
 		fmt.Printf("hint: run  gbr-agent pair -code YOURCODE\n")
 	} else {

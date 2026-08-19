@@ -166,20 +166,85 @@ func fleetSyncOne(d core.FleetDevice) error {
 	return nil
 }
 
-func (s *botServer) writeDevices(w http.ResponseWriter) {
-	f, _ := core.LoadFleet()
+// listPublicDevices is local first, then fleet remotes. Keys never appear
+// (has_key only). Local is always online; remotes are false when unknown.
+func (s *botServer) listPublicDevices() []map[string]any {
 	local := map[string]any{
 		"id": "local", "name": "this PC", "kind": "local",
 		"mailbox_id": s.mailboxID, "os": runtime.GOOS, "has_key": s.key != "",
+		"online": true,
 	}
 	devs := []map[string]any{local}
+	f, _ := core.LoadFleet()
 	if f != nil {
-		devs = append(devs, f.PublicDevices()...)
+		for _, d := range f.PublicDevices() {
+			if d == nil {
+				continue
+			}
+			d["online"] = false
+			devs = append(devs, d)
+		}
 	}
+	return devs
+}
+
+func matchListedDevice(devices []map[string]any, want string) (map[string]any, bool) {
+	want = strings.TrimSpace(want)
+	if want == "" {
+		return nil, false
+	}
+	f, err := core.LoadFleet()
+	if err != nil || f == nil {
+		f = &core.Fleet{}
+	}
+	got, ok := f.Get(want)
+	if !ok {
+		return nil, false
+	}
+	id := got.ID
+	if got.Kind == "local" {
+		id = "local"
+	}
+	for _, d := range devices {
+		if did, _ := d["id"].(string); did == id {
+			return d, true
+		}
+	}
+	return nil, false
+}
+
+func (s *botServer) writeDevices(w http.ResponseWriter) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok": true, "mailbox_id": s.mailboxID, "devices": devs,
+		"ok": true, "mailbox_id": s.mailboxID, "devices": s.listPublicDevices(),
 		"note": "One Grok bot instance. device=local is this PC; others are remotes (Mac/Linux) via the relay.",
 	})
+}
+
+func printStatusFleet(mailboxID string, hasKey bool) {
+	fmt.Println("fleet:")
+	hk := "no"
+	if hasKey {
+		hk = "yes"
+	}
+	fmt.Printf("  %-12s  %-10s  kind=local  os=%s  mailbox=%s  has_key=%s  online=true\n",
+		"local", "this PC", runtime.GOOS, mailboxID, hk)
+	f, err := core.LoadFleet()
+	if err != nil || f == nil {
+		return
+	}
+	for _, d := range f.PublicDevices() {
+		remoteHK := "no"
+		if v, _ := d["has_key"].(bool); v {
+			remoteHK = "yes"
+		}
+		id, _ := d["id"].(string)
+		name, _ := d["name"].(string)
+		kind, _ := d["kind"].(string)
+		osName, _ := d["os"].(string)
+		mb, _ := d["mailbox_id"].(string)
+		fmt.Printf("  %-12s  %-10s  kind=%s  os=%s  mailbox=%s  has_key=%s\n",
+			id, name, kind, osName, mb, remoteHK)
+	}
 }
 
 func (s *botServer) handleDeviceWrite(w http.ResponseWriter, r *http.Request) {

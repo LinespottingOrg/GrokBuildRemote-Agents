@@ -235,7 +235,8 @@ func (s *botServer) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if sub == "status" && r.Method == http.MethodGet {
-			s.writeStatus(w)
+			r.URL.RawQuery = "device=" + id + "&" + r.URL.RawQuery
+			s.writeStatus(w, r)
 			return
 		}
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not_found"})
@@ -272,7 +273,7 @@ func (s *botServer) handle(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
 			return
 		}
-		s.writeStatus(w)
+		s.writeStatus(w, r)
 	default:
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not_found"})
 	}
@@ -280,28 +281,28 @@ func (s *botServer) handle(w http.ResponseWriter, r *http.Request) {
 
 func (s *botServer) writeDiscovery(w http.ResponseWriter) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":         true,
-		"service":    "gbr-agent-bot",
-		"proto":      "gbr/1",
-		"version":    version,
-		"mailbox_id": s.mailboxID,
-		"bind":       "127.0.0.1",
-		"port":       s.port,
-		"uptime_s":   int(time.Since(s.started).Seconds()),
-		"auth":       []string{"loopback", "optional X-GBR-Key", "Authorization: Bearer <mailbox_key>"},
+		"ok":          true,
+		"service":     "gbr-agent-bot",
+		"proto":       "gbr/1",
+		"version":     version,
+		"mailbox_id":  s.mailboxID,
+		"bind":        "127.0.0.1",
+		"port":        s.port,
+		"uptime_s":    int(time.Since(s.started).Seconds()),
+		"auth":        []string{"loopback", "optional X-GBR-Key", "Authorization: Bearer <mailbox_key>"},
 		"require_key": os.Getenv("GBR_BOT_REQUIRE_KEY") == "1",
 		"endpoints": map[string]string{
-			"discovery": "GET /  or  GET /v1",
-			"devices":   "GET /v1/devices",
+			"discovery":  "GET /  or  GET /v1",
+			"devices":    "GET /v1/devices",
 			"add_device": "POST /v1/devices",
-			"sessions":  "GET /v1/sessions?device=",
-			"open":      "POST /v1/sessions/open",
-			"inject":    "POST /v1/inject",
-			"result":    "GET /v1/result?session_id=&wait_ms=&idle_ms=",
-			"lock":      "GET|POST|DELETE /v1/lock",
-			"tasks":     "GET|POST /v1/tasks",
-			"output":    "GET /v1/output?session_id=&command_id=&after=&limit=",
-			"status":    "GET /v1/status",
+			"sessions":   "GET /v1/sessions?device=",
+			"open":       "POST /v1/sessions/open",
+			"inject":     "POST /v1/inject",
+			"result":     "GET /v1/result?session_id=&wait_ms=&idle_ms=",
+			"lock":       "GET|POST|DELETE /v1/lock",
+			"tasks":      "GET|POST /v1/tasks",
+			"output":     "GET /v1/output?session_id=&command_id=&after=&limit=",
+			"status":     "GET /v1/status?device=",
 		},
 		"chain": []string{
 			"diagnose", "open or attach", "lock", "inject",
@@ -309,10 +310,10 @@ func (s *botServer) writeDiscovery(w http.ResponseWriter) {
 			"judge and iterate or close + notify",
 		},
 		"inject_body": map[string]any{
-			"device":     "local | studio-linux | mac-mini",
-			"session_id": "grok-build-…",
-			"text":       "the prompt to type",
-			"submit":     true,
+			"device":       "local | studio-linux | mac-mini",
+			"session_id":   "grok-build-…",
+			"text":         "the prompt to type",
+			"submit":       true,
 			"notify_phone": true,
 		},
 		"relay_bot": s.relayBotURL(),
@@ -432,12 +433,13 @@ func (s *botServer) writeOutput(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *botServer) writeStatus(w http.ResponseWriter) {
+func (s *botServer) writeStatus(w http.ResponseWriter, r *http.Request) {
 	var sessions []map[string]any
 	if s.rt != nil {
 		sessions = s.rt.listSessionPayloads()
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	devices := s.listPublicDevices()
+	out := map[string]any{
 		"ok":            true,
 		"mailbox_id":    s.mailboxID,
 		"agent_online":  true,
@@ -449,7 +451,21 @@ func (s *botServer) writeStatus(w http.ResponseWriter) {
 		"relay_bot":     s.relayBotURL(),
 		"uptime_s":      int(time.Since(s.started).Seconds()),
 		"now":           time.Now().UTC().Format(time.RFC3339Nano),
-	})
+		"devices":       devices,
+	}
+	want := ""
+	if r != nil {
+		want = strings.TrimSpace(r.URL.Query().Get("device"))
+	}
+	if want != "" {
+		d, ok := matchListedDevice(devices, want)
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]any{"error": "unknown_device"})
+			return
+		}
+		out["device"] = d
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *botServer) authorize(r *http.Request) bool {
@@ -506,6 +522,13 @@ func cmdBot(args []string) int {
 	_ = args
 	fmt.Print(`gbr-agent bot API — one Grok bot instance, many PCs
 
+List devices → pick a machine → inject → status:
+
+  curl -sS http://127.0.0.1:8788/v1/devices
+  curl -sS "http://127.0.0.1:8788/v1/status?device=local"
+  curl -sS -X POST http://127.0.0.1:8788/v1/inject -H "Content-Type: application/json" -d "{\"device\":\"local\",\"text\":\"hello\",\"submit\":true}"
+  curl -sS http://127.0.0.1:8788/v1/status
+
 Chain (Grok bot + Claude Cowork, same JSON):
   diagnose → POST /v1/sessions/open → POST /v1/lock
   → POST /v1/inject → GET /v1/result?wait_ms=60000
@@ -513,15 +536,11 @@ Chain (Grok bot + Claude Cowork, same JSON):
 
 Local hub (this PC, loopback):
   curl -sS http://127.0.0.1:8788/
-  curl -sS http://127.0.0.1:8788/v1/devices
   curl -sS -X POST http://127.0.0.1:8788/v1/sessions/open \
     -d '{"cwd":"'"$PWD"'","holder":"grok-bot","goal":"fix tests"}'
-  curl -sS -X POST http://127.0.0.1:8788/v1/inject \
-    -H 'Content-Type: application/json' \
-    -d '{"device":"local","text":"hello","submit":true}'
-  curl -sS 'http://127.0.0.1:8788/v1/result?session_id=SESSION&wait_ms=60000'
   curl -sS -X POST http://127.0.0.1:8788/v1/lock \
     -d '{"session_id":"SESSION","holder":"grok-bot"}'
+  curl -sS 'http://127.0.0.1:8788/v1/result?session_id=SESSION&wait_ms=60000'
 
 Add a remote Mac/Linux PC (pair that agent first, copy mailbox id+key):
   gbr-agent fleet add -name studio-linux -mailbox gbr-XXXX -key KEY -os linux
