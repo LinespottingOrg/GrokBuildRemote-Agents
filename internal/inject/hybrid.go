@@ -1,9 +1,18 @@
 package inject
 
 import (
+	"fmt"
 	"log/slog"
+	"runtime"
 	"strings"
+	"sync"
+	"time"
 )
+
+type windowSess struct {
+	PID  int
+	HWND uintptr
+}
 
 // Hybrid tries platform UI inject first, then managed shell (PTY pipes).
 // This is the production default for Day-1 reliability.
@@ -11,6 +20,9 @@ type Hybrid struct {
 	UI  Injector
 	PTY *Manager
 	log *slog.Logger
+
+	mu      sync.Mutex
+	windows map[string]windowSess
 }
 
 // NewHybrid builds a hybrid injector. ui may be nil (PTY-only).
@@ -19,9 +31,10 @@ func NewHybrid(ui Injector, pty *Manager) *Hybrid {
 		pty = NewManager(nil)
 	}
 	return &Hybrid{
-		UI:  ui,
-		PTY: pty,
-		log: slog.Default(),
+		UI:      ui,
+		PTY:     pty,
+		log:     slog.Default(),
+		windows: make(map[string]windowSess),
 	}
 }
 
@@ -43,11 +56,41 @@ func (h *Hybrid) Unbind(sessionID string) {
 	if h.UI != nil {
 		h.UI.Unbind(sessionID)
 	}
+	h.mu.Lock()
+	delete(h.windows, sessionID)
+	h.mu.Unlock()
+}
+
+func (h *Hybrid) isWindowSession(sessionID string) bool {
+	if h == nil {
+		return false
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	_, ok := h.windows[sessionID]
+	return ok
+}
+
+func (h *Hybrid) rememberWindow(sessionID string, pid int, hwnd uintptr) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.windows == nil {
+		h.windows = make(map[string]windowSess)
+	}
+	h.windows[sessionID] = windowSess{PID: pid, HWND: hwnd}
 }
 
 func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 	if err := ValidateRequest(sessionID, req); err != nil {
 		return err
+	}
+	// Window-backed grok (visible console): never rediscover — pickInjectTarget
+	// would happily steal ++ Felanmälan.org because it also says "Grok Build".
+	if h.isWindowSession(sessionID) {
+		if h.UI == nil {
+			return fmt.Errorf("%w: session %q (window session has no UI injector)", ErrNotFound, sessionID)
+		}
+		return h.UI.Inject(sessionID, req)
 	}
 	// A session we spawned (open / managed shell) must stay on the PTY.
 	// UI-first was typing into some other Terminal window while Capture
@@ -58,19 +101,30 @@ func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 		}
 	}
 	if h.UI != nil {
-		// Prefer already-bound session. Re-discover only if inject will need a window.
-		// Prefer Grok Build / matching title over the agent's own PowerShell host.
 		if wins, err := h.UI.Discover(); err == nil && len(wins) > 0 {
 			chosen := pickInjectTarget(wins, sessionID)
-			_ = h.UI.Bind(sessionID, chosen)
+			if chosen.HWND != 0 && !IsProtectedTitle(chosen.Title) {
+				_ = h.UI.Bind(sessionID, chosen)
+			}
 		}
 		if err := h.UI.Inject(sessionID, req); err == nil {
 			return nil
 		} else {
-			h.log.Debug("ui inject failed; falling back to managed shell", "session", sessionID, "err", err)
+			h.log.Debug("ui inject failed; not spawning a dummy shell", "session", sessionID, "err", err)
+			// Window-not-found is NOT success. Do not Ensure() a pipe shell
+			// that reports ok while Grok never sees the keys.
+			if h.PTY != nil {
+				if s := h.PTY.Get(sessionID); s != nil && !s.IsClosed() {
+					return h.PTY.Inject(sessionID, req)
+				}
+			}
+			return err
 		}
 	}
-	return h.PTY.Inject(sessionID, req)
+	if h.PTY != nil {
+		return h.PTY.Inject(sessionID, req)
+	}
+	return fmt.Errorf("%w: session %q", ErrNotFound, sessionID)
 }
 
 func containsFold(s, sub string) bool {
@@ -85,11 +139,16 @@ func containsFold(s, sub string) bool {
 //  2. Grok Build host
 //  3. Real terminals (not gbr-agent title)
 //  4. First remaining window
+//
+// Protected operator titles (Felanmälan, QA PC Android) always lose.
 func pickInjectTarget(wins []TerminalWindow, sessionID string) TerminalWindow {
 	if len(wins) == 0 {
 		return TerminalWindow{}
 	}
 	score := func(w TerminalWindow) int {
+		if IsProtectedTitle(w.Title) {
+			return -1000
+		}
 		s := 0
 		lt := strings.ToLower(w.Title)
 		if sessionID != "" && (containsFold(w.Title, sessionID) || containsFold(w.ExeName, sessionID)) {
@@ -107,19 +166,31 @@ func pickInjectTarget(wins []TerminalWindow, sessionID string) TerminalWindow {
 		}
 		return s
 	}
-	best := wins[0]
-	bestS := score(best)
-	for _, w := range wins[1:] {
-		if sc := score(w); sc > bestS {
+	best := TerminalWindow{}
+	bestS := -999
+	for i, w := range wins {
+		sc := score(w)
+		if i == 0 || sc > bestS {
 			best, bestS = w, sc
 		}
+	}
+	if bestS < 0 {
+		return TerminalWindow{}
 	}
 	return best
 }
 
 func (h *Hybrid) Capture(sessionID string) (CaptureResult, error) {
-	// Prefer managed shell output (reliable).
+	if h.isWindowSession(sessionID) && h.UI != nil {
+		return h.UI.Capture(sessionID)
+	}
+	// Prefer managed shell output (reliable). If a PTY session exists,
+	// do not fall through to UI HWND lookup — that is "window not found"
+	// for agent-opened ids and is not a success path.
 	if h.PTY != nil {
+		if s := h.PTY.Get(sessionID); s != nil && !s.IsClosed() {
+			return h.PTY.Capture(sessionID)
+		}
 		if cr, err := h.PTY.Capture(sessionID); err == nil && cr.Text != "" {
 			return cr, nil
 		}
@@ -142,6 +213,9 @@ func (h *Hybrid) Close() error {
 			first = err
 		}
 	}
+	h.mu.Lock()
+	h.windows = make(map[string]windowSess)
+	h.mu.Unlock()
 	return first
 }
 
@@ -151,4 +225,70 @@ func (h *Hybrid) ManagedIDs() []string {
 		return nil
 	}
 	return h.PTY.List()
+}
+
+// OpenOrAttach starts grok (or a shell) so inject can actually type.
+// On Windows, grok is ConPTY (real TTY) or a visible console window — never a dead pipe.
+func (h *Hybrid) OpenOrAttach(req OpenRequest) (OpenResult, error) {
+	if h == nil {
+		return OpenResult{}, fmt.Errorf("open: no session manager")
+	}
+	sid := sanitizeOpenID(req.SessionID)
+	if sid != "" && h.isWindowSession(sid) {
+		h.mu.Lock()
+		w := h.windows[sid]
+		h.mu.Unlock()
+		return OpenResult{
+			SessionID: sid,
+			Attached:  true,
+			Method:    "window",
+			PID:       w.PID,
+			HWND:      w.HWND,
+			Note:      "already managed window",
+		}, nil
+	}
+
+	cmdName := strings.ToLower(strings.TrimSpace(req.Command))
+	wantGrok := cmdName == "" || cmdName == "grok" || cmdName == "grok-build"
+
+	if wantGrok {
+		// Windows: a real console window so SendInput reaches the TUI.
+		// Pipe/ConPTY fallback is the original bug (splash captured, keys ignored).
+		if wres, werr := h.openGrokWindow(req); werr == nil {
+			return wres, nil
+		} else if runtime.GOOS == "windows" && h.UI != nil {
+			return OpenResult{}, fmt.Errorf("open grok window: %w", werr)
+		} else if h.PTY != nil {
+			res, err := h.PTY.OpenOrAttach(req)
+			if err == nil {
+				h.waitReady(res.SessionID, 6*time.Second)
+				return res, nil
+			}
+			return OpenResult{}, fmt.Errorf("open grok: window: %v; tty: %v", werr, err)
+		} else {
+			return OpenResult{}, werr
+		}
+	}
+	if h.PTY != nil {
+		return h.PTY.OpenOrAttach(req)
+	}
+	return OpenResult{}, fmt.Errorf("open: no session manager")
+}
+
+func (h *Hybrid) waitReady(sessionID string, timeout time.Duration) {
+	if sessionID == "" || timeout <= 0 {
+		return
+	}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		cr, err := h.Capture(sessionID)
+		if err == nil {
+			t := cr.Text
+			if LooksLikeGrokSplash(t) || LooksLikePrompt(t) || containsFold(t, "grok") {
+				time.Sleep(200 * time.Millisecond)
+				return
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }

@@ -803,11 +803,11 @@ func (rt *agentRuntime) handleControl(ctx context.Context, mailboxID string, env
 }
 
 func (rt *agentRuntime) controlOpen(ctx context.Context, mailboxID, commandID string, p grok.ControlPayload) error {
-	if rt.hybrid == nil || rt.hybrid.PTY == nil {
+	if rt.hybrid == nil {
 		return rt.pushOutputFull(ctx, mailboxID, p.SessionID, commandID, "system",
 			"open failed: no session manager", true, "control", "open")
 	}
-	res, err := rt.hybrid.PTY.OpenOrAttach(inject.OpenRequest{
+	res, err := rt.hybrid.OpenOrAttach(inject.OpenRequest{
 		SessionID: p.SessionID, CWD: p.CWD, Resume: p.Resume,
 		Command: p.Command, Title: p.Title, Holder: p.Holder,
 	})

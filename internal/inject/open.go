@@ -22,15 +22,16 @@ type OpenRequest struct {
 
 // OpenResult is what Bot API / MCP return after open/attach.
 type OpenResult struct {
-	SessionID string `json:"session_id"`
-	Opened    bool   `json:"opened"`
-	Attached  bool   `json:"attached"`
-	Method    string `json:"method"`
-	Command   string `json:"command,omitempty"`
-	CWD       string `json:"cwd,omitempty"`
-	Resume    string `json:"resume,omitempty"`
-	PID       int    `json:"pid,omitempty"`
-	Note      string `json:"note,omitempty"`
+	SessionID string  `json:"session_id"`
+	Opened    bool    `json:"opened"`
+	Attached  bool    `json:"attached"`
+	Method    string  `json:"method"`
+	Command   string  `json:"command,omitempty"`
+	CWD       string  `json:"cwd,omitempty"`
+	Resume    string  `json:"resume,omitempty"`
+	PID       int     `json:"pid,omitempty"`
+	HWND      uintptr `json:"hwnd,omitempty"`
+	Note      string  `json:"note,omitempty"`
 }
 
 // LookGrok returns the grok CLI path if installed.
@@ -131,13 +132,17 @@ func (m *Manager) OpenOrAttach(req OpenRequest) (OpenResult, error) {
 			if resume != "" {
 				args = []string{"--resume", resume}
 			}
-			s, err := m.EnsureCmd(sid, cwd, bin, args)
+			s, err := m.EnsureCmdTTY(sid, cwd, bin, args)
 			if err != nil {
 				return OpenResult{}, err
 			}
 			note := "spawned grok"
 			if resume != "" {
 				note = "spawned grok --resume"
+			}
+			kind := "ConPTY"
+			if s.conpty == nil {
+				kind = "pipes"
 			}
 			return OpenResult{
 				SessionID: sid,
@@ -147,7 +152,7 @@ func (m *Manager) OpenOrAttach(req OpenRequest) (OpenResult, error) {
 				CWD:       cwd,
 				Resume:    resume,
 				PID:       s.PID(),
-				Note:      note + " (pipe-backed; TUI may be limited — inject still works)",
+				Note:      note + " (" + kind + "; TUI stdin attached)",
 			}, nil
 		}
 	}
@@ -164,12 +169,4 @@ func (m *Manager) OpenOrAttach(req OpenRequest) (OpenResult, error) {
 		PID:       s.PID(),
 		Note:      "grok CLI not on PATH — opened a managed shell. Inject `grok` or install Grok Build.",
 	}, nil
-}
-
-// PID of the managed process, or 0.
-func (s *ManagedSession) PID() int {
-	if s == nil || s.cmd == nil || s.cmd.Process == nil {
-		return 0
-	}
-	return s.cmd.Process.Pid
 }

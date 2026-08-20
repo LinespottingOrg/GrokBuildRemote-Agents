@@ -1,6 +1,7 @@
 package inject
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -45,4 +46,68 @@ func TestHybrid_ManagedSessionSkipsUI(t *testing.T) {
 	}
 	cap, _ := h.Capture("gbr-open-test")
 	t.Fatalf("PTY never showed echo; snapshot=%q", cap.Text)
+}
+
+type failUI struct{ stubUI }
+
+func (f *failUI) Discover() ([]TerminalWindow, error) {
+	return []TerminalWindow{{
+		Title: "++ Felanmälan.org",
+		Kind:  KindGrokBuild,
+		HWND:  1,
+	}}, nil
+}
+
+func (f *failUI) Inject(string, InjectRequest) error {
+	return fmtNotFound("gbr-open-missing")
+}
+
+func fmtNotFound(id string) error {
+	return errors.Join(ErrNotFound, errors.New(`session "`+id+`" (bind a window or use managed PTY)`))
+}
+
+func TestHybrid_WindowNotFoundIsError(t *testing.T) {
+	pty := NewManager(NewRateLimiter(time.Millisecond, 50, time.Second))
+	defer pty.Close()
+	h := NewHybrid(&failUI{}, pty)
+	err := h.Inject("gbr-open-missing", InjectRequest{Text: "GBR_FEEDBACK_OK", Submit: true})
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+	if got := pty.List(); len(got) != 0 {
+		t.Fatalf("window-not-found must not spawn a dummy PTY shell: %v", got)
+	}
+}
+
+func TestHybrid_WindowSessionUsesUI(t *testing.T) {
+	pty := NewManager(NewRateLimiter(time.Millisecond, 50, time.Second))
+	defer pty.Close()
+	ui := &stubUI{}
+	h := NewHybrid(ui, pty)
+	h.rememberWindow("gbr-open-win", 1, 1)
+	if err := h.Inject("gbr-open-win", InjectRequest{Text: "hi", Submit: true}); err != nil {
+		t.Fatal(err)
+	}
+	if ui.n != 1 {
+		t.Fatalf("window session must UI-inject, got %d calls", ui.n)
+	}
+	if got := pty.List(); len(got) != 0 {
+		t.Fatalf("window session must not create a PTY: %v", got)
+	}
+}
+
+func TestPickInjectTargetSkipsProtected(t *testing.T) {
+	wins := []TerminalWindow{
+		{Title: "++ Felanmälan.org", Kind: KindGrokBuild, HWND: 1},
+		{Title: "++ QA PC ANdroid", Kind: KindGrokBuild, HWND: 3},
+		{Title: "gbr-open-abc", Kind: KindGrokBuild, HWND: 2},
+	}
+	got := pickInjectTarget(wins, "gbr-open-abc")
+	if got.HWND != 2 {
+		t.Fatalf("got hwnd=%v title=%q", got.HWND, got.Title)
+	}
+	onlyProtected := pickInjectTarget(wins[:2], "gbr-open-abc")
+	if onlyProtected.HWND != 0 {
+		t.Fatalf("protected-only set must not be a success path: %+v", onlyProtected)
+	}
 }

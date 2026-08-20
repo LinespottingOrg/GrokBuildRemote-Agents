@@ -84,3 +84,46 @@ func TestPeekIdle(t *testing.T) {
 		t.Fatalf("%+v", b)
 	}
 }
+
+func TestLooksLikeGrokSplash(t *testing.T) {
+	splash := "Grok Build 1.0.5\nGrok 4.6 is here\nNew worktree    Resume    Changelog\n>"
+	if !LooksLikeGrokSplash(splash) {
+		t.Fatal("welcome chrome must look like splash")
+	}
+	if LooksLikePrompt(splash) {
+		t.Fatal("splash must not look like a work prompt")
+	}
+	if LooksLikeGrokSplash("GBR_FEEDBACK_OK\nstopped as requested.") {
+		t.Fatal("a real reply is not splash")
+	}
+	if LooksLikeGrokSplash("") {
+		t.Fatal("empty is not splash")
+	}
+}
+
+func TestWaitIdleSplashIsNotIdle(t *testing.T) {
+	splash := "Grok Build 1.0.5\nGrok 4.6 is here\nNew worktree    Resume    Changelog\n>"
+	res := WaitIdle(func() (string, string, error) {
+		return splash, "pty", nil
+	}, 900*time.Millisecond, 400*time.Millisecond)
+	if res.Idle {
+		t.Fatalf("splash must not count as idle after quiet: %+v", res)
+	}
+	if res.Reason == IdleReasonQuiet {
+		t.Fatalf("quiet-on-splash is the bug: %+v", res)
+	}
+	if !strings.Contains(res.Excerpt, "Grok 4.6 is here") {
+		t.Fatalf("excerpt should still carry splash for the caller: %q", res.Excerpt)
+	}
+}
+
+func TestPeekIdleSplashBusy(t *testing.T) {
+	splash := "Grok Build 1.0.5\nGrok 4.6 is here\nNew worktree    Resume    Changelog\n>"
+	p := PeekIdle(splash, "pty")
+	if p.Idle || p.Prompt {
+		t.Fatalf("peek splash must be busy: %+v", p)
+	}
+	if p.Reason != "splash" {
+		t.Fatalf("reason=%s", p.Reason)
+	}
+}

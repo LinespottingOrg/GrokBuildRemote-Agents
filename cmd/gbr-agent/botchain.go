@@ -53,7 +53,7 @@ func (s *botServer) handleOpen(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if s.rt == nil || s.rt.hybrid == nil || s.rt.hybrid.PTY == nil {
+	if s.rt == nil || s.rt.hybrid == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "agent_not_ready"})
 		return
 	}
@@ -71,7 +71,7 @@ func (s *botServer) handleOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := s.rt.hybrid.PTY.OpenOrAttach(inject.OpenRequest{
+	res, err := s.rt.hybrid.OpenOrAttach(inject.OpenRequest{
 		SessionID: sid,
 		CWD:       body.CWD,
 		Resume:    body.Resume,

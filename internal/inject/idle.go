@@ -41,8 +41,36 @@ var grokIdleTail = regexp.MustCompile(`(?i)` +
 	`|(?:^|\n)\s*[│┃]\s*>\s*$` +
 	`)`)
 
+// LooksLikeGrokSplash reports the Grok Build welcome chrome (version banner,
+// "Grok 4.x is here", New worktree / Resume / Changelog). That screen is
+// static for many seconds before the TUI accepts input — it is NOT idle.
+func LooksLikeGrokSplash(text string) bool {
+	t := strings.ToLower(stripANSI(text))
+	if strings.TrimSpace(t) == "" {
+		return false
+	}
+	hits := 0
+	if strings.Contains(t, "grok 4.6 is here") || strings.Contains(t, "grok 4.5 is here") ||
+		(strings.Contains(t, "grok 4") && strings.Contains(t, "is here")) {
+		hits += 2
+	}
+	if strings.Contains(t, "new worktree") {
+		hits++
+	}
+	if strings.Contains(t, "changelog") {
+		hits++
+	}
+	if strings.Contains(t, "grok build") && (strings.Contains(t, "1.0") || strings.Contains(t, "resume")) {
+		hits++
+	}
+	return hits >= 2
+}
+
 // LooksLikePrompt reports whether the capture tail looks like an idle prompt.
 func LooksLikePrompt(text string) bool {
+	if LooksLikeGrokSplash(text) {
+		return false
+	}
 	text = stripANSI(text)
 	text = strings.TrimRightFunc(text, unicode.IsSpace)
 	if text == "" {
@@ -174,14 +202,17 @@ func WaitIdle(capture CaptureFn, wait, quiet time.Duration) IdleResult {
 			last = text
 		}
 		prompt := LooksLikePrompt(text)
+		splash := LooksLikeGrokSplash(text)
 		quietFor := time.Since(lastChange)
-		if prompt {
+		if prompt && !splash {
 			return finishIdle(true, IdleReasonPrompt, text, method, start, quietFor, last != "")
 		}
 		if quietFor >= quiet && time.Since(start) >= quiet {
 			// Quiet with some text → idle. Quiet with empty capture is NOT
 			// success (typical Grok UI) — keep waiting until timeout.
-			if strings.TrimSpace(text) != "" {
+			// The welcome splash is also NOT idle: it sits still for seconds
+			// before Grok is ready to take a prompt.
+			if strings.TrimSpace(text) != "" && !splash {
 				return finishIdle(true, IdleReasonQuiet, text, method, start, quietFor, true)
 			}
 		}
@@ -189,16 +220,19 @@ func WaitIdle(capture CaptureFn, wait, quiet time.Duration) IdleResult {
 			reason := IdleReasonTimeout
 			state := "timeout"
 			idle := false
-			if prompt {
+			if prompt && !splash {
 				reason = IdleReasonPrompt
 				state = "idle"
 				idle = true
-			} else if strings.TrimSpace(text) != "" && quietFor >= quiet {
+			} else if strings.TrimSpace(text) != "" && quietFor >= quiet && !splash {
 				reason = IdleReasonQuiet
 				state = "idle"
 				idle = true
 			} else if strings.TrimSpace(text) != "" {
 				state = "busy"
+				if splash {
+					reason = "splash"
+				}
 			}
 			ex := ExcerptTail(text, 4000)
 			return IdleResult{
@@ -241,13 +275,17 @@ func finishIdle(idle bool, reason, text, method string, start time.Time, quietFo
 // PeekIdle is a single-shot classify (no wait).
 func PeekIdle(text, method string) IdleResult {
 	ex := ExcerptTail(text, 4000)
-	prompt := LooksLikePrompt(text)
+	splash := LooksLikeGrokSplash(text)
+	prompt := LooksLikePrompt(text) && !splash
 	idle := prompt && strings.TrimSpace(text) != ""
 	state := "busy"
 	reason := ""
 	if strings.TrimSpace(text) == "" {
 		state = "busy"
 		reason = "empty"
+	} else if splash {
+		state = "busy"
+		reason = "splash"
 	} else if prompt {
 		state = "idle"
 		reason = IdleReasonPrompt

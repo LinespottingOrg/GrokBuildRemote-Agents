@@ -19,8 +19,9 @@ import (
 // foreign Windows Terminal / ConPTY host.
 //
 // Notes:
-//   - Uses stdin/stdout/stderr pipes (not a full pseudo-TTY). Full-screen TUI
-//     apps (vim, htop) may misbehave; CLI tools and shells work well.
+//   - Windows grok sessions use ConPTY (a real console). Pipe-backed stdio
+//     prints the TUI splash but does not accept typed input.
+//   - Shells prefer ConPTY and fall back to stdin/stdout pipes.
 //   - On Windows the default shell is pwsh (fallback powershell, then cmd).
 //   - On Unix the default shell is bash (fallback sh).
 //   - Empty session_id is refused. Writes are rate-limited via RateLimiter.
@@ -34,6 +35,10 @@ type ManagedSession struct {
 	stdin  io.WriteCloser
 	stdout io.ReadCloser
 	stderr io.ReadCloser
+	conpty *winConPTY
+	pid    int
+	// requireTTY: Windows grok must not fall back to dead pipes.
+	requireTTY bool
 
 	mu     sync.Mutex
 	closed bool
@@ -109,6 +114,16 @@ func (m *Manager) Ensure(sessionID, cwd string) (*ManagedSession, error) {
 
 // EnsureCmd starts (or returns) a managed process. Empty cmd uses DefaultShell.
 func (m *Manager) EnsureCmd(sessionID, cwd, cmd string, args []string) (*ManagedSession, error) {
+	return m.ensure(sessionID, cwd, cmd, args, false)
+}
+
+// EnsureCmdTTY is EnsureCmd but refuses the pipe fallback on Windows.
+// Use this for Grok Build so inject writes actually reach the TUI.
+func (m *Manager) EnsureCmdTTY(sessionID, cwd, cmd string, args []string) (*ManagedSession, error) {
+	return m.ensure(sessionID, cwd, cmd, args, true)
+}
+
+func (m *Manager) ensure(sessionID, cwd, cmd string, args []string, requireTTY bool) (*ManagedSession, error) {
 	if sessionID == "" {
 		return nil, ErrEmptySession
 	}
@@ -135,12 +150,13 @@ func (m *Manager) EnsureCmd(sessionID, cwd, cmd string, args []string) (*Managed
 	}
 
 	s := &ManagedSession{
-		SessionID: sessionID,
-		Shell:     shell,
-		Args:      append([]string(nil), args...),
-		Cwd:       cwd,
-		bufMax:    bufMax,
-		outDone:   make(chan struct{}),
+		SessionID:  sessionID,
+		Shell:      shell,
+		Args:       append([]string(nil), args...),
+		Cwd:        cwd,
+		bufMax:     bufMax,
+		outDone:    make(chan struct{}),
+		requireTTY: requireTTY,
 	}
 	if err := s.Start(); err != nil {
 		return nil, err
@@ -243,6 +259,21 @@ func (s *ManagedSession) start() error {
 		return ErrSessionClosed
 	}
 
+	// ConPTY only when the child is a TUI (Grok). Shells stay on pipes —
+	// those already echo and we must not hang unit tests on a bad PTY.
+	if s.requireTTY {
+		if err := s.startConPTYLocked(); err != nil {
+			if runtime.GOOS == "windows" {
+				return err
+			}
+			return s.startPipesLocked()
+		}
+		return nil
+	}
+	return s.startPipesLocked()
+}
+
+func (s *ManagedSession) startPipesLocked() error {
 	cmd := exec.Command(s.Shell, s.Args...)
 	if s.Cwd != "" {
 		cmd.Dir = s.Cwd
@@ -277,6 +308,9 @@ func (s *ManagedSession) start() error {
 	s.stdin = stdin
 	s.stdout = stdout
 	s.stderr = stderr
+	if cmd.Process != nil {
+		s.pid = cmd.Process.Pid
+	}
 
 	go s.collect(stdout, stderr)
 	return nil
@@ -285,17 +319,28 @@ func (s *ManagedSession) start() error {
 func (s *ManagedSession) collect(stdout, stderr io.Reader) {
 	defer close(s.outDone)
 	var wg sync.WaitGroup
-	wg.Add(2)
+	n := 1
+	if stderr != nil {
+		n = 2
+	}
+	wg.Add(n)
 	go func() {
 		defer wg.Done()
-		s.pump(stdout)
+		if stdout != nil {
+			s.pump(stdout)
+		}
 	}()
-	go func() {
-		defer wg.Done()
-		s.pump(stderr)
-	}()
+	if stderr != nil {
+		go func() {
+			defer wg.Done()
+			s.pump(stderr)
+		}()
+	}
 	wg.Wait()
-	// Reap process.
+	if s.conpty != nil {
+		s.conpty.wait()
+		return
+	}
 	if s.cmd != nil && s.cmd.Process != nil {
 		_ = s.cmd.Wait()
 	}
@@ -362,8 +407,17 @@ func (s *ManagedSession) Close() error {
 	s.closed = true
 	stdin := s.stdin
 	cmd := s.cmd
+	cpty := s.conpty
 	s.mu.Unlock()
 
+	if cpty != nil {
+		cpty.close()
+		select {
+		case <-s.outDone:
+		case <-time.After(1500 * time.Millisecond):
+		}
+		return nil
+	}
 	if stdin != nil {
 		_ = stdin.Close()
 	}
@@ -382,4 +436,20 @@ func (s *ManagedSession) Close() error {
 	case <-time.After(500 * time.Millisecond):
 	}
 	return nil
+}
+
+// PID of the managed process, or 0.
+func (s *ManagedSession) PID() int {
+	if s == nil {
+		return 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.pid != 0 {
+		return s.pid
+	}
+	if s.cmd != nil && s.cmd.Process != nil {
+		return s.cmd.Process.Pid
+	}
+	return 0
 }
