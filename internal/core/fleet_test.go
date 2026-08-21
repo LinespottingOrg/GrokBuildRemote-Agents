@@ -40,6 +40,25 @@ func TestFleetUpsertGetRemove(t *testing.T) {
 	}
 }
 
+func TestFleetUpsertInfersDarwinLaptop(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	t.Setenv("GBR_DEVICE_CLASS", "pc") // hub is not a laptop so class resolve is unique
+	f, _ := LoadFleet()
+	if err := f.Upsert(FleetDevice{ID: "studio-mac", MailboxID: "gbr-x", MailboxKey: "k", OS: "darwin"}); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := f.Get("studio-mac")
+	if !ok || got.Class != ClassLaptop {
+		t.Fatalf("darwin os should infer laptop, got %+v", got)
+	}
+	byClass, err := f.Resolve("laptop")
+	if err != nil || byClass.ID != "studio-mac" {
+		t.Fatalf("Resolve laptop → studio-mac: %+v %v", byClass, err)
+	}
+}
+
 func TestFleetRejectsLocalID(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)

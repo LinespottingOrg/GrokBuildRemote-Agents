@@ -2,7 +2,7 @@
 
 **Agent 0.6.0** current binaries/train ([Release v0.6.0](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0)). Protocol remains **gbr/1**. One Grok Bot instance (public beta **2026-08-11**) *or* Claude Cowork (via `gbr-mcp`) drives **this PC locally** and **other Mac / Linux / Windows PCs** over the GitHub HTTPS relay. Same JSON. The phone paired to the hub mailbox is spectator + veto (status lines), not the orchestrator.
 
-**Relay:** live `/health` is still **0.5.4** (`bot:true`, `fleet:true`) until the Worker is bumped. Bot paths below work on that Worker.
+**Relay:** live `/health` is **0.6.0** (`bot:true`, `fleet:true`, `classes`). Bot paths below work on that Worker.
 
 **Agent 0.6.0 device classes.** `GET /v1/devices` includes `class`: `phone` | `linux` | `pc` | `laptop` | `mac_mini`. `POST /v1/inject` accepts an id, a name, or a **unique** class (`"device":"mac-mini"`). Unknown names return **404 `unknown_device`** (0.5.x used to fall back to local). Two hits for one class → **409 `ambiguous_device`**. `"device":"phone"` → **400 `cannot_inject_phone`**.
 
