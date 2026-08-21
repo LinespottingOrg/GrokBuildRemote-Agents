@@ -282,4 +282,8 @@ func TestBotHealthIncludesClassAndCompanions(t *testing.T) {
 	if _, ok := h["companions"].([]any); !ok {
 		t.Fatalf("health.companions missing: %s", w.Body.String())
 	}
+	classes, _ := got["classes"].([]any)
+	if len(classes) != 5 {
+		t.Fatalf("health.classes want 5, got %v", got["classes"])
+	}
 }

@@ -15,8 +15,9 @@
  *
  *  3. UNKNOWN DEVICE NAMES (agent 0.6.0+).
  *     POST with {"device":"nope"} returns HTTP 404 {"error":"unknown_device"}.
- *     Older 0.5.x agents silently fell back to local. We still compare the
- *     echoed device against what was asked for and warn on mismatch.
+ *     Older 0.5.x agents silently fell back to local. 0.6.0+ never does.
+ *     We still compare the echoed device against what was asked for and warn
+ *     on mismatch (old agent, or a class alias that resolved to an id).
  *
  *  4. 404s return {"error":"not_found"} with no `ok` key at all.
  */
@@ -242,8 +243,23 @@ export class GbrClient {
       body: clampBody(json),
     });
 
-    // Gotcha 4: 404 shape has no `ok` key.
+    // Gotcha 4: 404 shape has no `ok` key. unknown_device is a *logical*
+    // 404 from 0.6.0+ Resolve — not a missing HTTP route.
     if (res.status === 404) {
+      const errName = json && json.error;
+      if (errName === 'unknown_device') {
+        throw new GbrError(
+          `Unknown device (${json.device || json.class || 'unspecified'})`,
+          {
+            code: 'GBR_UNKNOWN_DEVICE',
+            status: 404,
+            endpoint: url,
+            body: json,
+            hint:
+              '0.6.0+ does not fall back to local. Run gbr_devices and route by id, name, or unique class (linux|pc|laptop|mac_mini).',
+          },
+        );
+      }
       throw new GbrError(`Endpoint not found: ${label}`, {
         code: 'GBR_NOT_FOUND',
         status: 404,
@@ -251,6 +267,19 @@ export class GbrClient {
         body: json,
         hint: 'Agent may be older than 0.5.3. Check `gbr-agent version`.',
       });
+    }
+
+    if (res.status === 409) {
+      throw new GbrError(
+        `Ambiguous device (${(json && json.class) || 'class'})`,
+        {
+          code: 'GBR_AMBIGUOUS_DEVICE',
+          status: 409,
+          endpoint: url,
+          body: json,
+          hint: 'Two machines share that class. Use the device id from gbr_devices.',
+        },
+      );
     }
 
     if (res.status === 401 || res.status === 403) {
@@ -322,14 +351,19 @@ export class GbrClient {
 
     const res = await this.request('POST', 'inject', { body, cid, timeoutMs });
 
-    // Gotcha 3: silent fallback to local.
+    // Gotcha 3: 0.5.x silent fallback. 0.6.0+ 404s instead; a mismatch here
+    // is a class alias resolving to an id, or an old agent.
     const echoed = res?.device?.id;
-    if (device && echoed && echoed !== device) {
-      l.warn('device fallback detected', { requested: device, actual: echoed });
+    if (device && echoed && echoed !== device && echoed !== 'local') {
+      l.warn('device alias resolved', { requested: device, actual: echoed });
       res._warning =
         `Requested device "${device}" but the agent dispatched to "${echoed}". ` +
-        `Unknown device names silently fall back to local. Run gbr_devices and check the name, ` +
-        `or register it with: gbr-agent fleet add -name ${device} -mailbox gbr-XXXX -key KEY`;
+        `That is a class/name alias, not a silent local fallback. Run gbr_devices.`;
+    } else if (device && echoed === 'local' && device !== 'local' && device !== 'this' && device !== 'hub') {
+      l.warn('device fell back to local (old agent?)', { requested: device, actual: echoed });
+      res._warning =
+        `Requested device "${device}" but the agent dispatched to local. ` +
+        `0.6.0+ returns 404 unknown_device instead. Upgrade gbr-agent, or register the remote with fleet add.`;
     }
     return res;
   }
@@ -385,8 +419,8 @@ function hintForAgentError(msg = '') {
   if (m.includes('session')) {
     return 'That session_id is not in the live roster. Run gbr_sessions — titles update when windows open/close or after `gbr-agent rename`.';
   }
-  if (m.includes('device')) {
-    return 'Run gbr_devices. Remotes must be registered with `gbr-agent fleet add` before they can be targeted.';
+  if (m.includes('unknown_device') || m.includes('device')) {
+    return 'Run gbr_devices. 0.6.0+ returns 404 unknown_device (no silent local fallback). Remotes must be registered with `gbr-agent fleet add`.';
   }
   return 'Check the agent log: ~/.gbr/logs/agent-<date>.jsonl';
 }
