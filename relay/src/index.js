@@ -27,7 +27,8 @@
 const MAX_QUEUE = 500;
 const MAX_TRACE = 400;
 const TRACE_TTL = 60 * 60 * 24 * 7; // 7 days
-const RELAY_VERSION = "0.5.4";
+const RELAY_VERSION = "0.6.0";
+const DEVICE_CLASSES = ["phone", "linux", "pc", "laptop", "mac_mini"];
 const MAX_FLEET = 32;
 const BOT_INJECT_WINDOW_MS = 60 * 1000;
 const BOT_INJECT_MAX = 60;
@@ -76,6 +77,7 @@ export default {
           bot: true,
           bot_path: "/v1/mb/:id/bot",
           fleet: true,
+          classes: DEVICE_CLASSES,
         });
       }
       if (url.pathname === "/v1/bot" || url.pathname === "/bot") {
@@ -815,14 +817,40 @@ function isLocalDevice(id) {
   return !s || s === "local" || s === "this" || s === "hub" || s === "self" || s === "here";
 }
 
+function canonClass(s) {
+  const k = String(s || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[\s-]+/g, "_");
+  if (DEVICE_CLASSES.includes(k)) return k;
+  if (k === "macmini" || k === "mini") return "mac_mini";
+  return "";
+}
+
+function fleetClass(cls, os) {
+  const hit = canonClass(cls);
+  if (hit) return hit;
+  const o = String(os || "").toLowerCase().trim();
+  if (o === "linux") return "linux";
+  if (o === "darwin") return "laptop";
+  if (o === "windows" || o === "win") return "pc";
+  if (o === "ios" || o === "android" || o === "mobile") return "phone";
+  return "";
+}
+
+/** Public fleet row — class/hostname/impl always; never mailbox_key. */
 function publicFleetDevice(d) {
   if (!d) return null;
+  const os = d.os || "";
   return {
     id: d.id,
     name: d.name || d.id,
     kind: d.kind || "relay",
+    class: fleetClass(d.class, os),
     mailbox_id: d.mailbox_id || "",
-    os: d.os || "",
+    os,
+    hostname: d.hostname || "",
+    impl: d.impl || "gbr",
     has_key: !!(d.mailbox_key && String(d.mailbox_key).length),
     added_at: d.added_at || "",
   };
@@ -1497,13 +1525,17 @@ async function handleBotDevices(env, ctx, mailboxId, deviceId, sub, request, url
       const key = String(body.mailbox_key || body.key || "").trim();
       if (!mb || !key) return json({ error: "mailbox_id_and_key_required" }, 400);
       const fleet = await fleetList(env, mailboxId);
+      const os = String(body.os || "").slice(0, 32);
       const rec = {
         id,
         name: String(body.name || id),
         kind: "relay",
         mailbox_id: mb,
         mailbox_key: key,
-        os: String(body.os || "").slice(0, 32),
+        os,
+        class: fleetClass(body.class, os),
+        hostname: String(body.hostname || "").trim().slice(0, 253),
+        impl: String(body.impl || "gbr").trim().slice(0, 32),
         added_at: new Date().toISOString(),
       };
       const next = fleet.filter((d) => d.id !== id);
