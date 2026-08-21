@@ -1,33 +1,48 @@
 # Build Remote Agent — desktop gbr-agent
 
-> MIT open-source PC agent (Windows / macOS / Linux). Pairs with the paid Build Remote Agent iOS/Android apps. Independent Linespotting AB product.
+> MIT open-source PC agent (Windows / macOS / Linux). Pairs with the paid Build Remote Agent iOS/Android apps. Independent Linespotting AB product. Unified control layer for Grok Bot device routing.
 
 Website: https://grokbuildremote.com/
 Support: https://grokbuildremote.com/support
+Ecosystem FAQ: https://grokbuildremote.com/#faq-ecosystem
 Repo: https://github.com/LinespottingOrg/GrokBuildRemote-Agents
-Relay: https://gbr-relay.ekobrott.workers.dev/health  (expect version 0.5.2, bot:true)
-Current agent: v0.5.2
+Relay: https://gbr-relay.ekobrott.workers.dev/health  (expect version 0.5.4, bot:true, fleet:true)
+Current agent source: v0.6.0
+Published binaries: v0.5.4
 
 ## Install
 macOS/Linux: curl -fsSL https://grokbuildremote.com/install.sh | bash
 Windows: irm https://grokbuildremote.com/install.ps1 | iex
-Then: gbr-agent version   # must be v0.5.2+
+Then: gbr-agent version
 
 ## Pair
 gbr-agent pair     # QR in browser — phone scans
 gbr-agent run      # keep running
 Phone: Unpair in Settings before pairing a new mailbox. Force-close is not enough.
 
-## Bot API (0.5.2+)
+## Bot API
 Same PC: http://127.0.0.1:8788  (gbr-agent run; gbr-agent bot)
 Remote:  GET/POST https://gbr-relay.ekobrott.workers.dev/v1/mb/{id}/bot/*   header X-GBR-Key
 Phone Settings → Bot API copies URL + mailbox id + key.
 Docs: docs/BOT-API.md
+Grok Bot public beta: 2026-08-11.
+
+## Device classes (0.6.0)
+phone | linux | pc | laptop | mac_mini
+GET /v1/devices  ·  GET /health
+POST /v1/inject  {"device":"mac-mini"|"laptop"|"studio-linux"|"local"}
+Unknown name → 404 (does not fall back to local). Phone is spectator.
+
+## Companion remotes (loopback probes on GET /health)
+- Amnibro/grok-remote :2421 — LAN plugin UI
+- daniel-farina/grok-remote :7910/api/health — TypeScript Tailscale PWA
+- ChrisP-Builds/grok-remote-hub :8787/health — Python hub, ok/stale/zombie
+GBR Bot API stays on :8788. GitHub HTTPS relay is the control plane (not Tailscale).
 
 ## Debug
-gbr-agent status | sessions | bot | netcheck | support-log
+gbr-agent status | sessions | bot | fleet | netcheck | support-log
 ./scripts/gbr-diag.sh
-Docs: AGENTS.md (AI), TROUBLESHOOTING.md, SESSION-NAMES.md, NETWORK.md, docs/BOT-API.md
+Docs: AGENTS.md (AI), TROUBLESHOOTING.md, SESSION-NAMES.md, NETWORK.md, docs/BOT-API.md, FAQ.md
 
 ## Session names
 0.5.0 capped at 6 sessions (stale conhost titles). 0.5.1 live roster, replace:true, max 255.

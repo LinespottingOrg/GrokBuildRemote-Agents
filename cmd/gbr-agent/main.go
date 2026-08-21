@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	version = "0.5.4"
+	version = "0.6.0"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -147,9 +147,10 @@ Usage:
   gbr-agent [-log=info] bot
       Print localhost + relay Bot API curl examples (Grok bots).
   gbr-agent [-log=info] fleet
-  gbr-agent [-log=info] fleet add -name mac -os darwin
+  gbr-agent [-log=info] fleet add -name mac -os darwin [-class mac_mini]
       Hub: register a remote that already ran pair-as-mailbox (reads a local offer).
-  gbr-agent [-log=info] fleet add -name studio-linux -mailbox gbr-ID -key KEY [-os linux]
+  gbr-agent [-log=info] fleet add -name studio-linux -mailbox gbr-ID -key KEY [-os linux] [-class linux]
+      Classes: phone | linux | pc | laptop | mac_mini — Grok Bot routes by id, name, or unique class.
       Same, with mailbox id + key passed on the command line (do not log the key).
   gbr-agent [-log=info] pair-as-mailbox [-name mac] [-relay URL] [-force]
       Headless mailbox for a fleet remote. No phone, no QR, no code printed.
@@ -368,6 +369,8 @@ Lock file: %s
 		"mailbox", mailboxID,
 		"relay", rc.Base(),
 		"os", runtime.GOOS,
+		"class", core.DetectClass(),
+		"hostname", core.HostnameBest(),
 		"trace", tl.Enabled(),
 		"trace_remote", tl.RemoteEnabled(),
 		"trace_log", tl.Path(),
@@ -1213,6 +1216,8 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 			if hbErr != nil {
 				slog.Warn("heartbeat", "err", hbErr)
 			}
+			core.GlobalWatchdog.TouchRoster()
+			core.GlobalWatchdog.TouchRelay(hbErr == nil)
 			trace.Emit(trace.Event{
 				Hop:    trace.HopAgentHeartbeat,
 				Type:   "heartbeat",

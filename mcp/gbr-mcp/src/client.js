@@ -13,10 +13,10 @@
  *     If no real Grok Build window is attached to the session, the agent holds
  *     the request open. Every call therefore gets an AbortController timeout.
  *
- *  3. UNKNOWN DEVICE NAMES SILENTLY FALL BACK TO `local`.
- *     POST with {"device":"nope"} returns device.id === "local". We compare the
- *     echoed device against what was asked for and warn on mismatch, otherwise
- *     an agent thinks it dispatched to a remote box when it did not.
+ *  3. UNKNOWN DEVICE NAMES (agent 0.6.0+).
+ *     POST with {"device":"nope"} returns HTTP 404 {"error":"unknown_device"}.
+ *     Older 0.5.x agents silently fell back to local. We still compare the
+ *     echoed device against what was asked for and warn on mismatch.
  *
  *  4. 404s return {"error":"not_found"} with no `ok` key at all.
  */

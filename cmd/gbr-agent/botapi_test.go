@@ -217,3 +217,56 @@ func TestWriteStatusIncludesDevices(t *testing.T) {
 		t.Fatalf("want unknown_device, got %s", w3.Body.String())
 	}
 }
+
+func TestBotInjectUnknownDeviceDoesNotFallback(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	s := &botServer{rt: &agentRuntime{}, mailboxID: "gbr-x"}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/inject", strings.NewReader(`{"device":"typo-box","text":"hello","submit":true}`))
+	s.handleInject(w, r)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("want 404 unknown_device, got %d %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["error"] != "unknown_device" || got["ok"] != false {
+		t.Fatalf("body %s", w.Body.String())
+	}
+}
+
+func TestBotInjectPhoneRefused(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	s := &botServer{rt: &agentRuntime{}, mailboxID: "gbr-x"}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/inject", strings.NewReader(`{"device":"phone","text":"hello"}`))
+	s.handleInject(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 cannot_inject_phone, got %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestBotHealthIncludesClassAndCompanions(t *testing.T) {
+	s := &botServer{mailboxID: "gbr-x", port: 8788}
+	w := httptest.NewRecorder()
+	s.writeHealth(w)
+	if w.Code != 200 {
+		t.Fatalf("health %d %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	h, _ := got["health"].(map[string]any)
+	if h == nil || h["class"] == nil {
+		t.Fatalf("health.class missing: %s", w.Body.String())
+	}
+	if _, ok := h["companions"].([]any); !ok {
+		t.Fatalf("health.companions missing: %s", w.Body.String())
+	}
+}

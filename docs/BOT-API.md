@@ -1,6 +1,10 @@
 # Bot API — Grok bots and HTTP clients
 
-**Agent / relay 0.5.4+.** One Grok bot instance *or* Claude Cowork (via `gbr-mcp`) drives **this PC locally** and **other Mac / Linux / Windows PCs** over the relay. Same JSON. The phone paired to the hub mailbox is spectator + veto (status lines), not the orchestrator.
+**Agent / relay 0.5.4+.** One Grok Bot instance (public beta **2026-08-11**) *or* Claude Cowork (via `gbr-mcp`) drives **this PC locally** and **other Mac / Linux / Windows PCs** over the GitHub HTTPS relay. Same JSON. The phone paired to the hub mailbox is spectator + veto (status lines), not the orchestrator.
+
+**Agent 0.6.0+ device classes.** `GET /v1/devices` includes `class`: `phone` | `linux` | `pc` | `laptop` | `mac_mini`. `POST /v1/inject` accepts an id, a name, or a **unique** class (`"device":"mac-mini"`). Unknown names return **404 `unknown_device`** (0.5.x used to fall back to local). Two hits for one class → **409 `ambiguous_device`**. `"device":"phone"` → **400 `cannot_inject_phone`**.
+
+`GET /health` (and `GET /v1/health`) is the watchdog: roster quality `ok/stale/zombie`, plus loopback probes for companion remotes (Amnibro `:2421`, Farina `:7910`, ChrisP hub `:8787`). GBR Bot API stays on **`:8788`**.
 
 | Surface | Who | Bind | Auth |
 |---------|-----|------|------|

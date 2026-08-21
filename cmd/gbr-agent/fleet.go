@@ -68,6 +68,7 @@ func fleetAdd(args []string) int {
 	mailbox := fs.String("mailbox", "", "remote mailbox id (gbr-…)")
 	key := fs.String("key", "", "remote mailbox key (X-GBR-Key)")
 	osName := fs.String("os", "", "linux / darwin / windows")
+	className := fs.String("class", "", "phone | linux | pc | laptop | mac_mini")
 	_ = fs.Parse(args)
 	f, err := core.LoadFleet()
 	if err != nil {
@@ -78,9 +79,11 @@ func fleetAdd(args []string) int {
 		ID:         firstNonEmpty(*id, *name),
 		Name:       firstNonEmpty(*name, *id),
 		Kind:       "relay",
+		Class:      strings.TrimSpace(*className),
 		MailboxID:  strings.TrimSpace(*mailbox),
 		MailboxKey: strings.TrimSpace(*key),
 		OS:         strings.TrimSpace(*osName),
+		Impl:       "gbr",
 	}
 	if err := applyFleetOffer(&dev); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -203,12 +206,9 @@ func fleetSyncOne(d core.FleetDevice) error {
 // listPublicDevices is local first, then fleet remotes. Keys never appear
 // (has_key only). Local is always online; remotes are false when unknown.
 func (s *botServer) listPublicDevices() []map[string]any {
-	local := map[string]any{
-		"id": "local", "name": "this PC", "kind": "local",
-		"mailbox_id": s.mailboxID, "os": runtime.GOOS, "has_key": s.key != "",
-		"online": true,
-	}
-	devs := []map[string]any{local}
+	local := core.LocalIdentity(s.mailboxID, s.key != "")
+	phone := core.PhoneIdentity(s.mailboxID)
+	devs := []map[string]any{local, phone}
 	f, _ := core.LoadFleet()
 	if f != nil {
 		for _, d := range f.PublicDevices() {
@@ -227,22 +227,24 @@ func matchListedDevice(devices []map[string]any, want string) (map[string]any, b
 	if want == "" {
 		return nil, false
 	}
-	f, err := core.LoadFleet()
-	if err != nil || f == nil {
-		f = &core.Fleet{}
-	}
-	got, ok := f.Get(want)
-	if !ok {
-		return nil, false
-	}
-	id := got.ID
-	if got.Kind == "local" {
-		id = "local"
-	}
+	norm := strings.ToLower(strings.ReplaceAll(want, "_", "-"))
+	var classHits []map[string]any
 	for _, d := range devices {
-		if did, _ := d["id"].(string); did == id {
+		if d == nil {
+			continue
+		}
+		id, _ := d["id"].(string)
+		name, _ := d["name"].(string)
+		cls, _ := d["class"].(string)
+		if strings.EqualFold(id, want) || strings.EqualFold(name, want) || strings.EqualFold(id, norm) {
 			return d, true
 		}
+		if parsed, ok := core.ParseClass(want); ok && cls == parsed {
+			classHits = append(classHits, d)
+		}
+	}
+	if len(classHits) == 1 {
+		return classHits[0], true
 	}
 	return nil, false
 }
@@ -250,7 +252,7 @@ func matchListedDevice(devices []map[string]any, want string) (map[string]any, b
 func (s *botServer) writeDevices(w http.ResponseWriter) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok": true, "mailbox_id": s.mailboxID, "devices": s.listPublicDevices(),
-		"note": "One Grok bot instance. device=local is this PC; others are remotes (Mac/Linux) via the relay.",
+		"note": "One Grok Bot instance. device=local is this machine; class=phone is the app (spectator). Remotes via the GitHub HTTPS relay. Route by id, name, or unique class.",
 	})
 }
 
@@ -260,8 +262,12 @@ func printStatusFleet(mailboxID string, hasKey bool) {
 	if hasKey {
 		hk = "yes"
 	}
-	fmt.Printf("  %-12s  %-10s  kind=local  os=%s  mailbox=%s  has_key=%s  online=true\n",
-		"local", "this PC", runtime.GOOS, mailboxID, hk)
+	local := core.LocalIdentity(mailboxID, hasKey)
+	cls, _ := local["class"].(string)
+	hn, _ := local["hostname"].(string)
+	fmt.Printf("  %-12s  %-10s  kind=local  class=%s  os=%s  host=%s  mailbox=%s  has_key=%s  online=true\n",
+		"local", local["name"], cls, runtime.GOOS, hn, mailboxID, hk)
+	fmt.Printf("  %-12s  %-10s  kind=app    class=phone  role=spectator\n", "phone", "paired app")
 	f, err := core.LoadFleet()
 	if err != nil || f == nil {
 		return
@@ -307,8 +313,10 @@ func (s *botServer) handleDeviceWrite(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = fleetSyncOne(body)
 	s.notifyPhone("bot · fleet + " + body.ID)
+	saved, _ := f.Get(body.ID)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "device": map[string]any{
-		"id": body.ID, "name": body.Name, "kind": "relay", "mailbox_id": body.MailboxID, "os": body.OS, "has_key": true,
+		"id": saved.ID, "name": saved.Name, "kind": "relay", "class": saved.Class,
+		"mailbox_id": saved.MailboxID, "os": saved.OS, "has_key": true,
 	}})
 }
 
