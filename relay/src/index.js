@@ -879,6 +879,43 @@ async function fleetFind(env, mailboxId, id) {
   return list.find((d) => d && (d.id === slug || fleetSlug(d.name) === slug)) || null;
 }
 
+/** Same order as agent Fleet.Resolve: local aliases → exact id/name → unique class. */
+async function fleetResolve(env, mailboxId, id) {
+  if (isLocalDevice(id)) {
+    return { device: { id: "local", name: "this PC", kind: "local", mailbox_id: mailboxId } };
+  }
+  const slug = fleetSlug(id);
+  const list = await fleetList(env, mailboxId);
+  const byId = list.find((d) => d && (d.id === slug || fleetSlug(d.name) === slug));
+  if (byId) {
+    const cls = fleetClass(byId.class, byId.os);
+    if (cls === "phone" || byId.kind === "app" || byId.id === "phone") {
+      return { error: json({ ok: false, error: "cannot_inject_phone", device: byId.id }, 400) };
+    }
+    return { device: byId };
+  }
+  const cls = canonClass(id);
+  if (!cls) {
+    return { error: json({ ok: false, error: "unknown_device", device: id }, 404) };
+  }
+  if (cls === "phone") {
+    return { error: json({ ok: false, error: "cannot_inject_phone", device: "phone" }, 400) };
+  }
+  const hits = list.filter((d) => d && fleetClass(d.class, d.os) === cls);
+  if (hits.length === 0) {
+    return { error: json({ ok: false, error: "unknown_device", device: id, class: cls }, 404) };
+  }
+  if (hits.length > 1) {
+    return {
+      error: json(
+        { ok: false, error: "ambiguous_device", class: cls, matches: hits.map((d) => d.id) },
+        409,
+      ),
+    };
+  }
+  return { device: hits[0] };
+}
+
 async function pushHubStatus(env, ctx, hubMailbox, request, text, commandId, sessionId) {
   const envelope = {
     proto: "gbr/1",
@@ -1477,15 +1514,16 @@ async function taskSave(env, mailboxId, tasks) {
 }
 
 async function resolveBotTarget(env, hubMailbox, deviceId) {
-  if (isLocalDevice(deviceId)) {
+  const resolved = await fleetResolve(env, hubMailbox, deviceId);
+  if (resolved.error) return resolved;
+  const found = resolved.device;
+  if (!found || isLocalDevice(found.id) || found.kind === "local") {
     return {
       kind: "local",
       mailbox: hubMailbox,
       public: { id: "local", name: "this PC", kind: "local", mailbox_id: hubMailbox },
     };
   }
-  const found = await fleetFind(env, hubMailbox, deviceId);
-  if (!found) return { error: json({ error: "unknown_device", device: deviceId }, 404) };
   if (!found.mailbox_id || !found.mailbox_key) {
     return { error: json({ error: "device_missing_key", device: found.id }, 400) };
   }
