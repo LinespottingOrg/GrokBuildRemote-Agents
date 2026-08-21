@@ -54,8 +54,9 @@ try { DeleteJson "$Relay/v1/mb/$Mailbox/trace" | Out-Null } catch {}
 $h = Invoke-RestMethod -Uri "$Relay/health"
 Check "health.ok"      ($h.ok -eq $true)          "service=$($h.service)"
 Check "health.proto"   ($h.proto -eq "gbr/1")     "proto=$($h.proto)"
-# Assert shape, not a pinned number — capability flags below are the real check.
-Check "health.version" ($h.version -match '^\d+\.\d+\.\d+$') "version=$($h.version)"
+# 0.5.4 (live) or 0.6.0 (A01 class + A04 bump). Local node tests pin 0.6.0
+# once RELAY_VERSION on disk is 0.6.0.
+Check "health.version" (@("0.5.4", "0.6.0") -contains [string]$h.version) "version=$($h.version)"
 Check "health.trace"   ($h.trace -eq $true)       "trace=$($h.trace)"
 
 # 2 pair (original behaviour)
@@ -333,6 +334,50 @@ try {
 Check "auth.unpaired_mailbox_refused" $prePairBlocked "401 pushing to a never-paired mailbox"
 
 DeleteJson "$Relay/v1/mb/$authMb/trace" | Out-Null
+
+# 8f DEVICE CLASS: POST class=mac_mini → GET list includes class;
+# public payload never includes mailbox_key (has_key only).
+# Live 0.5.4: still assert no mailbox_key; class is required on 0.6.0.
+$classMb = "gbr-classtest01"
+$classPair = PostJson "$Relay/v1/mb/$classMb/pair" @{ pairing_code="CLASSTEST"; device_id="dev-hub"; device_name="ClassHub" }
+$classKey = $classPair.mailbox_key
+Check "class.pair_ok" ([bool]$classKey) "key issued for class mailbox"
+$prevKey = $script:Key
+$script:Key = $classKey
+$classSecret = "qa-dummy-key-not-a-secret-" + ("0" * 32)
+$classPost = $null
+try {
+  $classPost = PostJson "$Relay/v1/mb/$classMb/bot/devices" @{
+    id="qa-mac-mini"; name="QA Mac Mini"; mailbox_id="gbr-qaremote01"
+    mailbox_key=$classSecret; os="darwin"; class="mac_mini"
+  }
+} catch {
+  Check "class.post.ok" $false "POST /devices failed: $($_.Exception.Message)"
+}
+if ($classPost) {
+  Check "class.post.ok" ($classPost.ok -eq $true) "id=$($classPost.device.id)"
+  $postRaw = $classPost | ConvertTo-Json -Depth 8 -Compress
+  Check "class.post.no_mailbox_key" ($postRaw -notmatch '"mailbox_key"') "public POST body"
+  $classList = GetJson "$Relay/v1/mb/$classMb/bot/devices"
+  $classHit = @($classList.devices | Where-Object { $_.id -eq "qa-mac-mini" }) | Select-Object -First 1
+  Check "class.list.has_row" ($null -ne $classHit) "GET /devices includes qa-mac-mini"
+  $listRaw = $classList | ConvertTo-Json -Depth 8 -Compress
+  Check "class.list.no_mailbox_key" ($listRaw -notmatch '"mailbox_key"') "GET list public payload"
+  Check "class.list.no_secret" ($listRaw -notmatch [regex]::Escape($classSecret)) "dummy key absent from GET JSON"
+  $gotClass = $classHit.'class'
+  $postClass = $classPost.device.'class'
+  $classOnRelay = [string]$h.version -eq "0.6.0" -or $null -ne $gotClass
+  if ($classOnRelay) {
+    Check "class.list.class_mac_mini" ($gotClass -eq "mac_mini") "class=$gotClass"
+    Check "class.post.class_mac_mini" ($postClass -eq "mac_mini") "post.class=$postClass"
+  } else {
+    Write-Host "  SKIP  class.list.class_mac_mini  relay $($h.version) (0.6.0 class not deployed)"
+  }
+  try {
+    Invoke-RestMethod -Uri "$Relay/v1/mb/$classMb/bot/devices/qa-mac-mini" -Method Delete -Headers (AuthHeaders) | Out-Null
+  } catch {}
+}
+$script:Key = $prevKey
 
 # 9 cleanup
 DeleteJson "$Relay/v1/mb/$Mailbox/trace" | Out-Null
