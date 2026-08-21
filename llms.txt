@@ -3,12 +3,14 @@
 > MIT open-source PC agent (Windows / macOS / Linux). Pairs with the paid Build Remote Agent iOS/Android apps. Independent Linespotting AB product. Unified control layer for Grok Bot device routing.
 
 Website: https://grokbuildremote.com/
+App Store: https://apps.apple.com/app/id6791293726
+Google Play: https://play.google.com/store/apps/details?id=com.grokbuildremote.app
 Support: https://grokbuildremote.com/support
 Ecosystem FAQ: https://grokbuildremote.com/#faq-ecosystem
 Repo: https://github.com/LinespottingOrg/GrokBuildRemote-Agents
-Relay: https://gbr-relay.ekobrott.workers.dev/health  (expect version 0.5.4, bot:true, fleet:true)
-Current agent source: v0.6.0
-Published binaries: v0.5.4
+Release: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
+Relay: https://gbr-relay.ekobrott.workers.dev/health  (live version 0.5.4 until Worker bump; bot:true, fleet:true)
+Current binaries/train: v0.6.0
 
 ## Install
 macOS/Linux: curl -fsSL https://grokbuildremote.com/install.sh | bash

@@ -1,8 +1,10 @@
 # Bot API — Grok bots and HTTP clients
 
-**Agent / relay 0.5.4+.** One Grok Bot instance (public beta **2026-08-11**) *or* Claude Cowork (via `gbr-mcp`) drives **this PC locally** and **other Mac / Linux / Windows PCs** over the GitHub HTTPS relay. Same JSON. The phone paired to the hub mailbox is spectator + veto (status lines), not the orchestrator.
+**Agent 0.6.0** current binaries/train ([Release v0.6.0](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0)). Protocol remains **gbr/1**. One Grok Bot instance (public beta **2026-08-11**) *or* Claude Cowork (via `gbr-mcp`) drives **this PC locally** and **other Mac / Linux / Windows PCs** over the GitHub HTTPS relay. Same JSON. The phone paired to the hub mailbox is spectator + veto (status lines), not the orchestrator.
 
-**Agent 0.6.0+ device classes.** `GET /v1/devices` includes `class`: `phone` | `linux` | `pc` | `laptop` | `mac_mini`. `POST /v1/inject` accepts an id, a name, or a **unique** class (`"device":"mac-mini"`). Unknown names return **404 `unknown_device`** (0.5.x used to fall back to local). Two hits for one class → **409 `ambiguous_device`**. `"device":"phone"` → **400 `cannot_inject_phone`**.
+**Relay:** live `/health` is still **0.5.4** (`bot:true`, `fleet:true`) until the Worker is bumped. Bot paths below work on that Worker.
+
+**Agent 0.6.0 device classes.** `GET /v1/devices` includes `class`: `phone` | `linux` | `pc` | `laptop` | `mac_mini`. `POST /v1/inject` accepts an id, a name, or a **unique** class (`"device":"mac-mini"`). Unknown names return **404 `unknown_device`** (0.5.x used to fall back to local). Two hits for one class → **409 `ambiguous_device`**. `"device":"phone"` → **400 `cannot_inject_phone`**.
 
 `GET /health` (and `GET /v1/health`) is the watchdog: roster quality `ok/stale/zombie`, plus loopback probes for companion remotes (Amnibro `:2421`, Farina `:7910`, ChrisP hub `:8787`). GBR Bot API stays on **`:8788`**.
 
@@ -12,6 +14,12 @@
 | **Relay** | A bot anywhere on the internet | `https://gbr-relay.ekobrott.workers.dev/v1/mb/{mailbox_id}/bot` | **Required** `X-GBR-Key` or `Authorization: Bearer <key>` |
 
 Phone **Settings → Bot API** copies the relay URL, mailbox id, and mailbox key after pairing.
+
+| | |
+|--|--|
+| **Website** | https://grokbuildremote.com/ |
+| **iOS / iPad / Mac / Vision** | https://apps.apple.com/app/id6791293726 |
+| **Android (Google Play)** | https://play.google.com/store/apps/details?id=com.grokbuildremote.app |
 
 Treat the mailbox key like a password. Anyone who has it can type into the paired PC sessions.
 

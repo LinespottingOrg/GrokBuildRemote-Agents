@@ -5,11 +5,11 @@ AIs: also read [AGENTS.md](AGENTS.md) and [TROUBLESHOOTING.md](TROUBLESHOOTING.m
 
 ## How do I install the desktop agent?
 
-Published binaries are **v0.5.4** (Claude + Grok Bot chain). Agent **source 0.6.0** adds device classes (`phone` | `linux` | `pc` | `laptop` | `mac_mini`) and a companion-remote health watchdog.
+Current binaries/train are **v0.6.0** ([GitHub Release v0.6.0](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0)). Device classes (`phone` | `linux` | `pc` | `laptop` | `mac_mini`) and a companion-remote health watchdog.
 
 ```bash
 curl -fsSL https://grokbuildremote.com/install.sh | bash
-gbr-agent version    # must print v0.5.4+
+gbr-agent version    # must print v0.6.0+
 ```
 
 Windows:
@@ -18,7 +18,13 @@ Windows:
 irm https://grokbuildremote.com/install.ps1 | iex
 ```
 
-Binaries: https://grokbuildremote.com/downloads/latest/ · [Release v0.5.4](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.5.4)
+Binaries: https://grokbuildremote.com/downloads/latest/ · [Release v0.6.0](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0)
+
+| | |
+|--|--|
+| **Website** | https://grokbuildremote.com/ |
+| **iOS / iPad / Mac / Vision** | https://apps.apple.com/app/id6791293726 |
+| **Android (Google Play)** | https://play.google.com/store/apps/details?id=com.grokbuildremote.app |
 
 ## I am an AI — where do I start?
 
@@ -34,7 +40,7 @@ This repo is the **desktop agent only** (MIT). Mobile apps are a separate paid p
 ```bash
 gbr-agent version
 curl -sS https://gbr-relay.ekobrott.workers.dev/health
-# expect relay "version":"0.5.4"
+# live relay is still "version":"0.5.4" until the Worker is bumped
 ```
 
 Phone Unpair + live roster + Bot API: mobile **1.3.1+**.
