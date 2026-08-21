@@ -57,6 +57,9 @@ func installPlatform() error {
 	if err := os.MkdirAll(filepath.Dir(p.UnitPath), 0o755); err != nil {
 		return err
 	}
+	// Dropbox copies carry quarantine/xattrs; unsigned binaries then die with
+	// OS_REASON_CODESIGNING under launchd. Ad-hoc sign the installed binary.
+	prepareDarwinBinary(p.Binary)
 	// User home — not the binary folder (install from dist/ used to create a "dist" session).
 	workDir, _ := os.UserHomeDir()
 	if workDir == "" {
@@ -78,6 +81,11 @@ func installPlatform() error {
 		return err
 	}
 	return launchAgentEnable(p.UnitPath)
+}
+
+func prepareDarwinBinary(bin string) {
+	_ = exec.Command("xattr", "-cr", bin).Run()
+	_ = exec.Command("codesign", "--force", "--sign", "-", bin).Run()
 }
 
 func launchAgentEnable(plist string) error {
