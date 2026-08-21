@@ -1,0 +1,12 @@
+{
+  "name": "gbr-relay",
+  "private": true,
+  "type": "module",
+  "description": "Grok Build Remote mailbox relay (Cloudflare Worker)",
+  "scripts": {
+    "test": "node test/class.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
