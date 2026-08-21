@@ -167,10 +167,7 @@ func fleetSync() int {
 		if !ok || got.Kind == "local" {
 			continue
 		}
-		body := map[string]any{
-			"id": got.ID, "name": got.Name, "mailbox_id": got.MailboxID,
-			"mailbox_key": got.MailboxKey, "os": got.OS,
-		}
+		body := fleetSyncBody(got)
 		_, code, err := rc.BotJSON(ctx, dev.MailboxConversationID, dev.MailboxKey, http.MethodPost, "/devices", body)
 		if err != nil || code >= 300 {
 			slog.Warn("fleet sync", "device", got.ID, "code", code, "err", err)
@@ -189,10 +186,7 @@ func fleetSyncOne(d core.FleetDevice) error {
 	rc.SetKey(dev.MailboxKey)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	body := map[string]any{
-		"id": d.ID, "name": d.Name, "mailbox_id": d.MailboxID,
-		"mailbox_key": d.MailboxKey, "os": d.OS,
-	}
+	body := fleetSyncBody(d)
 	_, code, err := rc.BotJSON(ctx, dev.MailboxConversationID, dev.MailboxKey, http.MethodPost, "/devices", body)
 	if err != nil {
 		return err
@@ -201,6 +195,21 @@ func fleetSyncOne(d core.FleetDevice) error {
 		return fmt.Errorf("relay fleet sync HTTP %d", code)
 	}
 	return nil
+}
+
+// fleetSyncBody is the POST /devices payload the hub stores for a remote.
+// class / hostname / impl must travel with id, name, mailbox, and os so
+// Grok Bot can route by unique class after a fleet add/sync.
+func fleetSyncBody(d core.FleetDevice) map[string]any {
+	impl := d.Impl
+	if impl == "" {
+		impl = "gbr"
+	}
+	return map[string]any{
+		"id": d.ID, "name": d.Name, "mailbox_id": d.MailboxID,
+		"mailbox_key": d.MailboxKey, "os": d.OS,
+		"class": d.Class, "hostname": d.Hostname, "impl": impl,
+	}
 }
 
 // listPublicDevices is local first, then fleet remotes. Keys never appear
@@ -280,10 +289,11 @@ func printStatusFleet(mailboxID string, hasKey bool) {
 		id, _ := d["id"].(string)
 		name, _ := d["name"].(string)
 		kind, _ := d["kind"].(string)
+		cls, _ := d["class"].(string)
 		osName, _ := d["os"].(string)
 		mb, _ := d["mailbox_id"].(string)
-		fmt.Printf("  %-12s  %-10s  kind=%s  os=%s  mailbox=%s  has_key=%s\n",
-			id, name, kind, osName, mb, remoteHK)
+		fmt.Printf("  %-12s  %-10s  kind=%s  class=%s  os=%s  mailbox=%s  has_key=%s\n",
+			id, name, kind, cls, osName, mb, remoteHK)
 	}
 }
 
