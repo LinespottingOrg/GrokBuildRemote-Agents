@@ -58,9 +58,10 @@ mislead an autonomous agent. This server normalises all three:
 2. **`inject` blocks server-side** when no live window is attached to the session,
    so a naive client hangs forever. Every call carries an abort timeout, and the
    timeout message names the actual cause.
-3. **Unknown device names silently fall back to `local`.** An agent can believe it
-   dispatched work to a remote box that never received it. gbr-mcp compares the
-   echoed device against the requested one and attaches a `_warning`.
+3. **Unknown device names return HTTP 404 `unknown_device` (0.6.0+).** 0.5.x
+   agents silently fell back to local. gbr-mcp treats that 404 as
+   `GBR_UNKNOWN_DEVICE`. A class alias that resolves to an id may attach
+   `_warning`; a fall-through to `local` on an old agent also warns.
 
 ## Logging
 

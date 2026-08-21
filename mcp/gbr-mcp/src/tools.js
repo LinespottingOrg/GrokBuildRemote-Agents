@@ -52,7 +52,7 @@ export const TOOLS = [
         device: {
           type: 'string',
           description:
-            'Target machine: "local" (default) or a registered fleet name. Unknown names silently fall back to local — the response carries a _warning if that happened.',
+            'Target machine: "local" (default), a registered id/name, or a unique class (linux|pc|laptop|mac_mini). Unknown names return 404 unknown_device — they do not fall back to local.',
         },
         submit: {
           type: 'boolean',
