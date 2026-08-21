@@ -9,7 +9,7 @@ Support: https://grokbuildremote.com/support
 Ecosystem FAQ: https://grokbuildremote.com/#faq-ecosystem
 Repo: https://github.com/LinespottingOrg/GrokBuildRemote-Agents
 Release: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
-Relay: https://gbr-relay.ekobrott.workers.dev/health  (live version 0.5.4 until Worker bump; bot:true, fleet:true)
+Relay: https://gbr-relay.ekobrott.workers.dev/health  (live version 0.6.0; bot:true, fleet:true, classes)
 Current binaries/train: v0.6.0
 
 ## Install
