@@ -49,7 +49,7 @@ func checkDevice() Result {
 	}
 	mb := dev.MailboxConversationID
 	if mb == "" {
-		return Result{"device", true, fmt.Sprintf("id=%s name=%q mailbox=<not paired>", dev.DeviceID, dev.DeviceName),
+		return Result{"device", true, fmt.Sprintf("id=%s name=%q class=%s mailbox=<not paired>", dev.DeviceID, dev.DeviceName, core.DetectClass()),
 			"gbr-agent pair  # opens browser QR for phone camera"}
 	}
 	return Result{"device", true, fmt.Sprintf("id=%s name=%q class=%s mailbox=%s", dev.DeviceID, dev.DeviceName, core.DetectClass(), mb), ""}
