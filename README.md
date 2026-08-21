@@ -113,6 +113,11 @@ gbr-agent run
 # Optional: start at login in background (after pair)
 gbr-agent service install
 gbr-agent service status
+
+# Fleet remote (this machine is driven by another hub, no phone):
+gbr-agent pair-as-mailbox -name mac
+gbr-agent service install
+# On the hub, later: gbr-agent fleet add -name mac -os darwin
 ```
 
 ### Self-hosted relay

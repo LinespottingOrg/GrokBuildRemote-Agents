@@ -104,13 +104,13 @@ The customer keeps **one** Grok bot. That bot talks to **one** API:
 - `studio-linux`, `mac-mini`, … — remotes you registered
 
 ```bash
-# Pair each PC as usual (gbr-agent pair / run). Copy mailbox id+key from that PC
-# (gbr-agent status, or that phone Settings → Bot API if it has its own pair).
-
-# On the hub PC (the one the phone stays paired to):
+# On each remote (no phone): gbr-agent pair-as-mailbox -name mac && gbr-agent service install
+# On the hub PC (the one the phone stays paired to). Prefer the offer one-liner —
+# it does not need the key on the command line:
+gbr-agent fleet add -name mac -os darwin
 gbr-agent fleet add -name studio-linux -mailbox gbr-XXXX -key KEY -os linux
-gbr-agent fleet add -name mac-mini     -mailbox gbr-YYYY -key KEY -os darwin
 gbr-agent fleet
+# GET /v1/status?device=mac → 404 until fleet add. That is correct.
 
 # List → pick → inject → status (same JSON local or remote):
 curl -sS http://127.0.0.1:8788/v1/devices

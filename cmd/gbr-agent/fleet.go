@@ -39,6 +39,7 @@ func cmdFleet(args []string) int {
 	default:
 		fmt.Fprintln(os.Stderr, `usage:
   gbr-agent fleet
+  gbr-agent fleet add -name mac -os darwin
   gbr-agent fleet add -name studio-linux -mailbox gbr-xxxx -key KEY [-os linux]
   gbr-agent fleet rm studio-linux
   gbr-agent fleet sync`)
@@ -79,7 +80,11 @@ func fleetAdd(args []string) int {
 		Kind:       "relay",
 		MailboxID:  strings.TrimSpace(*mailbox),
 		MailboxKey: strings.TrimSpace(*key),
-		OS:         *osName,
+		OS:         strings.TrimSpace(*osName),
+	}
+	if err := applyFleetOffer(&dev); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
 	if err := f.Upsert(dev); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -88,8 +93,37 @@ func fleetAdd(args []string) int {
 	saved, _ := f.Get(firstNonEmpty(*id, *name))
 	_ = fleetSyncOne(saved)
 	fmt.Printf("ok fleet + %s  mailbox=%s\n", saved.ID, saved.MailboxID)
-	fmt.Println("Grok bot: POST /v1/inject  {\"device\":\"" + dev.ID + "\",\"text\":\"…\"}")
+	fmt.Println("Grok bot: POST /v1/inject  {\"device\":\"" + saved.ID + "\",\"text\":\"…\"}")
 	return 0
+}
+
+// applyFleetOffer fills mailbox id/key/os from a pair-as-mailbox offer when
+// the flags omitted them. Never prints the key.
+func applyFleetOffer(dev *core.FleetDevice) error {
+	if strings.TrimSpace(dev.MailboxID) != "" && strings.TrimSpace(dev.MailboxKey) != "" {
+		return nil
+	}
+	slug := firstNonEmpty(dev.ID, dev.Name)
+	if slug == "" {
+		return fmt.Errorf("usage: gbr-agent fleet add -name mac -os darwin")
+	}
+	offer, _, err := core.LoadFleetOffer(slug)
+	if err != nil {
+		if strings.TrimSpace(dev.MailboxID) == "" || strings.TrimSpace(dev.MailboxKey) == "" {
+			return fmt.Errorf("mailbox_id and mailbox_key required (or a pair-as-mailbox offer for %q)", slug)
+		}
+		return nil
+	}
+	if strings.TrimSpace(dev.MailboxID) == "" {
+		dev.MailboxID = offer.MailboxID
+	}
+	if strings.TrimSpace(dev.MailboxKey) == "" {
+		dev.MailboxKey = offer.MailboxKey
+	}
+	if strings.TrimSpace(dev.OS) == "" {
+		dev.OS = offer.OS
+	}
+	return nil
 }
 
 func fleetRemove(id string) int {

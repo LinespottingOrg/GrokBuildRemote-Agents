@@ -36,7 +36,9 @@ const plistTmpl = `<?xml version="1.0" encoding="UTF-8"?>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>{{if .RelayURL}}
+    <string>{{.Home}}/.local/bin:{{.Home}}/bin:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+    <key>HOME</key>
+    <string>{{.Home}}</string>{{if .RelayURL}}
     <key>GBR_RELAY_URL</key>
     <string>{{.RelayURL}}</string>{{end}}
   </dict>
@@ -70,17 +72,31 @@ func installPlatform() error {
 		"Binary":   p.Binary,
 		"WorkDir":  workDir,
 		"DataDir":  p.DataDir,
+		"Home":     workDir,
 		"RelayURL": strings.TrimSpace(os.Getenv("GBR_RELAY_URL")),
 	}); err != nil {
 		return err
 	}
-	// unload then load
-	_ = exec.Command("launchctl", "unload", p.UnitPath).Run()
-	out, err := exec.Command("launchctl", "load", p.UnitPath).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("launchctl load: %w\n%s", err, string(out))
+	return launchAgentEnable(p.UnitPath)
+}
+
+func launchAgentEnable(plist string) error {
+	label := "com.linespotting.gbr-agent"
+	domain := fmt.Sprintf("gui/%d", os.Getuid())
+	target := domain + "/" + label
+	_ = exec.Command("launchctl", "bootout", target).Run()
+	_ = exec.Command("launchctl", "unload", plist).Run()
+	if out, err := exec.Command("launchctl", "bootstrap", domain, plist).CombinedOutput(); err != nil {
+		out2, err2 := exec.Command("launchctl", "load", plist).CombinedOutput()
+		if err2 != nil {
+			return fmt.Errorf("launchctl bootstrap: %v\n%s\nlaunchctl load: %w\n%s", err, string(out), err2, string(out2))
+		}
 	}
-	_ = exec.Command("launchctl", "start", "com.linespotting.gbr-agent").Run()
+	_ = exec.Command("launchctl", "enable", target).Run()
+	if out, err := exec.Command("launchctl", "kickstart", "-k", target).CombinedOutput(); err != nil {
+		_ = exec.Command("launchctl", "start", label).Run()
+		_ = out
+	}
 	return nil
 }
 
@@ -89,7 +105,10 @@ func uninstallPlatform() error {
 	if err != nil {
 		return err
 	}
-	_ = exec.Command("launchctl", "stop", "com.linespotting.gbr-agent").Run()
+	label := "com.linespotting.gbr-agent"
+	target := fmt.Sprintf("gui/%d/%s", os.Getuid(), label)
+	_ = exec.Command("launchctl", "bootout", target).Run()
+	_ = exec.Command("launchctl", "stop", label).Run()
 	_ = exec.Command("launchctl", "unload", p.UnitPath).Run()
 	_ = os.Remove(p.UnitPath)
 	return nil
