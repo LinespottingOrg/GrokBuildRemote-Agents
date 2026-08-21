@@ -106,4 +106,27 @@ func TestFleetResolveAmbiguousClass(t *testing.T) {
 	}
 }
 
+func TestFleetPublicDevicesIncludesClassHostnameImpl(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	f, err := LoadFleet()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Upsert(FleetDevice{
+		ID: "studio-linux", Name: "studio", MailboxID: "gbr-abc", MailboxKey: "k",
+		OS: "linux", Class: ClassLinux, Hostname: "studio.local", Impl: "gbr",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	pub := f.PublicDevices()
+	if len(pub) != 1 {
+		t.Fatalf("public %+v", pub)
+	}
+	if pub[0]["class"] != ClassLinux || pub[0]["hostname"] != "studio.local" || pub[0]["impl"] != "gbr" {
+		t.Fatalf("want class/hostname/impl, got %+v", pub[0])
+	}
+}
+
 
