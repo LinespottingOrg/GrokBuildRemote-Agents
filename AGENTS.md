@@ -58,6 +58,20 @@ GitHub Releases: tagged `v*`. Website `latest` + `v0.5.4` are the install source
 
 Legacy: `gbr-agent pair -code CODE`.
 
+**Fleet remote (no phone on this machine):**
+
+```text
+# On the Mac / Linux box that the hub will drive:
+gbr-agent pair-as-mailbox -name mac
+gbr-agent service install
+
+# On the hub (Windows), after the remote is paired:
+gbr-agent fleet add -name mac -os darwin
+# GET /v1/status?device=mac is 404 until this add — that is correct.
+```
+
+`pair-as-mailbox` does not print pairing codes or keys. The hub command reads a local offer file written by the remote (Dropbox `_ops/fleet-offers/` on LineSpotting machines, or `~/.gbr/offers/`). Never paste the key into chat, commits, or README.
+
 Relay is **outbound HTTPS 443 only**. No inbound ports. No VPN required.
 
 ```bash

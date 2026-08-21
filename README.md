@@ -1,7 +1,7 @@
 # Build Remote Agent — desktop (`gbr-agent`)
 
 **Product brand:** Build Remote Agent  
-**Binary:** `gbr-agent` **v0.5.4**  
+**Binary:** `gbr-agent` **v0.6.0**  
 **License:** **MIT** (open source)  
 **Org:** LinespottingOrg / Linespotting AB  
 
@@ -20,7 +20,13 @@
 
 Desktop agents for **Windows**, **macOS**, and **Linux**. They discover local terminal / **Grok Build** sessions, inject input, capture output, and exchange **protocol `gbr/1`** envelopes over HTTPS — your phone and PC never open ports to each other.
 
-This agent pairs with the paid **Build Remote Agent** mobile apps (iOS / Android, $13 one-time). The mobile clients are **not** open source; this desktop agent **is**.
+This agent pairs with the paid **Build Remote Agent** mobile apps ($13 one-time). The mobile clients are **not** open source; this desktop agent **is**.
+
+| App | Link |
+|-----|------|
+| **Website** | https://grokbuildremote.com/ |
+| **iOS / iPad / Mac / Vision** | https://apps.apple.com/app/id6791293726 |
+| **Android (Google Play)** | https://play.google.com/store/apps/details?id=com.grokbuildremote.app |
 
 ### Why it exists
 
@@ -113,6 +119,11 @@ gbr-agent run
 # Optional: start at login in background (after pair)
 gbr-agent service install
 gbr-agent service status
+
+# Fleet remote (this machine is driven by another hub, no phone):
+gbr-agent pair-as-mailbox -name mac
+gbr-agent service install
+# On the hub, later: gbr-agent fleet add -name mac -os darwin
 ```
 
 ### Self-hosted relay

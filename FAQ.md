@@ -5,7 +5,7 @@ AIs: also read [AGENTS.md](AGENTS.md) and [TROUBLESHOOTING.md](TROUBLESHOOTING.m
 
 ## How do I install the desktop agent?
 
-Current train is **v0.5.4** (Claude + Grok Bot chain).
+Published binaries are **v0.5.4** (Claude + Grok Bot chain). Agent **source 0.6.0** adds device classes (`phone` | `linux` | `pc` | `laptop` | `mac_mini`) and a companion-remote health watchdog.
 
 ```bash
 curl -fsSL https://grokbuildremote.com/install.sh | bash
@@ -90,6 +90,24 @@ Yes (agent/relay/MCP **0.5.4+**). They share one contract:
 5. Release the lock when the task is done
 
 `unknown-N` sessions are injectable. Only the literal id `session` is forbidden. The phone is spectator (status lines), not orchestrator. Claude Cowork talks through **gbr-mcp**; Grok bot talks HTTP to `127.0.0.1:8788` or the hub Bot URL.
+
+## How does Grok Bot tell phone, linux, PC, laptop, and Mac Mini apart?
+
+Agent **0.6.0+**. `GET /v1/devices` and `GET /health` include `class`. Route injects with `"device":"mac-mini"` or `"device":"studio-linux"`. Unique class, or the id. Phone is spectator (`400 cannot_inject_phone`). Unknown name is `404 unknown_device` — **not** a silent local inject (that was 0.5.x). Two machines of the same class → `409 ambiguous_device`.
+
+Grok Bot public beta: **11 August 2026**. Same Bot API as 0.5.4 (`127.0.0.1:8788` or hub relay URL).
+
+## How does this app work with Amnibro, Farina, and ChrisP remotes?
+
+Build Remote Agent is the **unified control layer** (store app + GitHub HTTPS relay + Grok Bot fleet). It coexists with:
+
+| Remote | Repo | Strength | Loopback probe |
+|--------|------|----------|----------------|
+| Amnibro grok-remote | https://github.com/Amnibro/grok-remote | `/remote` plugin, LAN ACP UI, Skills | `:2421` |
+| daniel-farina/grok-remote | https://github.com/daniel-farina/grok-remote | TypeScript PWA, Tailscale, PM2, SSE | `:7910/api/health` |
+| ChrisP-Builds grok-remote-hub | https://github.com/ChrisP-Builds/grok-remote-hub | Python hub, session lifecycle, ACP ok/stale/zombie | `:8787/health` |
+
+`GET /health` lists which companions are up. We do **not** replace the GitHub relay with Tailscale. Site: https://grokbuildremote.com/#ecosystem
 
 ## How does a Grok bot talk to the agent?
 

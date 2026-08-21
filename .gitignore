@@ -19,6 +19,9 @@ Thumbs.db
 api-passwords.md
 *.pem
 *.key
+# pair-as-mailbox offers (mailbox keys) — never commit
+**/fleet-offers/
+offers/
 
 # relay: real Cloudflare config carries account_id + KV namespace id.
 # Commit wrangler.example.toml instead.

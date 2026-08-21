@@ -8,6 +8,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -191,12 +192,18 @@ func (s *botServer) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
-	case path == "/" || path == "/health" || path == "/v1":
+	case path == "/" || path == "/v1":
 		if r.Method != http.MethodGet {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
 			return
 		}
 		s.writeDiscovery(w)
+	case path == "/health" || path == "/v1/health":
+		if r.Method != http.MethodGet {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
+			return
+		}
+		s.writeHealth(w)
 	case path == "/v1/sessions":
 		if r.Method != http.MethodGet {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
@@ -293,6 +300,7 @@ func (s *botServer) writeDiscovery(w http.ResponseWriter) {
 		"require_key": os.Getenv("GBR_BOT_REQUIRE_KEY") == "1",
 		"endpoints": map[string]string{
 			"discovery":  "GET /  or  GET /v1",
+			"health":     "GET /health  or  GET /v1/health",
 			"devices":    "GET /v1/devices",
 			"add_device": "POST /v1/devices",
 			"sessions":   "GET /v1/sessions?device=",
@@ -304,20 +312,38 @@ func (s *botServer) writeDiscovery(w http.ResponseWriter) {
 			"output":     "GET /v1/output?session_id=&command_id=&after=&limit=",
 			"status":     "GET /v1/status?device=",
 		},
+		"classes":     core.CanonicalClasses,
+		"class_help":  core.FormatClassHelp(),
+		"grok_bot":    "2026-08-11",
+		"local":       core.LocalIdentity(s.mailboxID, s.key != ""),
 		"chain": []string{
 			"diagnose", "open or attach", "lock", "inject",
 			"wait idle (GET /result?wait_ms=)", "harvest excerpt",
 			"judge and iterate or close + notify",
 		},
 		"inject_body": map[string]any{
-			"device":       "local | studio-linux | mac-mini",
+			"device":       "local | studio-linux | mac-mini | laptop | pc | linux",
 			"session_id":   "grok-build-…",
 			"text":         "the prompt to type",
 			"submit":       true,
 			"notify_phone": true,
 		},
 		"relay_bot": s.relayBotURL(),
-		"note":      "One Grok bot instance. Local loopback + remotes (Mac/Linux) via relay fleet. Short status lines sync to the phone on this mailbox.",
+		"note":      "One Grok Bot instance (beta 2026-08-11). HTTPS GitHub relay is the control plane. Route by device id, name, or class (phone|linux|pc|laptop|mac_mini). Unknown names return 404 — they do not fall back to local.",
+	})
+}
+
+func (s *botServer) writeHealth(w http.ResponseWriter) {
+	snap := core.GlobalWatchdog.Snapshot(false)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":         snap.Quality == core.HealthOK || snap.Quality == core.HealthStale,
+		"service":    "gbr-agent-bot",
+		"proto":      "gbr/1",
+		"version":    version,
+		"mailbox_id": s.mailboxID,
+		"health":     snap,
+		"devices":    s.listPublicDevices(),
+		"grok_bot":   "2026-08-11",
 	})
 }
 
@@ -358,6 +384,7 @@ func (s *botServer) handleInject(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Device    string `json:"device"`
 		DeviceID  string `json:"device_id"`
+		Class     string `json:"class"`
 		SessionID string `json:"session_id"`
 		Session   string `json:"session"`
 		Text      string `json:"text"`
@@ -395,13 +422,32 @@ func (s *botServer) handleInject(w http.ResponseWriter, r *http.Request) {
 	if body.Notify != nil {
 		notify = *body.Notify
 	}
-	want := firstFilled(body.Device, body.DeviceID, r.URL.Query().Get("device"))
-	f, _ := core.LoadFleet()
-	if f != nil {
-		if d, ok := f.Get(want); ok && d.Kind == "relay" {
-			s.injectRemote(w, d, sessionID, text, submit, commandID, notify)
-			return
+	want := firstFilled(body.Device, body.DeviceID, body.Class, r.URL.Query().Get("device"), r.URL.Query().Get("class"))
+	f, err := core.LoadFleet()
+	if err != nil || f == nil {
+		f = &core.Fleet{}
+	}
+	d, err := f.Resolve(want)
+	if err != nil {
+		code := http.StatusNotFound
+		msg := "unknown_device"
+		switch {
+		case errors.Is(err, core.ErrSpectatorDevice):
+			code = http.StatusBadRequest
+			msg = "cannot_inject_phone"
+		case errors.Is(err, core.ErrAmbiguousDevice):
+			code = http.StatusConflict
+			msg = "ambiguous_device"
 		}
+		writeJSON(w, code, map[string]any{
+			"ok": false, "error": msg, "requested": want, "detail": err.Error(),
+			"hint": "GET /v1/devices — route by id, name, or unique class (linux|pc|laptop|mac_mini). Unknown names do not fall back to local.",
+		})
+		return
+	}
+	if d.Kind == "relay" {
+		s.injectRemote(w, d, sessionID, text, submit, commandID, notify)
+		return
 	}
 	waitIdle := body.WaitIdle != nil && *body.WaitIdle
 	s.injectLocal(w, sessionID, text, submit, commandID, notify, waitIdle, body.WaitMS, body.IdleMS)

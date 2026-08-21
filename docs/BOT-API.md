@@ -1,6 +1,10 @@
 # Bot API — Grok bots and HTTP clients
 
-**Agent / relay 0.5.4+.** One Grok bot instance *or* Claude Cowork (via `gbr-mcp`) drives **this PC locally** and **other Mac / Linux / Windows PCs** over the relay. Same JSON. The phone paired to the hub mailbox is spectator + veto (status lines), not the orchestrator.
+**Agent / relay 0.5.4+.** One Grok Bot instance (public beta **2026-08-11**) *or* Claude Cowork (via `gbr-mcp`) drives **this PC locally** and **other Mac / Linux / Windows PCs** over the GitHub HTTPS relay. Same JSON. The phone paired to the hub mailbox is spectator + veto (status lines), not the orchestrator.
+
+**Agent 0.6.0+ device classes.** `GET /v1/devices` includes `class`: `phone` | `linux` | `pc` | `laptop` | `mac_mini`. `POST /v1/inject` accepts an id, a name, or a **unique** class (`"device":"mac-mini"`). Unknown names return **404 `unknown_device`** (0.5.x used to fall back to local). Two hits for one class → **409 `ambiguous_device`**. `"device":"phone"` → **400 `cannot_inject_phone`**.
+
+`GET /health` (and `GET /v1/health`) is the watchdog: roster quality `ok/stale/zombie`, plus loopback probes for companion remotes (Amnibro `:2421`, Farina `:7910`, ChrisP hub `:8787`). GBR Bot API stays on **`:8788`**.
 
 | Surface | Who | Bind | Auth |
 |---------|-----|------|------|
@@ -104,13 +108,13 @@ The customer keeps **one** Grok bot. That bot talks to **one** API:
 - `studio-linux`, `mac-mini`, … — remotes you registered
 
 ```bash
-# Pair each PC as usual (gbr-agent pair / run). Copy mailbox id+key from that PC
-# (gbr-agent status, or that phone Settings → Bot API if it has its own pair).
-
-# On the hub PC (the one the phone stays paired to):
+# On each remote (no phone): gbr-agent pair-as-mailbox -name mac && gbr-agent service install
+# On the hub PC (the one the phone stays paired to). Prefer the offer one-liner —
+# it does not need the key on the command line:
+gbr-agent fleet add -name mac -os darwin
 gbr-agent fleet add -name studio-linux -mailbox gbr-XXXX -key KEY -os linux
-gbr-agent fleet add -name mac-mini     -mailbox gbr-YYYY -key KEY -os darwin
 gbr-agent fleet
+# GET /v1/status?device=mac → 404 until fleet add. That is correct.
 
 # List → pick → inject → status (same JSON local or remote):
 curl -sS http://127.0.0.1:8788/v1/devices

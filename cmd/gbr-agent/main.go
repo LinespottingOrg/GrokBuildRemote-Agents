@@ -42,7 +42,7 @@ import (
 )
 
 var (
-	version = "0.5.4"
+	version = "0.6.0"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -99,6 +99,8 @@ func run(args []string) int {
 		return cmdRun(subArgs)
 	case "pair":
 		return cmdPair(subArgs)
+	case "pair-as-mailbox", "pair_as_mailbox", "pairasmailbox":
+		return cmdPairAsMailbox(subArgs)
 	case "rename":
 		return cmdRename(subArgs)
 	case "sessions":
@@ -145,9 +147,13 @@ Usage:
   gbr-agent [-log=info] bot
       Print localhost + relay Bot API curl examples (Grok bots).
   gbr-agent [-log=info] fleet
-  gbr-agent [-log=info] fleet add -name studio-linux -mailbox gbr-ID -key KEY [-os linux]
-      One Grok bot instance drives this PC (local) plus remotes via the relay.
-      Short status lines sync to the phone on this mailbox.
+  gbr-agent [-log=info] fleet add -name mac -os darwin [-class mac_mini]
+      Hub: register a remote that already ran pair-as-mailbox (reads a local offer).
+  gbr-agent [-log=info] fleet add -name studio-linux -mailbox gbr-ID -key KEY [-os linux] [-class linux]
+      Classes: phone | linux | pc | laptop | mac_mini — Grok Bot routes by id, name, or unique class.
+      Same, with mailbox id + key passed on the command line (do not log the key).
+  gbr-agent [-log=info] pair-as-mailbox [-name mac] [-relay URL] [-force]
+      Headless mailbox for a fleet remote. No phone, no QR, no code printed.
   gbr-agent [-log=info] pair [-code CODE] [-name DEVICE_NAME] [-conv MAILBOX_ID] [-relay URL] [-no-open]
       Default: PC generates the code, pairs this agent, opens a browser QR for the
       phone camera to scan (mobile does NOT show the QR — the phone reads it).
@@ -363,6 +369,8 @@ Lock file: %s
 		"mailbox", mailboxID,
 		"relay", rc.Base(),
 		"os", runtime.GOOS,
+		"class", core.DetectClass(),
+		"hostname", core.HostnameBest(),
 		"trace", tl.Enabled(),
 		"trace_remote", tl.RemoteEnabled(),
 		"trace_log", tl.Path(),
@@ -1208,6 +1216,8 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 			if hbErr != nil {
 				slog.Warn("heartbeat", "err", hbErr)
 			}
+			core.GlobalWatchdog.TouchRoster()
+			core.GlobalWatchdog.TouchRelay(hbErr == nil)
 			trace.Emit(trace.Event{
 				Hop:    trace.HopAgentHeartbeat,
 				Type:   "heartbeat",
@@ -1661,7 +1671,7 @@ func cmdService(args []string) int {
 		}
 		fmt.Println("✓ gbr-agent auto-start installed (user session background)")
 		fmt.Println("  Windows: Task Scheduler logon · Mac: LaunchAgent · Linux: systemd --user")
-		fmt.Println("  Pair first if needed: gbr-agent pair")
+		fmt.Println("  Pair first if needed: gbr-agent pair   or   gbr-agent pair-as-mailbox")
 		fmt.Println("  Check: gbr-agent service status")
 		if u := strings.TrimSpace(os.Getenv("GBR_RELAY_URL")); u != "" {
 			fmt.Printf("  note: GBR_RELAY_URL=%s is set in this shell — ensure the service inherits it (see SELF-HOSTED-RELAY.md)\n", u)
