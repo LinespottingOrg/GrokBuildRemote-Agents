@@ -238,6 +238,19 @@ func TestBotInjectUnknownDeviceDoesNotFallback(t *testing.T) {
 	}
 }
 
+func TestBotOpenUnknownDeviceDoesNotFallback(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	s := &botServer{rt: &agentRuntime{}, mailboxID: "gbr-x"}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/sessions/open", strings.NewReader(`{"device":"typo-box","holder":"grok-bot"}`))
+	s.handleOpen(w, r)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("want 404 unknown_device, got %d %s", w.Code, w.Body.String())
+	}
+}
+
 func TestBotInjectPhoneRefused(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)

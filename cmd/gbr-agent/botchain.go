@@ -47,11 +47,13 @@ func (s *botServer) handleOpen(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	want := firstFilled(body.Device, body.DeviceID, r.URL.Query().Get("device"))
-	if f, _ := core.LoadFleet(); f != nil {
-		if d, ok := f.Get(want); ok && d.Kind == "relay" {
-			s.proxyRemote(w, d, http.MethodPost, "/sessions/open", body)
-			return
-		}
+	d, err := resolveWant(want)
+	if writeResolveErr(w, err, want) {
+		return
+	}
+	if d.Kind == "relay" {
+		s.proxyRemote(w, d, http.MethodPost, "/sessions/open", body)
+		return
 	}
 	if s.rt == nil || s.rt.hybrid == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": "agent_not_ready"})
@@ -174,16 +176,18 @@ func (s *botServer) finishOpen(w http.ResponseWriter, res inject.OpenResult, hol
 func (s *botServer) handleResult(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	device := firstFilled(q.Get("device"), "")
-	if f, _ := core.LoadFleet(); f != nil {
-		if d, ok := f.Get(device); ok && d.Kind == "relay" {
-			path := "/result?session_id=" + q.Get("session_id") +
-				"&command_id=" + q.Get("command_id") +
-				"&wait_ms=" + q.Get("wait_ms") +
-				"&idle_ms=" + q.Get("idle_ms") +
-				"&excerpt_bytes=" + q.Get("excerpt_bytes")
-			s.proxyRemote(w, d, http.MethodGet, path, nil)
-			return
-		}
+	d, err := resolveWant(device)
+	if writeResolveErr(w, err, device) {
+		return
+	}
+	if d.Kind == "relay" {
+		path := "/result?session_id=" + q.Get("session_id") +
+			"&command_id=" + q.Get("command_id") +
+			"&wait_ms=" + q.Get("wait_ms") +
+			"&idle_ms=" + q.Get("idle_ms") +
+			"&excerpt_bytes=" + q.Get("excerpt_bytes")
+		s.proxyRemote(w, d, http.MethodGet, path, nil)
+		return
 	}
 	sid := strings.TrimSpace(q.Get("session_id"))
 	if sid == "" {
@@ -315,11 +319,13 @@ func (s *botServer) lockAcquire(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid_json"})
 		return
 	}
-	if f, _ := core.LoadFleet(); f != nil {
-		if d, ok := f.Get(body.Device); ok && d.Kind == "relay" {
-			s.proxyRemote(w, d, http.MethodPost, "/lock", body)
-			return
-		}
+	d, rerr := resolveWant(body.Device)
+	if writeResolveErr(w, rerr, body.Device) {
+		return
+	}
+	if d.Kind == "relay" {
+		s.proxyRemote(w, d, http.MethodPost, "/lock", body)
+		return
 	}
 	if strings.TrimSpace(body.SessionID) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "session_id_required"})

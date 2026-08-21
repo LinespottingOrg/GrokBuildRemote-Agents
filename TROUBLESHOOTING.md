@@ -6,7 +6,7 @@ For AIs: start with [AGENTS.md](AGENTS.md). For humans: https://grokbuildremote.
 
 ```bash
 gbr-agent version
-# expect: gbr-agent v0.5.4 …
+# expect: gbr-agent v0.6.0 …
 
 curl -sS https://gbr-relay.ekobrott.workers.dev/health
 # expect: "version":"0.5.4"  "bot":true

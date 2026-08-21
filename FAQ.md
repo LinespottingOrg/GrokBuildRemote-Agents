@@ -40,7 +40,7 @@ This repo is the **desktop agent only** (MIT). Mobile apps are a separate paid p
 ```bash
 gbr-agent version
 curl -sS https://gbr-relay.ekobrott.workers.dev/health
-# live relay is still "version":"0.5.4" until the Worker is bumped
+# expect health "version":"0.6.0" "bot":true "fleet":true "classes"
 ```
 
 Phone Unpair + live roster + Bot API: mobile **1.3.1+**.

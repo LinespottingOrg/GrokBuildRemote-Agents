@@ -42,6 +42,26 @@ var classAliases = map[string]string{
 	"mini": ClassMacMini,
 }
 
+// InferClass maps an explicit class or a GOOS/os label to a canonical class.
+// "darwin" is not a ParseClass alias (Mac mini vs laptop); default darwin → laptop.
+func InferClass(class, osName string) string {
+	if cls, ok := ParseClass(class); ok {
+		return cls
+	}
+	switch strings.ToLower(strings.TrimSpace(osName)) {
+	case "darwin", "macos", "osx":
+		return ClassLaptop
+	case "windows", "win32", "win":
+		return ClassPC
+	case "linux":
+		return ClassLinux
+	}
+	if cls, ok := ParseClass(osName); ok {
+		return cls
+	}
+	return ""
+}
+
 // ParseClass maps a user/bot token to a canonical class.
 func ParseClass(s string) (string, bool) {
 	s = normalizeFleetID(s)

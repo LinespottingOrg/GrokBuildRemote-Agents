@@ -8,8 +8,8 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 | **This repo** | Desktop agent only · MIT · https://github.com/LinespottingOrg/GrokBuildRemote-Agents |
 | **Website** | https://grokbuildremote.com/ |
 | **Support** | https://grokbuildremote.com/support |
-| **Relay (production)** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · expect `/health` `version: 0.5.4` · Bot API `/v1/mb/:id/bot` |
-| **Current agent** | **v0.5.4** (open / lock / result · Bot API on `127.0.0.1:8788` + relay; live roster, soft max 255) |
+| **Relay (production)** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · expect `/health` `version: 0.6.0` · Bot API `/v1/mb/:id/bot` |
+| **Current agent** | **v0.6.0** (device classes · open / lock / result · Bot API on `127.0.0.1:8788` + relay; live roster, soft max 255) |
 | **Mobile apps** | Separate private product. iOS/Android store name **Build Remote Agent**. Not in this repo. |
 
 Do **not** invent a second code root. Official agent source is this GitHub repo (or the Dropbox workfolder `APPAR/Grok Build Remote/agents/` for LineSpotting machines).
@@ -18,12 +18,12 @@ Do **not** invent a second code root. Official agent source is this GitHub repo 
 
 ## Install (do this first)
 
-Prefer website binaries (already **v0.5.4**):
+Prefer website binaries (already **v0.6.0**):
 
 ```bash
 # macOS / Linux
 curl -fsSL https://grokbuildremote.com/install.sh | bash
-gbr-agent version    # must print v0.5.4 or newer
+gbr-agent version    # must print v0.6.0 or newer
 ```
 
 ```powershell
@@ -39,10 +39,10 @@ git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents
 make build          # → dist/gbr-agent
 # or
-VERSION=v0.5.4 ./scripts/build-all.sh
+VERSION=v0.6.0 ./scripts/build-all.sh
 ```
 
-GitHub Releases: tagged `v*`. Website `latest` + `v0.5.4` are the install source of truth if the latest tag lags.
+GitHub Releases: tagged `v*`. Website `latest` + `v0.6.0` are the install source of truth.
 
 ---
 

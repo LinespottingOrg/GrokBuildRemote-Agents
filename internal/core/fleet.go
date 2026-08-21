@@ -258,11 +258,7 @@ func (f *Fleet) Upsert(d FleetDevice) error {
 	if d.Kind == "" {
 		d.Kind = "relay"
 	}
-	if d.Class != "" {
-		if cls, ok := ParseClass(d.Class); ok {
-			d.Class = cls
-		}
-	} else if cls, ok := ParseClass(d.OS); ok {
+	if cls := InferClass(d.Class, d.OS); cls != "" {
 		d.Class = cls
 	}
 	if d.Impl == "" {

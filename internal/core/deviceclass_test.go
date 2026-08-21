@@ -33,6 +33,21 @@ func TestParseClassAliases(t *testing.T) {
 	}
 }
 
+func TestInferClassFromOS(t *testing.T) {
+	if got := InferClass("", "darwin"); got != ClassLaptop {
+		t.Fatalf("darwin → laptop, got %s", got)
+	}
+	if got := InferClass("mac-mini", "darwin"); got != ClassMacMini {
+		t.Fatalf("explicit class wins, got %s", got)
+	}
+	if got := InferClass("", "windows"); got != ClassPC {
+		t.Fatalf("windows → pc, got %s", got)
+	}
+	if got := InferClass("", "linux"); got != ClassLinux {
+		t.Fatalf("linux → linux, got %s", got)
+	}
+}
+
 func TestDetectClassOverride(t *testing.T) {
 	t.Setenv("GBR_DEVICE_CLASS", "mac-mini")
 	if got := DetectClass(); got != ClassMacMini {

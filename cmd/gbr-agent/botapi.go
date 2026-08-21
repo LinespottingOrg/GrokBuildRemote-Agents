@@ -423,26 +423,8 @@ func (s *botServer) handleInject(w http.ResponseWriter, r *http.Request) {
 		notify = *body.Notify
 	}
 	want := firstFilled(body.Device, body.DeviceID, body.Class, r.URL.Query().Get("device"), r.URL.Query().Get("class"))
-	f, err := core.LoadFleet()
-	if err != nil || f == nil {
-		f = &core.Fleet{}
-	}
-	d, err := f.Resolve(want)
-	if err != nil {
-		code := http.StatusNotFound
-		msg := "unknown_device"
-		switch {
-		case errors.Is(err, core.ErrSpectatorDevice):
-			code = http.StatusBadRequest
-			msg = "cannot_inject_phone"
-		case errors.Is(err, core.ErrAmbiguousDevice):
-			code = http.StatusConflict
-			msg = "ambiguous_device"
-		}
-		writeJSON(w, code, map[string]any{
-			"ok": false, "error": msg, "requested": want, "detail": err.Error(),
-			"hint": "GET /v1/devices — route by id, name, or unique class (linux|pc|laptop|mac_mini). Unknown names do not fall back to local.",
-		})
+	d, err := resolveWant(want)
+	if writeResolveErr(w, err, want) {
 		return
 	}
 	if d.Kind == "relay" {
@@ -546,6 +528,35 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	_ = enc.Encode(v)
+}
+
+func resolveWant(want string) (core.FleetDevice, error) {
+	f, err := core.LoadFleet()
+	if err != nil || f == nil {
+		f = &core.Fleet{}
+	}
+	return f.Resolve(want)
+}
+
+func writeResolveErr(w http.ResponseWriter, err error, want string) bool {
+	if err == nil {
+		return false
+	}
+	code := http.StatusNotFound
+	msg := "unknown_device"
+	switch {
+	case errors.Is(err, core.ErrSpectatorDevice):
+		code = http.StatusBadRequest
+		msg = "cannot_inject_phone"
+	case errors.Is(err, core.ErrAmbiguousDevice):
+		code = http.StatusConflict
+		msg = "ambiguous_device"
+	}
+	writeJSON(w, code, map[string]any{
+		"ok": false, "error": msg, "requested": want, "detail": err.Error(),
+		"hint": "GET /v1/devices — route by id, name, or unique class (linux|pc|laptop|mac_mini). Unknown names do not fall back to local.",
+	})
+	return true
 }
 
 func firstFilled(vals ...string) string {
