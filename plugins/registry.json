@@ -40,6 +40,18 @@
       "id": "codex-plugin-manifest",
       "kind": "codex-plugin",
       "path": ".codex-plugin/plugin.json"
+    },
+    {
+      "id": "goose-skill",
+      "kind": "skill",
+      "path": "skills/goose/SKILL.md",
+      "phone": "Goose CLI in a TTY; else gbr-mcp on desktop Goose. Not a PR into block/goose."
+    },
+    {
+      "id": "cline-skill",
+      "kind": "skill",
+      "path": "skills/cline/SKILL.md",
+      "phone": "Cline CLI in a TTY; else gbr-mcp on desktop Cline. Not a PR into cline/cline."
     }
   ]
 }

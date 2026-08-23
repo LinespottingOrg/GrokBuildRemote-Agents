@@ -19,6 +19,8 @@ Do **not** invent a second code root. Official agent source is this GitHub repo 
 
 **Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair stays `gbr-agent pair` (QR + 8-char) then `run`. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches the issue title (`GBR_INBOX_WATCH=0` to disable).
 
+**Goose / Cline (user skills, this repo):** TTY → phone sees that window; else MCP `gbr-mcp` on the **desktop** host. Pin **v0.6.0**. Set `GBR_BOT_REQUIRE_KEY=1` to auth loopback `:8788`. [skills/goose/SKILL.md](skills/goose/SKILL.md) · [skills/cline/SKILL.md](skills/cline/SKILL.md) · https://grokbuildremote.com/integrations.html
+
 ---
 
 ## Install (do this first)

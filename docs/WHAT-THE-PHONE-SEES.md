@@ -6,9 +6,9 @@ It does **not** attach a headless agent server (OpenCode serve, CodeNomad sideca
 
 | You run | On the phone |
 |---------|----------------|
-| Grok Build / Aider / OpenCode **in a terminal window** | That window’s title; inject goes into that TTY |
-| Headless OpenCode / CodeNomad sidecar / :8788 in a browser tab | Nothing useful — Bot API JSON is not a session transcript |
-| MCP `gbr-mcp` inside Claude Code / OpenCode | The **desktop agent** can call Bot API. The phone still only lists **terminals**. |
+| Grok Build / Aider / OpenCode / Goose CLI / Cline CLI **in a terminal window** | That window’s title; inject goes into that TTY |
+| Headless OpenCode / CodeNomad sidecar / Goose Desktop / Cline VS Code / :8788 in a browser tab | Nothing useful — Bot API JSON is not a session transcript |
+| MCP `gbr-mcp` inside Claude Code / OpenCode / Goose / Cline | The **desktop agent** can call Bot API. The phone still only lists **terminals**. |
 
 One pair = one **mailbox for the whole machine**. The app can observe and inject **every discovered terminal** on that PC, not “this one omp/qwen tab.” Unpair before handing the PC to someone else.
 

@@ -46,14 +46,18 @@ Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release *
 | Claude Code | `.claude-plugin/` |
 | OpenCode V2 | `plugins/opencode/mcp.servers.json` |
 | AiderDesk | `plugins/aider-desk/` → `~/.aider-desk/extensions/gbr-pair` |
+| Goose | [skills/goose/SKILL.md](skills/goose/SKILL.md) — TTY → phone; else `gbr-mcp` on desktop Goose |
+| Cline | [skills/cline/SKILL.md](skills/cline/SKILL.md) — TTY → phone; else `gbr-mcp` on desktop Cline |
 | Any MCP | `mcp/gbr-mcp` |
 
 ## Compatible hosts
 
 | Class | How |
 |-------|-----|
-| Agent **in a terminal** (Grok Build TUI, Aider CLI, OpenCode TUI, …) | Phone sees that window |
+| Agent **in a terminal** (Grok Build TUI, Aider CLI, OpenCode TUI, Goose CLI, Cline CLI, …) | Phone sees that window |
 | Grok remotes Amnibro/Farina/ChrisP | Companions on loopback; not a substitute for pairing |
-| Headless OpenCode / CodeNomad | MCP on the desktop agent; phone still needs a TTY |
+| Headless OpenCode / CodeNomad / Goose Desktop / Cline VS Code | MCP on the desktop agent; phone still needs a TTY |
+| Goose CLI vs Desktop | [skills/goose/SKILL.md](skills/goose/SKILL.md) — do not PR this into `block/goose` |
+| Cline CLI vs IDE | [skills/cline/SKILL.md](skills/cline/SKILL.md) — do not PR this into `cline/cline` |
 | CodeNomad + Grok Build CLI | Worked example: [docs/USE-CASE-CODENOMAD.md](docs/USE-CASE-CODENOMAD.md) — `grok` in a native terminal; CodeNomad stays the cockpit |
 | Mobile GUI (mobilerun, agent-device) | Different job — they drive a phone as a robot |
