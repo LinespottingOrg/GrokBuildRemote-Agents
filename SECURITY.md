@@ -6,11 +6,16 @@ Canonical index (FAQ + GitHub + trust): https://grokbuildremote.com/integrations
 
 ## Threat model (pairing)
 
+Read this **before** `gbr-agent pair` / `run`.
+
 - `gbr-agent pair` binds a **mailbox for this PC**, not a single CLI tab.
 - After `gbr-agent run`, the phone can **list and inject every discovered terminal window** on that machine (roster, soft max 255).
-- Headless HTTP agents are **not** in that roster. Pointing a sidecar at `127.0.0.1:8788` shows Bot API JSON, not a transcript.
+- Headless HTTP agents, Electron UIs, NemoClaw OpenShell, and CodeNomad sidecars are **not** in that roster. Pointing a sidecar at `127.0.0.1:8788` shows Bot API JSON, not a transcript.
 - Anyone with the mailbox key (phone **Settings → Bot API**) can inject. Treat it like a password. Never commit it.
 - `POST /v1/inject` types **arbitrary text** into listed TTYs and can submit.
+- **Outbound relay:** the PC opens HTTPS 443 to `https://gbr-relay.ekobrott.workers.dev`. Roster titles, harvested TTY output, and inject payloads cross that Worker. No inbound ports. Self-host: [relay/](relay/).
+- **macOS:** Accessibility (type into terminals). Screen Recording may be requested for capture.
+- **Mobile app:** paid closed-source spectator (~$13 one-time). Desktop agent is MIT. Bot API / `gbr-mcp` on the host does not require the app.
 
 ## Trust boundary (loopback vs relay)
 
