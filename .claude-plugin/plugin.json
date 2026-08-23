@@ -1,0 +1,8 @@
+{
+  "name": "build-remote-agent",
+  "description": "Pair Build Remote Agent (phone) to this desktop session via gbr-agent. Protocol gbr/1. MCP: gbr-mcp. Phone is spectator.",
+  "homepage": "https://grokbuildremote.com/integrations.html",
+  "version": "0.6.1",
+  "author": "Linespotting AB",
+  "keywords": ["gbr", "pairing", "mcp"]
+}
