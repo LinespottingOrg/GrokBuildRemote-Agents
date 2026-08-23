@@ -23,24 +23,24 @@ Do **not** invent a second code root. Official agent source is this GitHub repo 
 
 ## Install (do this first)
 
-Prefer website binaries (already **v0.6.0**):
+Prefer a **pinned** GitHub Release — checksum the installer, then the binary.
+Live `curl | bash` of grokbuildremote.com is mutable. Recipe: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md).
 
 ```bash
 # macOS / Linux
-curl -fsSL https://grokbuildremote.com/install.sh | bash
+VER=v0.6.0
+BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
+SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
+curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
+echo "$SHA  /tmp/gbr-install.sh" | shasum -a 256 -c -
+bash /tmp/gbr-install.sh
 gbr-agent version    # must print v0.6.0 or newer
 ```
 
-```powershell
-# Windows
-irm https://grokbuildremote.com/install.ps1 | iex
-gbr-agent version
-```
-
-From this repo:
+From this repo (pin the tag):
 
 ```bash
-git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents
 make build          # → dist/gbr-agent
 # or

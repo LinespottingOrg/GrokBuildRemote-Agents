@@ -1,37 +1,66 @@
 #!/usr/bin/env bash
-# Grok Build Remote — gbr-agent installer
-# Detects OS/arch, downloads the latest free binary, installs to a user or system path.
+# Build Remote Agent — gbr-agent installer (macOS / Linux / Git Bash)
 #
-# Usage:
+# This file is a GitHub Release asset. The website copy at
+# https://grokbuildremote.com/install.sh is a convenience mirror and CAN CHANGE.
+# Do not pipe a live URL into bash as a trust root.
+#
+# Canonical (tag v0.6.0):
+#   https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.0/install.sh
+# Verify THIS script against the SHA-256 in docs/PINNED-INSTALL.md, then run it.
+# The binary it downloads is also SHA-256 checked (SHA256SUMS on that release).
+#
+# Usage (pinned):
+#   See docs/PINNED-INSTALL.md  (download install.sh → checksum → bash)
+# Convenience (mutable website URL — humans on OUR site only):
 #   curl -fsSL https://grokbuildremote.com/install.sh | bash
-#   # or, from a clone:
-#   ./install/install.sh
 #
-# Env overrides:
-#   GBR_VERSION          Pin version (e.g. v0.1.0). Default: latest release tag.
-#   GBR_INSTALL_DIR      Install directory. Defaults below.
-#   GBR_DOWNLOAD_BASE    Base URL for binaries (no trailing slash).
-#                        Default: public free-binary CDN / GitHub Releases mirror.
-#   GBR_REPO             owner/repo for GitHub Releases API (private source; public assets).
-#   GBR_SKIP_SERVICE     If set to 1, do not print service-install hints.
-#
-# Binary name: gbr-agent
 set -euo pipefail
 
-PRODUCT="Grok Build Remote"
+PRODUCT="Build Remote Agent"
 BINARY="gbr-agent"
 REPO="${GBR_REPO:-LinespottingOrg/GrokBuildRemote-Agents}"
-# Free binaries are published for end users (website + releases). Source stays private.
-DEFAULT_CDN="https://github.com/${REPO}/releases/download"
-DOWNLOAD_BASE="${GBR_DOWNLOAD_BASE:-$DEFAULT_CDN}"
+VERSION="${GBR_VERSION:-v0.6.0}"
+SITE="${GBR_SITE:-https://grokbuildremote.com}"
+INSTALL_DIR="${GBR_INSTALL_DIR:-}"
 
 die()  { echo "error: $*" >&2; exit 1; }
 info() { echo "==> $*"; }
 ok()   { echo "    $*"; }
 
-need_cmd() {
-  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
-}
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version|-v) VERSION="$2"; shift 2 ;;
+    --dir) INSTALL_DIR="$2"; shift 2 ;;
+    --help|-h)
+      echo "gbr-agent installer — pin a release. See docs/PINNED-INSTALL.md"
+      echo "  --version v0.6.0   --dir ~/.local/bin"
+      exit 0
+      ;;
+    *) shift ;;
+  esac
+done
+
+case "$VERSION" in
+  latest|LATEST|Latest|main|master|HEAD)
+    die "refusing mutable version '$VERSION'. Pin GBR_VERSION=v0.6.0 (docs/PINNED-INSTALL.md)"
+    ;;
+esac
+[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+ ]] || die "version must look like v0.6.0 (got '$VERSION')"
+
+# Tagged GitHub release — not the live website /downloads/latest/ tree.
+DOWNLOAD_BASE="${GBR_DOWNLOAD_BASE:-https://github.com/${REPO}/releases/download/${VERSION}}"
+
+# Piped curl|bash: $0 is "bash". File run: $0 is the path. Warn either way if stdin is a pipe
+# and the operator did not set GBR_I_TRUST_MUTABLE=1.
+piped=0
+if [[ "${0##*/}" == "bash" || "${0##*/}" == "sh" ]]; then
+  piped=1
+fi
+if [[ "$piped" -eq 1 && "${GBR_I_TRUST_MUTABLE:-0}" != "1" ]]; then
+  info "piped installer (mutable URL). Binary SHA-256 is still verified."
+  ok "pin this script: https://github.com/${REPO}/blob/${VERSION}/docs/PINNED-INSTALL.md"
+fi
 
 detect_os() {
   local u
@@ -40,7 +69,7 @@ detect_os() {
     linux*)  echo "linux" ;;
     darwin*) echo "darwin" ;;
     msys*|mingw*|cygwin*) echo "windows" ;;
-    *) die "unsupported OS: $u (supported: linux, darwin, windows)" ;;
+    *) die "unsupported OS: $u (supported: linux, darwin, windows via Git Bash)" ;;
   esac
 }
 
@@ -50,47 +79,21 @@ detect_arch() {
   case "$m" in
     x86_64|amd64)  echo "amd64" ;;
     aarch64|arm64) echo "arm64" ;;
-    armv7l|armv6l) die "32-bit ARM is not supported; use amd64 or arm64" ;;
-    i386|i686)     die "32-bit x86 is not supported" ;;
-    *) die "unsupported architecture: $m" ;;
+    *) die "unsupported architecture: $m (need amd64 or arm64)" ;;
   esac
 }
 
 default_install_dir() {
   local os="$1"
-  case "$os" in
-    windows)
-      # Git-Bash / MSYS path for Program Files when elevated; else user LocalAppData.
-      if [[ -n "${PROGRAMFILES:-}" ]]; then
-        # Prefer user-local when not admin (no write to Program Files).
-        if [[ -w "${PROGRAMFILES}" ]] 2>/dev/null; then
-          echo "${PROGRAMFILES}/GrokBuildRemote"
-        else
-          echo "${LOCALAPPDATA:-$HOME/AppData/Local}/GrokBuildRemote"
-        fi
-      else
-        echo "${HOME}/.local/bin"
-      fi
-      ;;
-    *)
+  if [[ "$os" == "windows" ]]; then
+    if [[ -n "${LOCALAPPDATA:-}" ]]; then
+      echo "${LOCALAPPDATA}/GrokBuildRemote"
+    else
       echo "${HOME}/.local/bin"
-      ;;
-  esac
-}
-
-latest_tag() {
-  # Prefer GitHub API; fall back to "latest" path segment if API unavailable.
-  if command -v curl >/dev/null 2>&1; then
-    local tag
-    tag="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-      | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-      | head -n1 || true)"
-    if [[ -n "${tag}" ]]; then
-      echo "${tag}"
-      return
     fi
+  else
+    echo "${HOME}/.local/bin"
   fi
-  echo "latest"
 }
 
 asset_name() {
@@ -109,7 +112,7 @@ download() {
   elif command -v wget >/dev/null 2>&1; then
     wget -q -O "$dest" "$url"
   else
-    die "need curl or wget to download ${url}"
+    die "need curl or wget"
   fi
 }
 
@@ -139,153 +142,101 @@ expected_sha256() {
   ' "$sums" | tr 'A-F' 'a-f'
 }
 
-sums_url_for() {
-  local url="$1"
-  echo "${url%/*}/SHA256SUMS"
-}
-
-sidecar_url_for() {
-  local url="$1"
-  echo "${url}.sha256"
-}
-
 verify_download() {
-  local bin="$1" asset="$2" url="$3"
-  local dir sums sidecar want got base
+  local bin="$1" asset="$2"
+  local dir sums sidecar got want
   dir="$(dirname "$bin")"
   sums="${dir}/SHA256SUMS"
-  sidecar="${bin}.sha256"
+  sidecar="${dir}/${asset}.sha256"
   want=""
-  if download "$(sums_url_for "$url")" "$sums" 2>/dev/null; then
+  if download "${DOWNLOAD_BASE}/SHA256SUMS" "$sums" 2>/dev/null; then
     want="$(expected_sha256 "$sums" "$asset")"
   fi
-  if [[ -z "$want" ]] && download "$(sidecar_url_for "$url")" "$sidecar" 2>/dev/null; then
+  if [[ -z "$want" ]] && download "${DOWNLOAD_BASE}/${asset}.sha256" "$sidecar" 2>/dev/null; then
     want="$(expected_sha256 "$sidecar" "$asset")"
   fi
-  [[ -n "$want" ]] || die "no SHA-256 for ${asset} (need SHA256SUMS next to the binary)"
+  [[ -n "$want" ]] || die "no SHA-256 for ${asset} at ${DOWNLOAD_BASE} (need SHA256SUMS or ${asset}.sha256)"
   [[ "$want" =~ ^[0-9a-f]{64}$ ]] || die "malformed checksum for ${asset}"
   got="$(file_sha256 "$bin")"
   if [[ "$got" != "$want" ]]; then
     die "SHA-256 mismatch for ${asset}
     expected ${want}
     got      ${got}
-    url      ${url}"
+    url      ${DOWNLOAD_BASE}/${asset}"
   fi
   ok "checksum ok ${got}"
 }
 
-install_binary() {
-  local src="$1" dest_dir="$2" dest_name="$3"
-  mkdir -p "$dest_dir"
-  # Atomic-ish replace
-  local tmp="${dest_dir}/.${dest_name}.new.$$"
-  cp "$src" "$tmp"
-  chmod 755 "$tmp"
-  mv -f "$tmp" "${dest_dir}/${dest_name}"
-}
+OS="$(detect_os)"
+ARCH="$(detect_arch)"
+ASSET="$(asset_name "$OS" "$ARCH")"
+if [[ -z "$INSTALL_DIR" ]]; then
+  INSTALL_DIR="$(default_install_dir "$OS")"
+fi
 
-print_path_hint() {
-  local dir="$1" os="$2"
-  case "$os" in
-    windows)
-      ok "Ensure this directory is on your PATH (User environment variables):"
-      ok "  ${dir}"
-      ;;
-    *)
-      if ! echo ":${PATH}:" | grep -q ":${dir}:"; then
-        ok "Add to PATH (e.g. in ~/.bashrc or ~/.zshrc):"
-        ok "  export PATH=\"${dir}:\$PATH\""
+DEST_NAME="$BINARY"
+if [[ "$OS" == "windows" ]]; then
+  DEST_NAME="${BINARY}.exe"
+fi
+
+URL="${DOWNLOAD_BASE}/${ASSET}"
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/gbr-agent.XXXXXX")"
+TMP="${WORKDIR}/${ASSET}"
+trap 'rm -rf "$WORKDIR"' EXIT
+
+info "${PRODUCT} agent installer"
+ok "os=${OS} arch=${ARCH} version=${VERSION}"
+ok "download ${URL}"
+
+download "$URL" "$TMP" || die "download failed — check ${SITE}/#download or GitHub Releases ${VERSION}"
+[[ -s "$TMP" ]] || die "downloaded file is empty"
+verify_download "$TMP" "$ASSET"
+
+mkdir -p "$INSTALL_DIR"
+DEST="${INSTALL_DIR}/${DEST_NAME}"
+NEW="${DEST}.new.$$"
+cp "$TMP" "$NEW"
+chmod +x "$NEW" 2>/dev/null || true
+mv -f "$NEW" "$DEST"
+ok "installed: ${DEST}"
+
+case ":${PATH}:" in
+  *":${INSTALL_DIR}:"*) ok "PATH already includes ${INSTALL_DIR}" ;;
+  *)
+    ok "Add to PATH for this shell:"
+    echo "      export PATH=\"${INSTALL_DIR}:\$PATH\""
+    if [[ -f "${HOME}/.zshrc" ]]; then
+      if ! grep -qF "${INSTALL_DIR}" "${HOME}/.zshrc" 2>/dev/null; then
+        echo "export PATH=\"${INSTALL_DIR}:\$PATH\"  # Build Remote Agent" >> "${HOME}/.zshrc"
+        ok "appended PATH to ~/.zshrc"
       fi
-      ;;
-  esac
-}
-
-print_service_hints() {
-  local os="$1" install_dir="$2"
-  [[ "${GBR_SKIP_SERVICE:-0}" == "1" ]] && return
-  echo
-  info "Optional: run as a background service"
-  case "$os" in
-    linux)
-      ok "systemd unit: install/linux/gbr-agent.service"
-      ok "  sudo cp install/linux/gbr-agent.service /etc/systemd/system/"
-      ok "  sudo systemctl daemon-reload && sudo systemctl enable --now gbr-agent"
-      ;;
-    darwin)
-      ok "launchd example: install/darwin/launchd.plist.example"
-      ok "  cp install/darwin/launchd.plist.example ~/Library/LaunchAgents/com.linespotting.gbr-agent.plist"
-      ok "  # edit ProgramArguments path, then:"
-      ok "  launchctl load ~/Library/LaunchAgents/com.linespotting.gbr-agent.plist"
-      ;;
-    windows)
-      ok "WinSW docs: install/windows/service.md"
-      ok "  Sample XML: install/windows/gbr-agent.xml"
-      ok "  Binary installed at: ${install_dir}\\${BINARY}.exe"
-      ;;
-  esac
-}
-
-main() {
-  need_cmd uname
-  local os arch version install_dir asset url work
-  os="$(detect_os)"
-  arch="$(detect_arch)"
-  version="${GBR_VERSION:-$(latest_tag)}"
-  install_dir="${GBR_INSTALL_DIR:-$(default_install_dir "$os")}"
-  asset="$(asset_name "$os" "$arch")"
-
-  if [[ "$version" == "latest" ]]; then
-    # CDN layout may use /latest/ or a resolved tag; prefer tag when known.
-    url="${DOWNLOAD_BASE}/latest/${asset}"
-  else
-    url="${DOWNLOAD_BASE}/${version}/${asset}"
-  fi
-
-  info "${PRODUCT} — installing ${BINARY}"
-  ok "os=${os} arch=${arch} version=${version}"
-  ok "source=${url}"
-  ok "dest=${install_dir}/${BINARY}$( [[ "$os" == "windows" ]] && echo ".exe" || true )"
-
-  work="$(mktemp -d 2>/dev/null || mktemp -d -t gbr-install)"
-  trap 'rm -rf "$work"' EXIT
-
-  local dl="${work}/${asset}"
-  info "Downloading…"
-  if ! download "$url" "$dl"; then
-    die "download failed: ${url}
-Hint: set GBR_VERSION to a published tag (vX.Y.Z) or GBR_DOWNLOAD_BASE to your free-binary host.
-Free binaries: product website + Microsoft Store (planned). Source repo is private company IP."
-  fi
-
-  # Basic sanity: non-empty file
-  [[ -s "$dl" ]] || die "downloaded file is empty"
-  verify_download "$dl" "$asset" "$url"
-
-  local dest_name="$BINARY"
-  [[ "$os" == "windows" ]] && dest_name="${BINARY}.exe"
-
-  info "Installing to ${install_dir}"
-  install_binary "$dl" "$install_dir" "$dest_name"
-
-  print_path_hint "$install_dir" "$os"
-  print_service_hints "$os" "$install_dir"
-
-  echo
-  info "Done. Verify:"
-  if command -v "${install_dir}/${dest_name}" >/dev/null 2>&1 \
-    || [[ -x "${install_dir}/${dest_name}" ]]; then
-    if "${install_dir}/${dest_name}" version 2>/dev/null \
-      || "${install_dir}/${dest_name}" --version 2>/dev/null \
-      || "${install_dir}/${dest_name}" -version 2>/dev/null; then
-      :
-    else
-      ok "${install_dir}/${dest_name}  (binary present; version flag may not be implemented yet)"
+    elif [[ -f "${HOME}/.bashrc" ]]; then
+      if ! grep -qF "${INSTALL_DIR}" "${HOME}/.bashrc" 2>/dev/null; then
+        echo "export PATH=\"${INSTALL_DIR}:\$PATH\"  # Build Remote Agent" >> "${HOME}/.bashrc"
+        ok "appended PATH to ~/.bashrc"
+      fi
     fi
-  else
-    ok "${install_dir}/${dest_name}"
-  fi
-  ok "Configure Grok/xAI key in ~/.grok/config.json (or %USERPROFILE%\\.grok\\config.json)."
-  ok "Protocol: gbr/1 — see protocol/v1.md in the product docs."
-}
+    ;;
+esac
 
-main "$@"
+echo ""
+info "Next commands"
+cat <<EOF
+  # 1) PC generates QR — phone camera scans it
+  ${DEST_NAME} pair
+  # browser opens QR; mobile app → Scan QR from computer
+
+  # 2) Run the agent (keep this running)
+  ${DEST_NAME} run
+  # or auto-start at login (after pair):
+  # ${DEST_NAME} service install
+
+  # Useful
+  ${DEST_NAME} sessions
+  ${DEST_NAME} version   # expect ${VERSION}
+  ${DEST_NAME} status
+
+Pinned install: https://github.com/${REPO}/blob/${VERSION}/docs/PINNED-INSTALL.md
+Docs: ${SITE}/integrations.html#trust
+Support: ${SITE}/support.html
+EOF

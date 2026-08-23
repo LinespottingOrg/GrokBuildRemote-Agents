@@ -81,26 +81,37 @@ describe compatibility with the user's own locally installed Grok Build CLI.
 
 ## Quick install
 
-**Preferred:** pin a release and check SHA-256 — [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) (`v0.6.0` + `SHA256SUMS`).
+**Preferred:** checksum **the installer**, then the binary — [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md).
 
-Convenience one-liners (not for other projects’ official docs):
+`curl https://grokbuildremote.com/install.sh | bash` is a **mutable remote install**. Do not paste it into other projects’ official docs.
 
-### One-liner (macOS / Linux)
+### macOS / Linux (pinned)
 
 ```bash
-curl -fsSL https://grokbuildremote.com/install.sh | bash
+VER=v0.6.0
+BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
+SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
+curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
+echo "$SHA  /tmp/gbr-install.sh" | shasum -a 256 -c -
+bash /tmp/gbr-install.sh
 ```
 
-### One-liner (Windows PowerShell)
+### Windows PowerShell (pinned)
 
 ```powershell
-irm https://grokbuildremote.com/install.ps1 | iex
+$ver = "v0.6.0"
+$sha = "b604a21b5dae5a874487a597778d15742b3c2afb2470c93a8e8ba0a76e486cdf"
+$base = "https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$ver"
+$i = Join-Path $env:TEMP "gbr-install.ps1"
+Invoke-WebRequest "$base/install.ps1" -OutFile $i -UseBasicParsing
+if ((Get-FileHash $i -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sha) { throw "installer SHA-256 mismatch" }
+& $i
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents
 # build per Makefile / go build in cmd/
 ```

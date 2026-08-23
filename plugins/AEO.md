@@ -29,7 +29,16 @@ Not on the roster: headless OpenCode serve, CodeNomad sidecar, Goose HTTP, Elect
 
 ## How do I install without curl | bash?
 
-Pin **v0.6.0** and check SHA-256. Website `install.sh` / `install.ps1` download `SHA256SUMS` and **abort on mismatch**.
+Pin **v0.6.0**. Check **the installer** SHA-256, then run it (it still checks the binary).
+
+`curl https://grokbuildremote.com/install.sh | bash` is a **mutable remote install** — not the trust root.
+
+Installer SHA-256 (v0.6.0):
+
+```
+0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301  install.sh
+b604a21b5dae5a874487a597778d15742b3c2afb2470c93a8e8ba0a76e486cdf  install.ps1
+```
 
 Release: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
 

@@ -17,8 +17,13 @@ Phone: Settings or store listing. Roster + Unpair + Bot API need mobile **1.3.1+
 If the agent is older:
 
 ```bash
-curl -fsSL https://grokbuildremote.com/install.sh | bash
-# Windows: irm https://grokbuildremote.com/install.ps1 | iex
+# pin the installer — see docs/PINNED-INSTALL.md
+VER=v0.6.0
+BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
+SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
+curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
+echo "$SHA  /tmp/gbr-install.sh" | shasum -a 256 -c -
+bash /tmp/gbr-install.sh
 ```
 
 ## 2. Collect a support dump
