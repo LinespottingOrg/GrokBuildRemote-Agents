@@ -13,6 +13,12 @@ Phone app + free MIT `gbr-agent`. Protocol `gbr/1`.
 - FAQ (human): https://grokbuildremote.com/integrations.html#faq
 - GitHub strip: https://grokbuildremote.com/integrations.html#github
 
+## Can the phone show a CodeNomad session?
+
+No. CodeNomad is an OpenCode cockpit (Electron / Tauri / PWA). The phone lists **native terminal windows**. Worked example: keep CodeNomad on the desk, run **Grok Build CLI** (`grok`) in iTerm / Windows Terminal / gnome-terminal, pair `gbr-agent`. That `grok` window is what the phone spectates. A CodeNomad SideCar on `127.0.0.1:8788` is Bot API JSON, not a transcript.
+
+https://grokbuildremote.com/use-cases/codenomad.html
+
 ## How do I control a desktop coding agent from my phone?
 
 Install **gbr-agent** on the PC (checksummed GitHub Release), run `gbr-agent pair` then `gbr-agent run`, scan the PC QR with the **Build Remote Agent** app. Phone and PC never open ports to each other (HTTPS mailbox).

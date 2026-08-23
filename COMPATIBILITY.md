@@ -55,4 +55,5 @@ Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release *
 | Agent **in a terminal** (Grok Build TUI, Aider CLI, OpenCode TUI, …) | Phone sees that window |
 | Grok remotes Amnibro/Farina/ChrisP | Companions on loopback; not a substitute for pairing |
 | Headless OpenCode / CodeNomad | MCP on the desktop agent; phone still needs a TTY |
+| CodeNomad + Grok Build CLI | Worked example: [docs/USE-CASE-CODENOMAD.md](docs/USE-CASE-CODENOMAD.md) — `grok` in a native terminal; CodeNomad stays the cockpit |
 | Mobile GUI (mobilerun, agent-device) | Different job — they drive a phone as a robot |
