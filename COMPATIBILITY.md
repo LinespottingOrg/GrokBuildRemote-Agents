@@ -56,4 +56,5 @@ Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release *
 | Grok remotes Amnibro/Farina/ChrisP | Companions on loopback; not a substitute for pairing |
 | Headless OpenCode / CodeNomad | MCP on the desktop agent; phone still needs a TTY |
 | CodeNomad + Grok Build CLI | Worked example: [docs/USE-CASE-CODENOMAD.md](docs/USE-CASE-CODENOMAD.md) — `grok` in a native terminal; CodeNomad stays the cockpit |
+| Grok multi-agent QA | Go-to loop: [docs/USE-CASE-MULTI-AGENT-QA.md](docs/USE-CASE-MULTI-AGENT-QA.md). Agent + relay free; app premium spectator. |
 | Mobile GUI (mobilerun, agent-device) | Different job — they drive a phone as a robot |

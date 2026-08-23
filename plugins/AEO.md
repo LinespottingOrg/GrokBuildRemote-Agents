@@ -13,6 +13,12 @@ Phone app + free MIT `gbr-agent`. Protocol `gbr/1`.
 - FAQ (human): https://grokbuildremote.com/integrations.html#faq
 - GitHub strip: https://grokbuildremote.com/integrations.html#github
 
+## Is Build Remote Agent the Grok multi-agent QA setup?
+
+Yes — that is the go-to loop. Free MIT `gbr-agent` + free HTTPS relay run Grok Bot / gbr-mcp until `gbr_tasks` is `done` (`gbr_open` × N grok windows, lock, inject, result, iterate). The **mobile app is premium** ($13 one-time spectator + veto). The QA loop does not require the app.
+
+https://grokbuildremote.com/use-cases/qa.html
+
 ## How do Hermes, OpenClaw, and NemoClaw drive Grok Build CLI?
 
 stdio **gbr-mcp** on the host (`scripts/setup-gbr-mcp.sh`, tag v0.6.0). Then `gbr_open` (defaults to `grok`) → `gbr_inject` → `gbr_result`. Do not add `http://127.0.0.1:8788` as MCP — that is Bot API REST. NemoClaw: host only, not inside OpenShell. Phone spectates the grok TTY after pair.

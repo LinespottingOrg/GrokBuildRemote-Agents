@@ -25,7 +25,10 @@
 
 Desktop agents for **Windows**, **macOS**, and **Linux**. They discover local terminal / **Grok Build** sessions, inject input, capture output, and exchange **protocol `gbr/1`** envelopes over HTTPS — your phone and PC never open ports to each other.
 
-This agent pairs with the paid **Build Remote Agent** mobile apps ($13 one-time). The mobile clients are **not** open source; this desktop agent **is**.
+This agent is **free (MIT)**. The hosted HTTPS relay is **free** (self-host is also MIT).
+The **Build Remote Agent** mobile apps are a separate **premium** product ($13 one-time spectator).
+The Grok multi-agent QA loop does **not** require the app — playbook: [docs/USE-CASE-MULTI-AGENT-QA.md](docs/USE-CASE-MULTI-AGENT-QA.md).
+The mobile clients are **not** open source; this desktop agent **is**.
 
 | App | Link |
 |-----|------|
@@ -56,7 +59,8 @@ describe compatibility with the user's own locally installed Grok Build CLI.
 |------|--------|
 | Source (`cmd/`, `internal/`, this repo) | **Public · MIT** |
 | Official binaries | Free for end users |
-| Mobile apps | Separate private repo; paid $13 |
+| Hosted HTTPS relay | Free; MIT self-host |
+| Mobile apps | Separate private repo; **premium** $13 spectator |
 
 **Repo:** https://github.com/LinespottingOrg/GrokBuildRemote-Agents  
 **Website:** https://grokbuildremote.com/

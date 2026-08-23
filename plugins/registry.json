@@ -59,6 +59,12 @@
       "kind": "nemoclaw-host-mcp",
       "path": "plugins/nemoclaw/mcp.json",
       "note": "host only — not inside OpenShell"
+    },
+    {
+      "id": "multi-agent-qa",
+      "kind": "skill",
+      "path": "skills/qa/SKILL.md",
+      "note": "Grok multi-agent QA loop until gbr_tasks done. Agent+relay free; app premium."
     }
   ]
 }

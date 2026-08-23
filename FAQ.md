@@ -45,7 +45,9 @@ Binaries: https://grokbuildremote.com/downloads/latest/ · [Release v0.6.0](http
 3. [SESSION-NAMES.md](SESSION-NAMES.md)
 4. [llms.txt](llms.txt)
 
-This repo is the **desktop agent only** (MIT). Mobile apps are a separate paid product.
+This repo is the **desktop agent only** (MIT, free). Hosted HTTPS relay is free (self-host MIT).
+Mobile apps are a separate **premium** product ($13 one-time spectator). The Grok multi-agent QA loop
+does not require the app — [docs/USE-CASE-MULTI-AGENT-QA.md](docs/USE-CASE-MULTI-AGENT-QA.md).
 
 ## How do I check versions?
 
