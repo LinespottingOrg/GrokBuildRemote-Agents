@@ -1,62 +1,68 @@
 ---
 name: gbr
 description: >
-  Drive local Grok Build / CLI sessions through Build Remote Agent (gbr-agent).
-  Pair the phone app, then attach via Bot API 127.0.0.1:8788 or gbr-mcp.
-  Use when the user wants OpenClaw / Hermes / a host agent to inject into Grok Build.
-compatibility: Requires gbr-agent run on the host. Loopback only. No mailbox keys in this file.
+  Drive Grok Build CLI (grok) through Build Remote Agent from OpenClaw / Hermes / NemoClaw.
+  Attach via stdio gbr-mcp. Pair the phone to spectate that grok TTY.
+compatibility: Requires gbr-agent run on the host. Loopback. No mailbox keys in this file.
 metadata:
   version: "0.6.1"
+  product: "Build Remote Agent"
+  website: "https://grokbuildremote.com/use-cases/claw.html"
 ---
 
-# Build Remote Agent — OpenClaw / claw attach
+# OpenClaw / claw → Grok Build CLI
 
-One adapter. Not 50 one-off integrations.
+One adapter. Not 50 one-off integrations. Default target is **Grok Build CLI** (`grok`).
 
-## Pair (unchanged — no fourth protocol)
+Independent Linespotting AB. Not affiliated with OpenClaw, Hermes, NVIDIA, xAI, or SpaceX.
 
-1. Phone: Build Remote Agent app → Connect.
-2. PC: `gbr-agent pair` — browser shows QR **and** prints the 8-char code.
-3. Phone scans QR **or** types the 8-char code.
-4. PC: `gbr-agent run` (or LaunchAgent). Keep it running.
+## Pair (phone spectator — optional, same mailbox)
 
-Unpair on the phone before a new mailbox. Force-close is not enough.
+1. Pin `gbr-agent` v0.6.0 — https://grokbuildremote.com/PINNED-INSTALL.md
+2. PC: `gbr-agent pair` then `gbr-agent run` (keep running).
+3. Phone: Build Remote Agent → scan QR.
+4. OpenClaw **device-pair** (LAN/Bonjour) is a **different** protocol. Do not mix with `gbr/1`.
 
-## Attach surface (only these)
+Unpair on the phone before a new mailbox.
+
+## Attach (MCP client → grok)
 
 | How | Where |
 |-----|--------|
-| Bot API | `http://127.0.0.1:8788` after `gbr-agent run` |
-| MCP | `gbr-mcp` stdio (same JSON as Bot API) |
+| MCP | stdio `gbr-mcp` (`node …/bin/gbr-mcp.js`) |
+| Bot API | `http://127.0.0.1:8788` after `gbr-agent run` — **REST, not MCP** |
 
-Remote bots use the relay Bot URL + `X-GBR-Key` copied from phone **Settings → Bot API**. Never commit that key.
-
-```bash
-curl -sS http://127.0.0.1:8788/health
-curl -sS http://127.0.0.1:8788/v1/sessions
-curl -sS -X POST http://127.0.0.1:8788/v1/inject \
-  -H 'Content-Type: application/json' \
-  -d '{"session_id":"SESSION","text":"hello","submit":true}'
-```
-
-## Hermes
-
-Hermes does not need to be installed on the GBR host. On a Hermes box:
+Do **not** `hermes mcp add` / OpenClaw MCP the `:8788` URL. That is JSON REST. MCP is stdio.
 
 ```bash
-git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
-cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install
-hermes mcp add gbr -- stdio -- node ./bin/gbr-mcp.js
-# If gbr-agent run is already on that same host:
-# hermes mcp add gbr -- http://127.0.0.1:8788
+export GBR_BOT_REQUIRE_KEY=1
+bash scripts/setup-gbr-mcp.sh
+# then:
+# hermes mcp add gbr -- stdio -- node $HOME/.gbr/gbr-mcp-src/mcp/gbr-mcp/bin/gbr-mcp.js
 ```
+
+Pin: `git clone --branch v0.6.0 --depth 1` if you clone by hand. Never default branch + `npm install`.
+
+## Loop — this is what makes grok work
+
+1. `gbr_diagnose`
+2. `gbr_open` — omit session_id; `command` defaults to **grok**; set `holder=openclaw` (or `hermes` / `nemoclaw`)
+3. `gbr_inject` the coding task with `submit=true` (or `gbr_inject_and_wait`)
+4. `gbr_result` `wait_ms=60000`
+5. `gbr_lock` `action=release` when done
+
+If `grok` is not on PATH, `gbr_open` opens a shell and tells you to install Grok Build.
+
+Phone roster = that **grok TTY**, not the OpenClaw / Hermes / NemoClaw UI.
 
 ## NemoClaw
 
-NemoClaw sandboxes **its** agent. GBR is the **host tool** (gbr-agent on the Mac/PC), not the sandbox. Point NemoClaw at loopback `:8788` / `gbr-mcp` on the host. Do not copy gbr-agent into the sandbox and do not invent a second pair protocol.
+GBR stays on the **host**. Do not copy `gbr-agent` into OpenShell. See `skills/nemoclaw/SKILL.md`.
 
-## Inbox watch (kills email paste)
+## Hermes
 
-With `gbr-agent run` and `gh` on PATH, the agent polls `LinespottingOrg/grok-build-inbox` label `boss-steer`. If a live Grok Build window title equals the issue title, it injects the newest non-report comment and submits. If no window, it opens `grok`, `/rename` to the title, and injects the issue body.
+See `skills/hermes/SKILL.md`. Same loop.
 
-Disable: `GBR_INBOX_WATCH=0`.
+## ClawHub
+
+Publish this skill with human `clawhub login` — not a GitHub PR on `openclaw/openclaw`.

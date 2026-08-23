@@ -1,0 +1,12 @@
+{
+  "$comment": "Hermes user MCP. Point command at the real gbr-mcp.js from a pinned v0.6.0 clone (~/.gbr/gbr-mcp-src after scripts/setup-gbr-mcp.sh). :8788 is Bot API REST — not an MCP URL. gbr_open spawns Grok Build CLI (grok).",
+  "mcpServers": {
+    "gbr": {
+      "command": "node",
+      "args": ["MCP_PATH_REPLACE/mcp/gbr-mcp/bin/gbr-mcp.js"],
+      "env": {
+        "GBR_BOT_REQUIRE_KEY": "1"
+      }
+    }
+  }
+}

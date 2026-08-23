@@ -1,0 +1,12 @@
+{
+  "$comment": "OpenClaw / Claude-style stdio MCP. Same gbr-mcp as Hermes. Default session is Grok Build CLI via gbr_open. OpenClaw phone pair is a different protocol — do not mix with gbr/1.",
+  "mcpServers": {
+    "gbr": {
+      "command": "node",
+      "args": ["MCP_PATH_REPLACE/mcp/gbr-mcp/bin/gbr-mcp.js"],
+      "env": {
+        "GBR_BOT_REQUIRE_KEY": "1"
+      }
+    }
+  }
+}
