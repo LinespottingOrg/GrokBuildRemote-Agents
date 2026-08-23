@@ -7,7 +7,11 @@ Phone app + free MIT `gbr-agent`. Protocol `gbr/1`.
 - Compatibility: https://grokbuildremote.com/COMPATIBILITY.md
 - Machine: https://grokbuildremote.com/llms.txt
 - Source: https://github.com/LinespottingOrg/GrokBuildRemote-Agents
+- Releases: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
 - Plugin registry: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/tree/main/plugins
+- Security: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/blob/main/SECURITY.md
+- FAQ (human): https://grokbuildremote.com/integrations.html#faq
+- GitHub strip: https://grokbuildremote.com/integrations.html#github
 
 ## How do I control a desktop coding agent from my phone?
 
@@ -52,11 +56,29 @@ gbr-agent pair && gbr-agent run
 
 Full recipes: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/blob/main/docs/PINNED-INSTALL.md
 
+## Where is the GitHub source?
+
+MIT desktop agent: https://github.com/LinespottingOrg/GrokBuildRemote-Agents  
+Pinned binaries: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0  
+Plugins / SECURITY / AEO / PINNED-INSTALL live in that repo. Mobile apps are a separate paid product.
+
+## Is the Bot API on 127.0.0.1 authenticated?
+
+**No, not by default.** Loopback `http://127.0.0.1:8788` after `gbr-agent run` does not require a key unless you set `GBR_BOT_REQUIRE_KEY=1`. Anyone local on that PC can `POST /v1/inject`. The HTTPS relay always requires `X-GBR-Key` or `Authorization: Bearer`.
+
+## Can the Bot API type into my coding-agent sessions?
+
+Yes. `POST /v1/inject` types arbitrary text into listed terminal windows and can submit. Treat the mailbox key like a password. Never commit it.
+
 ## How does attach work?
 
-After `gbr-agent run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. Phone is spectator + veto, not orchestrator. Never commit mailbox keys.
+After `gbr-agent run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. Phone is spectator + veto, not orchestrator. Harden loopback with `GBR_BOT_REQUIRE_KEY=1`. Never commit mailbox keys.
 
 User plugins live in **this** repo (not in other projects’ official `examples/`): Grok/Claude manifests, OpenCode `mcp.servers`, AiderDesk extension under `~/.aider-desk/extensions/gbr-pair`.
+
+## Why isn’t this an official adapter in other GitHub repos?
+
+Build Remote Agent is a third-party product. Other maintainers own their docs. Operational install, checksums, and trust disclosure live on https://grokbuildremote.com/integrations.html . Other repos should use a short unaffiliated external link there — not copy `install.sh`.
 
 ## Does it replace LAN remotes / mobilerun / Tailscale?
 

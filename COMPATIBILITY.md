@@ -32,6 +32,8 @@ Unpair in Settings before a new mailbox. Force-close is not enough.
 
 Phone is spectator + veto. Never put `mailbox_key` in git.
 
+**Trust:** loopback `:8788` is unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`. Relay always requires `X-GBR-Key`. `POST /v1/inject` types into listed TTYs. Index: https://grokbuildremote.com/integrations.html#faq
+
 ## Install (pinned)
 
 Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release **v0.6.0** + `SHA256SUMS`. Do not paste `curl | bash` into other projects’ official docs.

@@ -1,7 +1,8 @@
 # FAQ — Build Remote Agent (`gbr-agent`)
 
 Same content as https://grokbuildremote.com/support#faq and the homepage FAQ schema.  
-AIs: also read [AGENTS.md](AGENTS.md) and [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+Integrations index (visible FAQ + GitHub + trust): https://grokbuildremote.com/integrations.html#faq  
+AIs: also read [AGENTS.md](AGENTS.md), [TROUBLESHOOTING.md](TROUBLESHOOTING.md), and [plugins/AEO.md](plugins/AEO.md).
 
 ## How do I install the desktop agent?
 
