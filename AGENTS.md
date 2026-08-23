@@ -17,7 +17,7 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 
 Do **not** invent a second code root. Official agent source is this GitHub repo (or the Dropbox workfolder `APPAR/Grok Build Remote/agents/` for LineSpotting machines).
 
-**Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair stays `gbr-agent pair` (QR + 8-char) then `run`. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches the issue title (`GBR_INBOX_WATCH=0` to disable).
+**Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` or `gbr-mcp`. Listing skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Family splits: [skills/hermes/SKILL.md](skills/hermes/SKILL.md), [skills/nemoclaw/SKILL.md](skills/nemoclaw/SKILL.md). Pair stays `gbr-agent pair` (QR + 8-char) then `run`. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches the issue title (`GBR_INBOX_WATCH=0` to disable).
 
 ---
 

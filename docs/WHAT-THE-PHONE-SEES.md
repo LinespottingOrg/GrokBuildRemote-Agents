@@ -12,6 +12,8 @@ It does **not** attach a headless agent server (OpenCode serve, CodeNomad sideca
 
 One pair = one **mailbox for the whole machine**. The app can observe and inject **every discovered terminal** on that PC, not “this one omp/qwen tab.” Unpair before handing the PC to someone else.
 
+**Claw family (OpenClaw, Hermes, NemoClaw).** OpenClaw phone nodes stay on OpenClaw’s own pair — GBR does not replace `device-pair`. The Build Remote Agent app is a desktop TTY spectator on this host. Hermes attaches with `hermes mcp add gbr stdio gbr-mcp` (HTTP `:8788` only if `gbr-agent run` is on that same host). NemoClaw’s OpenShell sandbox is not the GBR host: keep `gbr-agent` on the Mac/PC and attach host loopback `:8788` / `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](../skills/openclaw/SKILL.md).
+
 Pinned binaries (preferred over `curl | bash`): [PINNED-INSTALL.md](PINNED-INSTALL.md).
 
 CodeNomad + Grok Build CLI (worked example): [USE-CASE-CODENOMAD.md](USE-CASE-CODENOMAD.md) · https://grokbuildremote.com/use-cases/codenomad.html

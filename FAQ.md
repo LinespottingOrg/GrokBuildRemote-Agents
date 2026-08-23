@@ -59,7 +59,7 @@ Phone Unpair + live roster + Bot API: mobile **1.3.1+**.
 
 ## OpenClaw / Hermes / NemoClaw?
 
-One attach surface: Bot API `127.0.0.1:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair is still QR + printed 8-char + `gbr-agent run`. NemoClaw sandboxes *its* agent; GBR stays the host tool.
+One attach surface: Bot API `127.0.0.1:8788` or `gbr-mcp`. Listing skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md) (OpenClaw phone nodes stay on OpenClaw pair; GBR is desktop TTY spectator). Hermes: [skills/hermes/SKILL.md](skills/hermes/SKILL.md) — `hermes mcp add gbr stdio gbr-mcp` (HTTP `:8788` only on the same host). NemoClaw: [skills/nemoclaw/SKILL.md](skills/nemoclaw/SKILL.md) — `gbr-agent` on the host, not inside OpenShell. Loopback is unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`. Never mailbox keys. Pin: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) · https://grokbuildremote.com/integrations.html
 
 ## Inbox watch (no email paste)
 
