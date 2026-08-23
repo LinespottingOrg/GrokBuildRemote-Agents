@@ -23,6 +23,10 @@ Install **gbr-agent** on the PC (checksummed GitHub Release), run `gbr-agent pai
 
 Not on the roster: headless OpenCode serve, CodeNomad sidecar, Goose HTTP, Electron UIs. A sidecar aimed at `:8788` shows Bot API JSON, not a transcript. Run the agent **in a terminal** if you want it on the phone.
 
+## How do I know the QR is this PC’s checksummed agent?
+
+The pair QR is `gbr://pair?v=1&code=…&ver=…&sha256=…&keyfp=…`. The 8-char **pair code** identifies the mailbox. **keyfp** is `sha256(mailbox_key)[:12]` — the key is never in the QR. Match **sha256** to the published binary on https://grokbuildremote.com/#download (v0.6.0 SHA256SUMS).
+
 ## Is pairing one tab or the whole machine?
 
 **Whole machine.** One pair = one mailbox for that PC. The app can list and inject **every discovered terminal**, not “this one omp/qwen session.” Unpair in Settings before handing the PC over.

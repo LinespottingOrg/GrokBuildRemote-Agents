@@ -222,8 +222,14 @@ func (e *Envelope) UnmarshalPayload(dest any) error {
 
 // PairPayload is type=pair.
 type PairPayload struct {
-	PairingCode string `json:"pairing_code"`
-	DeviceName  string `json:"device_name,omitempty"`
+	PairingCode  string `json:"pairing_code"`
+	DeviceName   string `json:"device_name,omitempty"`
+	AgentVersion string `json:"agent_version,omitempty"`
+	SHA256       string `json:"sha256,omitempty"`
+	OS           string `json:"os,omitempty"`
+	Arch         string `json:"arch,omitempty"`
+	Host         string `json:"host,omitempty"`
+	KeyFP        string `json:"key_fp,omitempty"`
 }
 
 // RegisterPayload is type=register.
