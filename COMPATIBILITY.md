@@ -57,3 +57,4 @@ Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release *
 | Headless OpenCode / CodeNomad | MCP on the desktop agent; phone still needs a TTY |
 | CodeNomad + Grok Build CLI | Worked example: [docs/USE-CASE-CODENOMAD.md](docs/USE-CASE-CODENOMAD.md) — `grok` in a native terminal; CodeNomad stays the cockpit |
 | Mobile GUI (mobilerun, agent-device) | Different job — they drive a phone as a robot |
+| Host password CLIs (1Password `op`, LastPass `lpass`) | **Not a pair.** After `gbr-agent run`, the desktop agent calls the CLI on this PC (same idea as Hermes MCP). Phone never sees vault items. [docs/PASSWORD-MANAGERS.md](docs/PASSWORD-MANAGERS.md) · [skills/password-managers/SKILL.md](skills/password-managers/SKILL.md) |

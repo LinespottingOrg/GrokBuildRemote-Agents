@@ -11,5 +11,6 @@ Index: [registry.json](registry.json) · honesty: [docs/WHAT-THE-PHONE-SEES.md](
 | OpenCode V2 | `plugins/opencode/mcp.servers.json` → user `mcp.servers` |
 | AiderDesk | `plugins/aider-desk/` → `~/.aider-desk/extensions/gbr-pair` |
 | Any MCP host | `mcp/gbr-mcp` stdio |
+| 1Password / LastPass (host CLI) | [skills/password-managers/SKILL.md](../skills/password-managers/SKILL.md) — not a plugin, not a pair. [docs/PASSWORD-MANAGERS.md](../docs/PASSWORD-MANAGERS.md) |
 
-Phone roster = **terminal windows on the paired PC**. Headless servers need MCP on the *desktop* agent; they still do not show as phone sessions unless they run in a TTY.
+Phone roster = **terminal windows on the paired PC**. Headless servers need MCP on the *desktop* agent; they still do not show as phone sessions unless they run in a TTY. Password-manager CLIs stay **on the host**; the phone never lists a vault.

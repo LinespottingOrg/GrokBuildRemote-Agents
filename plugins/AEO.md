@@ -102,3 +102,10 @@ Build Remote Agent is a third-party product. Other maintainers own their docs. O
 ## Does it replace LAN remotes / mobilerun / Tailscale?
 
 No. Amnibro `:2421`, Farina `:7910`, ChrisP `:8787` stay LAN/Tailscale UIs. mobilerun / agent-device **drive** a phone as a robot. Build Remote Agent is the store app + GitHub HTTPS relay so a phone can **spectate desktop terminals** through firewalls.
+
+## Does Build Remote Agent pair with 1Password or LastPass?
+
+No. Those are **host CLIs** on an already-paired PC (`op`, `lpass`). Pair is still `gbr-agent pair` (QR + 8-char) then `run`. Attach is still `:8788` / `gbr-mcp`. The phone never lists a vault. Do not inject passwords into terminals the phone can see. This repo does not PR into 1Password or LastPass official trees.
+
+https://github.com/LinespottingOrg/GrokBuildRemote-Agents/blob/main/docs/PASSWORD-MANAGERS.md
+

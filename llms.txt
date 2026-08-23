@@ -67,6 +67,9 @@ Docs: AGENTS.md (AI), TROUBLESHOOTING.md, SESSION-NAMES.md, NETWORK.md, docs/BOT
 0.5.0 capped at 6 sessions (stale conhost titles). 0.5.1 live roster, replace:true, max 255.
 Rename: /rename in Grok Build, or gbr-agent rename -session ID -name "Title"
 
+## Password managers (host CLI, not a pair)
+1Password `op` and LastPass `lpass` run on the already-paired PC. Phone never sees vault items. Do not inject secrets into listed TTYs. Do not add a fourth pair protocol. Skill: skills/password-managers/SKILL.md · docs/PASSWORD-MANAGERS.md
+
 ## Do not
-Do not commit ~/.gbr, mailbox_key, wrangler.toml secrets.
+Do not commit ~/.gbr, mailbox_key, wrangler.toml secrets, OP_SERVICE_ACCOUNT_TOKEN, or vault items.
 Do not tell users to system-Clear-data if the app has Unpair (1.3.0+).

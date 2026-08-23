@@ -40,6 +40,13 @@
       "id": "codex-plugin-manifest",
       "kind": "codex-plugin",
       "path": ".codex-plugin/plugin.json"
+    },
+    {
+      "id": "password-managers-host-cli",
+      "kind": "skill",
+      "path": "skills/password-managers/SKILL.md",
+      "docs": "docs/PASSWORD-MANAGERS.md",
+      "phone": "never. Host op/lpass after pair. Not a pair protocol. Not a PR into 1Password or LastPass."
     }
   ]
 }

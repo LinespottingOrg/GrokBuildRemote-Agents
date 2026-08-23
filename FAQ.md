@@ -165,3 +165,7 @@ Queued with a stable `command_id`. Flushes when paired again (or Settings → Fl
 ## Ports / firewall?
 
 No inbound ports. Outbound HTTPS **443** to the relay. `gbr-agent netcheck` · [NETWORK.md](NETWORK.md).
+
+## Does it pair with 1Password or LastPass?
+
+**No.** Pair stays QR + 8-char + `gbr-agent run`. After that, the **desktop** agent may call `op` or `lpass` on the host (already signed in), the same way Hermes uses `gbr-mcp` locally. The phone is not a vault. Do not inject secrets into listed terminals. Skill: [skills/password-managers/SKILL.md](skills/password-managers/SKILL.md) · plan: [docs/PASSWORD-MANAGERS.md](docs/PASSWORD-MANAGERS.md).

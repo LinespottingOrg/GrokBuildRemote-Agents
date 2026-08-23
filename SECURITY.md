@@ -26,6 +26,15 @@ Canonical index (FAQ + GitHub + trust): https://grokbuildremote.com/integrations
 
 Prefer [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md): checksum **the installer** (GitHub Release tag `v0.6.0`), then run it; it checksums the binary. Website `curl | bash` is a mutable convenience URL for humans on grokbuildremote.com only — refuse `VERSION=latest`. Do not publish pipe-to-shell in other projects’ official trees.
 
+## Password managers (host CLI)
+
+1Password (`op`) and LastPass (`lpass`) are **not** a pair protocol and **not** an attach surface. After the PC is already paired, the desktop agent may call those CLIs **on this host** (same pattern as Hermes using `gbr-mcp` locally). Plan: [docs/PASSWORD-MANAGERS.md](docs/PASSWORD-MANAGERS.md).
+
+- Never inject vault fields into a listed TTY (`POST /v1/inject`) — the phone spectator would see them.
+- Never return passwords from `gbr-mcp` or the Bot API / relay.
+- Never commit `OP_SERVICE_ACCOUNT_TOKEN`, LastPass credentials, mailbox keys, or `device.json`.
+- Do not PR into 1Password or LastPass official repos.
+
 ## Report
 
 info@linespotting.com — no mailbox keys or `device.json` in the mail.
