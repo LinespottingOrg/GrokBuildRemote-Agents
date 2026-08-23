@@ -27,7 +27,11 @@ Install **gbr-agent** on the PC (checksummed GitHub Release), run `gbr-agent pai
 
 **Terminal windows** on that PC (Windows Terminal, conhost, iTerm, gnome-terminal, …). Live roster, titles, soft max 255. Inject types into a listed TTY.
 
-Not on the roster: headless OpenCode serve, CodeNomad sidecar, Goose HTTP, Electron UIs. A sidecar aimed at `:8788` shows Bot API JSON, not a transcript. Run the agent **in a terminal** if you want it on the phone.
+Not on the roster: headless OpenCode serve, CodeNomad sidecar, Goose HTTP / Goose Desktop, Cline VS Code panel, Electron UIs. A sidecar aimed at `:8788` shows Bot API JSON, not a transcript. Run the agent **in a terminal** if you want it on the phone.
+
+## Goose Desktop / Cline in VS Code on the phone?
+
+No. If `goose` or `cline` runs in a **terminal**, that window is on the roster. If they run as Desktop / IDE (no TTY), add **gbr-mcp on the desktop** host; the phone still only lists terminals. Skills live in this repo (`skills/goose/SKILL.md`, `skills/cline/SKILL.md`), not as PRs into `block/goose` or `cline/cline`. Pin **v0.6.0**. Set `GBR_BOT_REQUIRE_KEY=1` to auth loopback. Index: https://grokbuildremote.com/integrations.html
 
 ## How do I know the QR is this PC’s checksummed agent?
 
@@ -94,6 +98,16 @@ Yes. `POST /v1/inject` types arbitrary text into listed terminal windows and can
 After `gbr-agent run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. Phone is spectator + veto, not orchestrator. Harden loopback with `GBR_BOT_REQUIRE_KEY=1`. Never commit mailbox keys.
 
 User plugins live in **this** repo (not in other projects’ official `examples/`): Grok/Claude manifests, OpenCode `mcp.servers`, AiderDesk extension under `~/.aider-desk/extensions/gbr-pair`.
+
+## How do Hermes, OpenClaw, and NemoClaw attach?
+
+One surface after pinned **v0.6.0** `gbr-agent pair` + `run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. The phone sees **TTY windows** on that PC — not a sandbox, not a sidecar, not an Electron UI.
+
+- **Hermes:** `hermes mcp add` on the Hermes box, pointed at `gbr-mcp` stdio (clone `--branch v0.6.0`) or at loopback `:8788` if `gbr-agent run` is already on that host. Hermes does not need to live on the GBR host.
+- **NemoClaw:** GBR is the **host** tool. Point NemoClaw at host `127.0.0.1:8788` / `gbr-mcp`. Do not copy `gbr-agent` into the sandbox.
+- **OpenClaw:** ClawHub skill (`skills/openclaw/SKILL.md`) — **not** a core OpenClaw PR.
+
+No fourth pair protocol. Pin: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
 
 ## Why isn’t this an official adapter in other GitHub repos?
 
