@@ -9,10 +9,12 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 | **Website** | https://grokbuildremote.com/ |
 | **Support** | https://grokbuildremote.com/support |
 | **Relay (production)** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · expect `/health` `version: 0.6.0` · Bot API `/v1/mb/:id/bot` |
-| **Current agent** | **v0.6.0** (device classes · open / lock / result · Bot API on `127.0.0.1:8788` + relay; live roster, soft max 255) |
+| **Current agent** | **v0.6.0+** (device classes · Bot API `127.0.0.1:8788` + `gbr-mcp` · inbox watch `boss-steer`) |
 | **Mobile apps** | Separate private product. iOS/Android store name **Build Remote Agent**. Not in this repo. |
 
 Do **not** invent a second code root. Official agent source is this GitHub repo (or the Dropbox workfolder `APPAR/Grok Build Remote/agents/` for LineSpotting machines).
+
+**Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair stays `gbr-agent pair` (QR + 8-char) then `run`. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches the issue title (`GBR_INBOX_WATCH=0` to disable).
 
 ---
 

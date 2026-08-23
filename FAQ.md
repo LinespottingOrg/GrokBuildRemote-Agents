@@ -45,6 +45,14 @@ curl -sS https://gbr-relay.ekobrott.workers.dev/health
 
 Phone Unpair + live roster + Bot API: mobile **1.3.1+**.
 
+## OpenClaw / Hermes / NemoClaw?
+
+One attach surface: Bot API `127.0.0.1:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair is still QR + printed 8-char + `gbr-agent run`. NemoClaw sandboxes *its* agent; GBR stays the host tool.
+
+## Inbox watch (no email paste)
+
+`gbr-agent run` polls GitHub `LinespottingOrg/grok-build-inbox` label `boss-steer` (`gh` on PATH). Matching Grok Build window title → inject newest comment + submit. No window → open `grok`, `/rename` to the title, inject issue body. Reports on the issue are not re-injected. `GBR_INBOX_WATCH=0` disables.
+
 ## Do I need a login?
 
 No. Pair with the desktop agent (QR or short code).
