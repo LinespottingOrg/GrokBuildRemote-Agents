@@ -13,3 +13,5 @@ It does **not** attach a headless agent server (OpenCode serve, CodeNomad sideca
 One pair = one **mailbox for the whole machine**. The app can observe and inject **every discovered terminal** on that PC, not “this one omp/qwen tab.” Unpair before handing the PC to someone else.
 
 Pinned binaries (preferred over `curl | bash`): [PINNED-INSTALL.md](PINNED-INSTALL.md).
+
+CodeNomad + Grok Build CLI (worked example): [USE-CASE-CODENOMAD.md](USE-CASE-CODENOMAD.md) · https://grokbuildremote.com/use-cases/codenomad.html
