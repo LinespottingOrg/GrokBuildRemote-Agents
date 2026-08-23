@@ -146,17 +146,25 @@ func (rt *agentRuntime) applyInbox(a inbox.Action) error {
 		})
 	}
 	time.Sleep(2 * time.Second)
+	// /rename only works as its own submitted line in the Grok TUI.
+	renameLine := "/rename " + strings.TrimSpace(a.Title)
 	_ = rt.hybrid.Inject(res.SessionID, inject.InjectRequest{
 		SessionID: res.SessionID,
 		CommandID: "inbox-rename-" + uuid.NewString()[:8],
-		Text:      "/rename " + a.Title,
+		Text:      renameLine,
 		Submit:    true,
 	})
+	if rt.store != nil && strings.TrimSpace(a.Title) != "" {
+		_ = rt.store.SetLabel(res.SessionID, strings.TrimSpace(a.Title))
+	}
 	time.Sleep(800 * time.Millisecond)
+	body := inbox.StripLeadingRename(a.Text)
 	return rt.hybrid.Inject(res.SessionID, inject.InjectRequest{
 		SessionID: res.SessionID,
 		CommandID: "inbox-body-" + uuid.NewString()[:8],
-		Text:      a.Text,
+		Text:      body,
 		Submit:    true,
 	})
 }
+
+

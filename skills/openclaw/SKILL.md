@@ -41,9 +41,13 @@ curl -sS -X POST http://127.0.0.1:8788/v1/inject \
 
 ## Hermes
 
+Hermes does not need to be installed on the GBR host. On a Hermes box:
+
 ```bash
-hermes mcp add gbr -- stdio -- node /path/to/GrokBuildRemote-Agents/mcp/gbr-mcp/bin/gbr-mcp.js
-# or HTTP Bot API if the host already has gbr-agent run:
+git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install
+hermes mcp add gbr -- stdio -- node ./bin/gbr-mcp.js
+# If gbr-agent run is already on that same host:
 # hermes mcp add gbr -- http://127.0.0.1:8788
 ```
 
