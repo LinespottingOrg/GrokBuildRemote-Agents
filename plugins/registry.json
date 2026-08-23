@@ -1,0 +1,45 @@
+{
+  "name": "build-remote-agent",
+  "description": "Installable pairing plugins for Build Remote Agent. Protocol gbr/1. We do not ship vendor copy into other people's official examples.",
+  "homepage": "https://grokbuildremote.com/integrations.html",
+  "owner": "Linespotting AB",
+  "version": "0.6.1",
+  "plugins": [
+    {
+      "id": "gbr-mcp",
+      "kind": "mcp-stdio",
+      "path": "mcp/gbr-mcp",
+      "attach": "127.0.0.1:8788 after gbr-agent run",
+      "phone": "terminals discovered on the PC, not this MCP client"
+    },
+    {
+      "id": "grok-build",
+      "kind": "grok-plugin",
+      "path": ".grok-plugin/plugin.json",
+      "install": "/plugin marketplace add LinespottingOrg/GrokBuildRemote-Agents"
+    },
+    {
+      "id": "claude-code",
+      "kind": "claude-plugin",
+      "path": ".claude-plugin/plugin.json",
+      "install": "/plugin marketplace add LinespottingOrg/GrokBuildRemote-Agents"
+    },
+    {
+      "id": "opencode-mcp",
+      "kind": "opencode-v2-mcp.servers",
+      "path": "plugins/opencode/mcp.servers.json",
+      "phone": "only if OpenCode runs in a terminal window; headless serve is not a TTY"
+    },
+    {
+      "id": "aider-desk",
+      "kind": "aider-desk-extension",
+      "path": "plugins/aider-desk",
+      "install": "copy to ~/.aider-desk/extensions/gbr-pair"
+    },
+    {
+      "id": "codex-plugin-manifest",
+      "kind": "codex-plugin",
+      "path": ".codex-plugin/plugin.json"
+    }
+  ]
+}
