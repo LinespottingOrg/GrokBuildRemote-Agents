@@ -322,6 +322,22 @@ func seenPath() (string, error) {
 	return filepath.Join(home, ".gbr", seenFileName), nil
 }
 
+// StripLeadingRename removes a first-line /rename or /title so the job body
+// is never submitted as a slash command paste.
+func StripLeadingRename(text string) string {
+	s := strings.TrimSpace(text)
+	lines := strings.Split(s, "\n")
+	if len(lines) == 0 {
+		return s
+	}
+	first := strings.TrimSpace(lines[0])
+	low := strings.ToLower(first)
+	if strings.HasPrefix(low, "/rename ") || low == "/rename" || strings.HasPrefix(low, "/title ") || low == "/title" {
+		return strings.TrimSpace(strings.Join(lines[1:], "\n"))
+	}
+	return s
+}
+
 func trim(s string, n int) string {
 	s = strings.TrimSpace(s)
 	if len(s) <= n {

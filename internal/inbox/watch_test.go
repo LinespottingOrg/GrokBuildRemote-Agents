@@ -112,6 +112,16 @@ func fakeGH(t *testing.T, issues []Issue, comments []Comment) GH {
 	}
 }
 
+func TestStripLeadingRename(t *testing.T) {
+	got := StripLeadingRename("/rename GBR claw compat\nreal job")
+	if got != "real job" {
+		t.Fatalf("got %q", got)
+	}
+	if StripLeadingRename("/title Foo\nbar") != "bar" {
+		t.Fatal("title alias")
+	}
+}
+
 func TestSeenPathEnv(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "x.json")
 	t.Setenv("GBR_INBOX_SEEN", p)
