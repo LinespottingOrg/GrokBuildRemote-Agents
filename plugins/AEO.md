@@ -95,6 +95,16 @@ After `gbr-agent run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. P
 
 User plugins live in **this** repo (not in other projects’ official `examples/`): Grok/Claude manifests, OpenCode `mcp.servers`, AiderDesk extension under `~/.aider-desk/extensions/gbr-pair`.
 
+## How do Hermes, OpenClaw, and NemoClaw attach?
+
+One surface after pinned **v0.6.0** `gbr-agent pair` + `run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. The phone sees **TTY windows** on that PC — not a sandbox, not a sidecar, not an Electron UI.
+
+- **Hermes:** `hermes mcp add` on the Hermes box, pointed at `gbr-mcp` stdio (clone `--branch v0.6.0`) or at loopback `:8788` if `gbr-agent run` is already on that host. Hermes does not need to live on the GBR host.
+- **NemoClaw:** GBR is the **host** tool. Point NemoClaw at host `127.0.0.1:8788` / `gbr-mcp`. Do not copy `gbr-agent` into the sandbox.
+- **OpenClaw:** ClawHub skill (`skills/openclaw/SKILL.md`) — **not** a core OpenClaw PR.
+
+No fourth pair protocol. Pin: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
+
 ## Why isn’t this an official adapter in other GitHub repos?
 
 Build Remote Agent is a third-party product. Other maintainers own their docs. Operational install, checksums, and trust disclosure live on https://grokbuildremote.com/integrations.html . Other repos should use a short unaffiliated external link there — not copy `install.sh`.
