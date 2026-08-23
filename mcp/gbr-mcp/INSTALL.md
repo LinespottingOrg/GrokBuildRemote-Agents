@@ -72,17 +72,15 @@ cd ~ && curl -sS http://127.0.0.1:8788/v1/status
 
 ## Install gbr-mcp
 
-**bash (macOS):**
+Do **not** `git clone` (default branch) + `npm install`. Pin **v0.6.0**, then npm from that tree. Skill: [SKILL.md](SKILL.md) · [docs/PINNED-INSTALL.md](../../docs/PINNED-INSTALL.md).
+
+**bash (macOS / Linux):**
 ```
-cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
+git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
 ```
 
-**bash (Linux):**
-```
-cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
-```
-
-There is **no npm package**. Always run from this clone.
+There is **no npm package**. Always run from the pinned clone.
 
 ## Config block
 

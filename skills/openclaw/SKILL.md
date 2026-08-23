@@ -31,6 +31,8 @@ Unpair on the phone before a new mailbox. Force-close is not enough.
 
 Remote bots use the relay Bot URL + `X-GBR-Key` copied from phone **Settings → Bot API**. Never commit that key.
 
+Loopback `:8788` is unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`. MCP skill (pin `--branch v0.6.0`): [skills/gbr-mcp/SKILL.md](../gbr-mcp/SKILL.md). Index: https://grokbuildremote.com/integrations.html
+
 ```bash
 curl -sS http://127.0.0.1:8788/health
 curl -sS http://127.0.0.1:8788/v1/sessions
@@ -44,7 +46,7 @@ curl -sS -X POST http://127.0.0.1:8788/v1/inject \
 Hermes does not need to be installed on the GBR host. On a Hermes box:
 
 ```bash
-git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install
 hermes mcp add gbr -- stdio -- node ./bin/gbr-mcp.js
 # If gbr-agent run is already on that same host:

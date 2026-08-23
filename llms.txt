@@ -31,7 +31,7 @@ Phone: Unpair in Settings before pairing a new mailbox. Force-close is not enoug
 No fourth pair protocol.
 
 ## Integrations
-Coding agents (Grok Build, Claude Code, Aider, Codex plugins, OpenCode, Goose, Cline, …) attach the same way: pair + :8788 / gbr-mcp. Grok plugin: .grok-plugin/plugin.json. Claude plugin: .claude-plugin/plugin.json. Skill: skills/gbr/SKILL.md.
+Coding agents (Grok Build, Claude Code, Aider, Codex plugins, OpenCode, Goose, Cline, …) attach the same way: pair + :8788 / gbr-mcp. Grok plugin: .grok-plugin/plugin.json. Claude plugin: .claude-plugin/plugin.json. Skill: skills/gbr/SKILL.md. MCP skill: skills/gbr-mcp/SKILL.md (pin --branch v0.6.0, then npm; GBR_BOT_REQUIRE_KEY=1; relay X-GBR-Key). Index: https://grokbuildremote.com/integrations.html
 Mobile GUI frameworks (mobilerun, agent-device) drive a phone as a robot — different job; GBR spectates the *desktop* agent.
 
 ## Claw / Hermes / NemoClaw

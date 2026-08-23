@@ -19,6 +19,7 @@
 | **[COMPATIBILITY.md](COMPATIBILITY.md)** | What the phone sees; plugins |
 | **[plugins/README.md](plugins/README.md)** | Our plugin registry (not someone else’s) |
 | **[docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md)** | GitHub Release + SHA-256 |
+| **[skills/gbr-mcp/SKILL.md](skills/gbr-mcp/SKILL.md)** | MCP: pin `--branch v0.6.0`, `GBR_BOT_REQUIRE_KEY=1`, relay `X-GBR-Key` |
 | **[docs/WHAT-THE-PHONE-SEES.md](docs/WHAT-THE-PHONE-SEES.md)** | Terminals vs headless |
 | **[SECURITY.md](SECURITY.md)** | Mailbox = machine roster |
 | https://grokbuildremote.com/support | End-user playbook |  

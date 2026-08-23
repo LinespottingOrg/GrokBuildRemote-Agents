@@ -46,7 +46,7 @@ Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release *
 | Claude Code | `.claude-plugin/` |
 | OpenCode V2 | `plugins/opencode/mcp.servers.json` |
 | AiderDesk | `plugins/aider-desk/` → `~/.aider-desk/extensions/gbr-pair` |
-| Any MCP | `mcp/gbr-mcp` |
+| Any MCP | `mcp/gbr-mcp` — skill [skills/gbr-mcp/SKILL.md](skills/gbr-mcp/SKILL.md), pin `--branch v0.6.0` |
 
 ## Compatible hosts
 

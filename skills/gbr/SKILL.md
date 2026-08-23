@@ -54,13 +54,15 @@ curl -sS -X POST http://127.0.0.1:8788/v1/inject \
 
 ## MCP
 
+Do **not** clone the default branch + `npm install`. Pin the tag, then npm from that tree. Full skill: [skills/gbr-mcp/SKILL.md](../gbr-mcp/SKILL.md) · [docs/PINNED-INSTALL.md](../../docs/PINNED-INSTALL.md).
+
 ```bash
-git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install
 node bin/gbr-mcp.js --diagnose
 ```
 
-Remote bots: phone **Settings → Bot API** copies relay URL + mailbox id + key. Never commit the key.
+Loopback `:8788` is unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`. Relay always sends `X-GBR-Key`. Remote bots: phone **Settings → Bot API** copies relay URL + mailbox id + key. Never commit the key. Index: https://grokbuildremote.com/integrations.html
 
 ## Loop
 

@@ -10,6 +10,6 @@ Index: [registry.json](registry.json) · honesty: [docs/WHAT-THE-PHONE-SEES.md](
 | Claude Code | `.claude-plugin/` — same marketplace add |
 | OpenCode V2 | `plugins/opencode/mcp.servers.json` → user `mcp.servers` |
 | AiderDesk | `plugins/aider-desk/` → `~/.aider-desk/extensions/gbr-pair` |
-| Any MCP host | `mcp/gbr-mcp` stdio |
+| Any MCP host | `mcp/gbr-mcp` stdio — skill [skills/gbr-mcp/SKILL.md](../skills/gbr-mcp/SKILL.md), pin `--branch v0.6.0` |
 
-Phone roster = **terminal windows on the paired PC**. Headless servers need MCP on the *desktop* agent; they still do not show as phone sessions unless they run in a TTY.
+Phone roster = **terminal windows on the paired PC**. Headless servers need MCP on the *desktop* agent; they still do not show as phone sessions unless they run in a TTY. Canonical index: https://grokbuildremote.com/integrations.html

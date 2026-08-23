@@ -9,8 +9,19 @@
       "id": "gbr-mcp",
       "kind": "mcp-stdio",
       "path": "mcp/gbr-mcp",
+      "skill": "skills/gbr-mcp/SKILL.md",
+      "pin": "git clone --branch v0.6.0 --depth 1",
       "attach": "127.0.0.1:8788 after gbr-agent run",
+      "auth": "loopback unauthenticated unless GBR_BOT_REQUIRE_KEY=1; relay always X-GBR-Key",
       "phone": "terminals discovered on the PC, not this MCP client"
+    },
+    {
+      "id": "gbr-mcp-skill",
+      "kind": "skill",
+      "path": "skills/gbr-mcp/SKILL.md",
+      "also": "mcp/gbr-mcp/SKILL.md",
+      "pin": "v0.6.0",
+      "install": "git clone --branch v0.6.0 --depth 1; npm install in mcp/gbr-mcp"
     },
     {
       "id": "grok-build",

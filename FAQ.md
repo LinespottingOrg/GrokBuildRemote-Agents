@@ -59,7 +59,7 @@ Phone Unpair + live roster + Bot API: mobile **1.3.1+**.
 
 ## OpenClaw / Hermes / NemoClaw?
 
-One attach surface: Bot API `127.0.0.1:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair is still QR + printed 8-char + `gbr-agent run`. NemoClaw sandboxes *its* agent; GBR stays the host tool.
+One attach surface: Bot API `127.0.0.1:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). MCP skill (pin `--branch v0.6.0`, then npm): [skills/gbr-mcp/SKILL.md](skills/gbr-mcp/SKILL.md). Pair is still QR + printed 8-char + `gbr-agent run`. NemoClaw sandboxes *its* agent; GBR stays the host tool. Loopback is unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`; relay always `X-GBR-Key`.
 
 ## Inbox watch (no email paste)
 

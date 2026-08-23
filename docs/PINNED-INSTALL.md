@@ -86,12 +86,17 @@ f773b89fd31310172b756e0593e0f3b2382b0a3440af2a7d0a8b3073b0c23e27  gbr-agent-wind
 
 Do not `git clone` default branch + `npm install` as a trust root.
 
+Skill: [skills/gbr-mcp/SKILL.md](../skills/gbr-mcp/SKILL.md) · also `mcp/gbr-mcp/SKILL.md`.
+Index: https://grokbuildremote.com/integrations.html
+
 ```bash
 git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents/mcp/gbr-mcp
 npm install
 node bin/gbr-mcp.js --diagnose
 ```
+
+Loopback `:8788` is unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`. Relay always requires `X-GBR-Key`.
 
 ## Convenience (mutable — our site only)
 

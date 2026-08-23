@@ -41,12 +41,16 @@ export PATH="$HOME/.local/bin:$PATH"
 gbr-agent pair && gbr-agent run
 ```
 
+Do **not** clone the default branch + `npm install`. Pin the tag:
+
 **bash (macOS):**
 ```
-cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && node bin/gbr-mcp.js --diagnose
+git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && node bin/gbr-mcp.js --diagnose
 ```
 
-Full instructions: [INSTALL.md](INSTALL.md) · When it breaks: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+Full instructions: [INSTALL.md](INSTALL.md) · Skill: [SKILL.md](SKILL.md) · Pin: [docs/PINNED-INSTALL.md](../../docs/PINNED-INSTALL.md) · When it breaks: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+Index: https://grokbuildremote.com/integrations.html
 
 ## Why this exists
 

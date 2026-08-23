@@ -17,7 +17,7 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 
 Do **not** invent a second code root. Official agent source is this GitHub repo (or the Dropbox workfolder `APPAR/Grok Build Remote/agents/` for LineSpotting machines).
 
-**Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair stays `gbr-agent pair` (QR + 8-char) then `run`. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches the issue title (`GBR_INBOX_WATCH=0` to disable).
+**Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). MCP skill (pin `--branch v0.6.0`): [skills/gbr-mcp/SKILL.md](skills/gbr-mcp/SKILL.md). Pair stays `gbr-agent pair` (QR + 8-char) then `run`. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches the issue title (`GBR_INBOX_WATCH=0` to disable). Loopback unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`; relay always `X-GBR-Key`. Index: https://grokbuildremote.com/integrations.html
 
 ---
 
@@ -222,3 +222,4 @@ Do not commit `relay/wrangler.toml`, `~/.gbr/`, pairing codes, or keys.
 | [APP-TODO.md](APP-TODO.md) | Mobile follow-ups |
 | [FAQ.md](FAQ.md) | Same FAQ as grokbuildremote.com |
 | [llms.txt](llms.txt) | Short machine summary |
+| [skills/gbr-mcp/SKILL.md](skills/gbr-mcp/SKILL.md) | MCP: pin v0.6.0, loopback vs relay `X-GBR-Key` |

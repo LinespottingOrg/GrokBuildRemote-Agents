@@ -91,7 +91,7 @@ Yes. `POST /v1/inject` types arbitrary text into listed terminal windows and can
 
 ## How does attach work?
 
-After `gbr-agent run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. Phone is spectator + veto, not orchestrator. Harden loopback with `GBR_BOT_REQUIRE_KEY=1`. Never commit mailbox keys.
+After `gbr-agent run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. Phone is spectator + veto, not orchestrator. Harden loopback with `GBR_BOT_REQUIRE_KEY=1`. Never commit mailbox keys. MCP skill (pin `--branch v0.6.0`, then npm): [skills/gbr-mcp/SKILL.md](../skills/gbr-mcp/SKILL.md).
 
 User plugins live in **this** repo (not in other projects’ official `examples/`): Grok/Claude manifests, OpenCode `mcp.servers`, AiderDesk extension under `~/.aider-desk/extensions/gbr-pair`.
 
