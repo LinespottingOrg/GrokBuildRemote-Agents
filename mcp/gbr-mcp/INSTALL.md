@@ -19,20 +19,25 @@ and on every machine registered in the fleet:
 The Bot API landed in **0.5.3**. Open / lock / idle-wait result need **0.5.4**.
 Anything older than 0.5.3 has no HTTP surface at all and `gbr-mcp` cannot work.
 
-**bash (macOS):**
-```
-cd ~ && curl -fsSL https://grokbuildremote.com/install.sh | bash
-```
+Pin the agent installer (do not pipe the live website): [docs/PINNED-INSTALL.md](../../docs/PINNED-INSTALL.md).
 
-**bash (Linux):**
+**bash (macOS / Linux):**
 ```
-cd ~ && curl -fsSL https://grokbuildremote.com/install.sh | bash
+VER=v0.6.0
+BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
+SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
+curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
+echo "$SHA  /tmp/gbr-install.sh" | shasum -a 256 -c -
+bash /tmp/gbr-install.sh
 ```
 
 **PowerShell (Windows):**
 ```
-cd $env:USERPROFILE
-irm https://grokbuildremote.com/install.ps1 | iex
+$sha = "b604a21b5dae5a874487a597778d15742b3c2afb2470c93a8e8ba0a76e486cdf"
+$i = Join-Path $env:TEMP "gbr-install.ps1"
+Invoke-WebRequest "https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.0/install.ps1" -OutFile $i
+if ((Get-FileHash $i -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sha) { throw "checksum" }
+& $i
 ```
 
 The installer writes to `~/.local/bin` and appends that to `~/.zshrc` — but it does
