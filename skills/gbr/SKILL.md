@@ -55,9 +55,10 @@ curl -sS -X POST http://127.0.0.1:8788/v1/inject \
 ## MCP
 
 ```bash
-git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
-cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install
-node bin/gbr-mcp.js --diagnose
+git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+cd GrokBuildRemote-Agents
+bash scripts/setup-gbr-mcp.sh
+# gbr_open defaults to spawning Grok Build CLI (`grok`)
 ```
 
 Remote bots: phone **Settings → Bot API** copies relay URL + mailbox id + key. Never commit the key.

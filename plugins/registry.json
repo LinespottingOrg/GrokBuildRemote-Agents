@@ -40,6 +40,25 @@
       "id": "codex-plugin-manifest",
       "kind": "codex-plugin",
       "path": ".codex-plugin/plugin.json"
+    },
+    {
+      "id": "hermes-mcp",
+      "kind": "hermes-mcp",
+      "path": "plugins/hermes/mcp.json",
+      "install": "scripts/setup-gbr-mcp.sh then hermes mcp add gbr stdio",
+      "target": "gbr_open spawns grok CLI"
+    },
+    {
+      "id": "openclaw-mcp",
+      "kind": "openclaw-mcp",
+      "path": "plugins/openclaw/mcp.json",
+      "skill": "skills/openclaw/SKILL.md"
+    },
+    {
+      "id": "nemoclaw-host-mcp",
+      "kind": "nemoclaw-host-mcp",
+      "path": "plugins/nemoclaw/mcp.json",
+      "note": "host only — not inside OpenShell"
     }
   ]
 }

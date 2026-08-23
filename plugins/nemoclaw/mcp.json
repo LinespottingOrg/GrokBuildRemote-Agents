@@ -1,0 +1,12 @@
+{
+  "$comment": "NemoClaw: run this MCP on the HOST, not inside OpenShell. GBR is the host tool. gbr_open spawns grok on the host TTY. Sandbox must not contain gbr-agent.",
+  "mcpServers": {
+    "gbr": {
+      "command": "node",
+      "args": ["MCP_PATH_REPLACE/mcp/gbr-mcp/bin/gbr-mcp.js"],
+      "env": {
+        "GBR_BOT_REQUIRE_KEY": "1"
+      }
+    }
+  }
+}

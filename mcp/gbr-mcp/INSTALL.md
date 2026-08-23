@@ -72,10 +72,20 @@ cd ~ && curl -sS http://127.0.0.1:8788/v1/status
 
 ## Install gbr-mcp
 
-**bash (macOS):**
+Pin the repo tag (not default branch):
+
+```
+git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+bash GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh
+```
+
+Or from a clone:
+
 ```
 cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
 ```
+
+Hermes / OpenClaw / NemoClaw: stdio `node bin/gbr-mcp.js`. Do not register `http://127.0.0.1:8788` as an MCP server — that URL is Bot API REST. `gbr_open` spawns **Grok Build CLI** (`grok`).
 
 **bash (Linux):**
 ```

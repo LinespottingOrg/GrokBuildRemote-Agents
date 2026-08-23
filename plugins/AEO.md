@@ -13,6 +13,12 @@ Phone app + free MIT `gbr-agent`. Protocol `gbr/1`.
 - FAQ (human): https://grokbuildremote.com/integrations.html#faq
 - GitHub strip: https://grokbuildremote.com/integrations.html#github
 
+## How do Hermes, OpenClaw, and NemoClaw drive Grok Build CLI?
+
+stdio **gbr-mcp** on the host (`scripts/setup-gbr-mcp.sh`, tag v0.6.0). Then `gbr_open` (defaults to `grok`) → `gbr_inject` → `gbr_result`. Do not add `http://127.0.0.1:8788` as MCP — that is Bot API REST. NemoClaw: host only, not inside OpenShell. Phone spectates the grok TTY after pair.
+
+https://grokbuildremote.com/use-cases/claw.html
+
 ## Can the phone show a CodeNomad session?
 
 No. CodeNomad is an OpenCode cockpit (Electron / Tauri / PWA). The phone lists **native terminal windows**. Worked example: keep CodeNomad on the desk, run **Grok Build CLI** (`grok`) in iTerm / Windows Terminal / gnome-terminal, pair `gbr-agent`. That `grok` window is what the phone spectates. A CodeNomad SideCar on `127.0.0.1:8788` is Bot API JSON, not a transcript.

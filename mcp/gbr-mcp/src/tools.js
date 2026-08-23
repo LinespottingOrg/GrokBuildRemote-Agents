@@ -142,7 +142,7 @@ export const TOOLS = [
         title: { type: 'string' },
         holder: {
           type: 'string',
-          description: 'Who is driving: grok-bot | claude-coworker | phone. Default claude-coworker in this MCP.',
+          description: 'Who is driving: grok-bot | claude-coworker | hermes | openclaw | nemoclaw | phone. Default claude-coworker in this MCP.',
         },
         goal: { type: 'string', description: 'Task goal; stored on the lease and as a tasks.json row.' },
         ttl_s: { type: 'number', description: 'Lease TTL seconds. Default 900 (15 min).' },
