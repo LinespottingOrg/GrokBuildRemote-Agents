@@ -1,8 +1,40 @@
 {
   "name": "build-remote-agent",
   "version": "0.6.1",
-  "description": "Pair a phone via gbr-agent (gbr/1). Attach 127.0.0.1:8788 or gbr-mcp. Phone lists terminal windows on the PC.",
+  "description": "Pair a phone via gbr-agent (gbr/1). Attach 127.0.0.1:8788 or gbr-mcp. Phone lists terminal windows on the PC. Scanner-ready catalog entry in LinespottingOrg/GrokBuildRemote-Agents — not OpenAI Codex core.",
   "homepage": "https://grokbuildremote.com/integrations.html",
+  "repository": "https://github.com/LinespottingOrg/GrokBuildRemote-Agents",
   "license": "MIT",
-  "author": "Linespotting AB"
+  "author": {
+    "name": "Linespotting AB",
+    "email": "info@linespotting.com",
+    "url": "https://grokbuildremote.com/"
+  },
+  "keywords": [
+    "gbr",
+    "build-remote-agent",
+    "pair",
+    "phone",
+    "gbr-mcp",
+    "gbr/1"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Build Remote Agent",
+    "shortDescription": "Phone spectator for desktop terminals (gbr/1)",
+    "longDescription": "Catalog entry (not Codex core) so Codex / ChatGPT plugin scanners can attach Build Remote Agent. Pin-install gbr-agent from GitHub Release v0.6.0 + SHA-256. Pair with gbr-agent pair / run. Attach Bot API 127.0.0.1:8788 or gbr-mcp stdio. The phone lists terminal windows on the PC. Do not PR openai/codex.",
+    "developerName": "Linespotting AB",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://grokbuildremote.com/integrations.html",
+    "privacyPolicyURL": "https://linespotting.com/privacy-policy/",
+    "defaultPrompt": [
+      "Pin-install gbr-agent from the GitHub Release, then pair and run so the phone can spectate this terminal.",
+      "Diagnose gbr-mcp and list terminal sessions on 127.0.0.1:8788."
+    ],
+    "brandColor": "#34D399",
+    "composerIcon": "./assets/composer-icon.svg",
+    "logo": "./assets/composer-icon.svg"
+  }
 }

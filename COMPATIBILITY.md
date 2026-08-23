@@ -44,6 +44,7 @@ Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release *
 |------|----------------|
 | Grok Build | `.grok-plugin/` |
 | Claude Code | `.claude-plugin/` |
+| Codex CLI / ChatGPT | `.codex-plugin/` — scanner-ready **catalog** in this repo, **not** Codex core. Do not PR `openai/codex`. [plugins/codex/README.md](plugins/codex/README.md) |
 | OpenCode V2 | `plugins/opencode/mcp.servers.json` |
 | AiderDesk | `plugins/aider-desk/` → `~/.aider-desk/extensions/gbr-pair` |
 | Any MCP | `mcp/gbr-mcp` |

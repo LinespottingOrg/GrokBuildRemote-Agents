@@ -1,0 +1,13 @@
+.git/
+.github/
+node_modules/
+dist/
+*.log
+.env
+.env.*
+device.json
+mailbox_key
+*.keychain
+*.p12
+*.p8
+*.jks

@@ -1,0 +1,21 @@
+{
+  "name": "build-remote-agent-catalog",
+  "interface": {
+    "displayName": "Build Remote Agent catalog (not Codex core)"
+  },
+  "plugins": [
+    {
+      "name": "build-remote-agent",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity",
+      "description": "Scanner-ready catalog entry in LinespottingOrg/GrokBuildRemote-Agents. Not OpenAI Codex core. Do not PR openai/codex. Pin gbr-agent v0.6.0 + SHA-256. Index: https://grokbuildremote.com/integrations.html"
+    }
+  ]
+}

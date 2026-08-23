@@ -82,6 +82,20 @@ f773b89fd31310172b756e0593e0f3b2382b0a3440af2a7d0a8b3073b0c23e27  gbr-agent-wind
 8fb9efcbc7e2ac91c11964944bf0f45e31bb23f4356d9dcb4b305d7cb9b0fe8c  gbr-agent-windows-arm64.exe
 ```
 
+## Codex plugin catalog (not Codex core)
+
+`.codex-plugin/` in **this** repo is a scanner-ready catalog entry. It is **not** OpenAI Codex core — do not PR [`openai/codex`](https://github.com/openai/codex).
+
+Index: https://grokbuildremote.com/integrations.html · [plugins/codex/README.md](../plugins/codex/README.md)
+
+```bash
+# Catalog lives here. Pin --ref to a commit SHA when you freeze it.
+codex plugin marketplace add LinespottingOrg/GrokBuildRemote-Agents --ref main
+codex plugin install build-remote-agent
+```
+
+The **agent binary** is still the v0.6.0 SHA-256 recipes above (installer, then binary). The v0.6.0 tag does not include this catalog; marketplace add uses `main` (or a SHA on main after this lands).
+
 ## MCP (`gbr-mcp`) — pin the clone
 
 Do not `git clone` default branch + `npm install` as a trust root.

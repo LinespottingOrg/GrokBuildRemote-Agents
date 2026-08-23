@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Build Remote Agent">
+  <rect width="128" height="128" rx="28" fill="#111827"/>
+  <rect x="18" y="22" width="92" height="64" rx="10" fill="none" stroke="#34D399" stroke-width="6"/>
+  <path d="M36 54h56" stroke="#34D399" stroke-width="6" stroke-linecap="round"/>
+  <rect x="52" y="96" width="24" height="10" rx="5" fill="#34D399"/>
+  <path d="M64 86v10" stroke="#34D399" stroke-width="6" stroke-linecap="round"/>
+</svg>

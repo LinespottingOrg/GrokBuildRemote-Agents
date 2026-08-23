@@ -39,7 +39,15 @@
     {
       "id": "codex-plugin-manifest",
       "kind": "codex-plugin",
-      "path": ".codex-plugin/plugin.json"
+      "path": ".codex-plugin/plugin.json",
+      "role": "scanner-ready-catalog",
+      "core": false,
+      "not": "openai/codex",
+      "marketplace": ".agents/plugins/marketplace.json",
+      "install": "codex plugin marketplace add LinespottingOrg/GrokBuildRemote-Agents --ref main",
+      "agent": "docs/PINNED-INSTALL.md — GitHub Release v0.6.0 + SHA-256 (not curl|bash)",
+      "integrations": "https://grokbuildremote.com/integrations.html",
+      "note": "Scanner-ready catalog entry in this registry. Not Codex core. Do not PR openai/codex."
     }
   ]
 }

@@ -1,14 +1,19 @@
 ---
 name: gbr
+version: "0.6.1"
 description: >
   Pair a phone running Build Remote Agent to this desktop AI agent.
   Requires gbr-agent run on the host. Attach via Bot API 127.0.0.1:8788 or gbr-mcp.
   Use when the user wants mobile spectator / inject into a *terminal window* on this PC.
+author:
+  name: Linespotting AB
+  email: info@linespotting.com
+  url: https://grokbuildremote.com/
 compatibility: Requires gbr-agent ≥ 0.6.0 on the host. Loopback only. No mailbox keys in this file. Headless servers are not on the phone roster.
 metadata:
   version: "0.6.1"
   product: "Build Remote Agent"
-  website: "https://grokbuildremote.com/"
+  website: "https://grokbuildremote.com/integrations.html"
 ---
 
 # Build Remote Agent — pairing device
