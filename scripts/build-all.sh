@@ -62,13 +62,21 @@ done
 echo "==> checksums"
 (
   cd "$OUT_DIR"
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum ${BINARY}-* > SHA256SUMS
-  elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 ${BINARY}-* > SHA256SUMS
-  else
-    echo "warn: no sha256 tool; skipping SHA256SUMS" >&2
-  fi
+  rm -f SHA256SUMS
+  for f in ${BINARY}-*; do
+    [[ -f "$f" ]] || continue
+    [[ "$f" == *.sha256 ]] && continue
+    if command -v sha256sum >/dev/null 2>&1; then
+      sha256sum "$f" >> SHA256SUMS
+      sha256sum "$f" | awk '{print $1}' > "${f}.sha256"
+    elif command -v shasum >/dev/null 2>&1; then
+      shasum -a 256 "$f" >> SHA256SUMS
+      shasum -a 256 "$f" | awk '{print $1}' > "${f}.sha256"
+    else
+      echo "warn: no sha256 tool; skipping SHA256SUMS" >&2
+      break
+    fi
+  done
   ls -la ${BINARY}-* 2>/dev/null || ls -la
 )
 

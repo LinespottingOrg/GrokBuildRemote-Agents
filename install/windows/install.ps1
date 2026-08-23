@@ -43,6 +43,28 @@ if (Test-Path $repoDist) {
   $tmp = Join-Path $env:TEMP $asset
   Write-Host "Downloading $url"
   Invoke-WebRequest -Uri $url -Headers $headers -OutFile $tmp
+  $slash = $url.LastIndexOf("/")
+  $sumsUrl = $url.Substring(0, $slash + 1) + "SHA256SUMS"
+  $expected = $null
+  try {
+    $text = (Invoke-WebRequest -Uri $sumsUrl -Headers $headers -UseBasicParsing).Content
+    foreach ($line in ($text -split "`r?`n")) {
+      $parts = $line.Trim() -split "\s+", 2
+      if ($parts.Count -ge 2 -and $parts[1].TrimStart("*") -eq $asset) {
+        $expected = $parts[0].ToLowerInvariant()
+        break
+      }
+    }
+  } catch { }
+  if (-not $expected) {
+    $sideUrl = "$url.sha256"
+    $side = ((Invoke-WebRequest -Uri $sideUrl -Headers $headers -UseBasicParsing).Content).Trim()
+    $expected = ($side -split "\s+")[0].ToLowerInvariant()
+  }
+  if ($expected -notmatch '^[0-9a-f]{64}$') { throw "No SHA-256 for $asset at $sumsUrl" }
+  $actual = (Get-FileHash -Algorithm SHA256 -Path $tmp).Hash.ToLowerInvariant()
+  if ($actual -ne $expected) { throw "SHA-256 mismatch for $asset expected $expected got $actual" }
+  Write-Host "checksum ok $actual" -ForegroundColor Green
   $src = $tmp
 }
 
