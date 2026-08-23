@@ -2,11 +2,21 @@
 name: gbr
 description: >
   Drive local Grok Build / CLI sessions through Build Remote Agent (gbr-agent).
-  Pair the phone app, then attach via Bot API 127.0.0.1:8788 or gbr-mcp.
+  Pair the phone app via QR or 8-char code, then attach via Bot API 127.0.0.1:8788 or gbr-mcp.
   Use when the user wants OpenClaw / Hermes / a host agent to inject into Grok Build.
+version: 0.6.1
 compatibility: Requires gbr-agent run on the host. Loopback only. No mailbox keys in this file.
 metadata:
-  version: "0.6.1"
+  openclaw:
+    requires:
+      bins:
+        - gbr-agent
+        - curl
+    envVars:
+      - name: GBR_INBOX_WATCH
+        required: false
+        description: Set to 0 to disable inbox watch (boss-steer inject).
+    homepage: https://grokbuildremote.com/
 ---
 
 # Build Remote Agent — OpenClaw / claw attach
