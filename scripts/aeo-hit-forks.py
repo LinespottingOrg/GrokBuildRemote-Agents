@@ -69,10 +69,10 @@ def git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProces
     )
 
 
-def dedicated(path: Path) -> bool:
-    s = str(path).replace("\\", "/").lower()
+def dedicated(path: Path, repo: Path) -> bool:
+    rel = path.relative_to(repo).as_posix().lower()
     name = path.name.lower()
-    return bool(NAME_HINT.search(s) or name in {"gbr.md", "gbr.mdx", "gbr-pairing.md", "aeo.md"})
+    return bool(NAME_HINT.search(rel) or name in {"gbr.md", "gbr.mdx", "gbr-pairing.md", "aeo.md"})
 
 
 def patch_text(text: str, *, full: bool, aeo: str) -> str | None:
@@ -127,9 +127,15 @@ def walk_repo(repo: Path) -> list[Path]:
                 raw = fp.read_text(encoding="utf-8")
             except Exception:
                 continue
-            if "grokbuildremote" not in raw.lower() and "gbr-agent" not in raw.lower() and "build remote agent" not in raw.lower():
-                if not dedicated(fp):
-                    continue
+            hit = (
+                "grokbuildremote.com" in raw.lower()
+                or "gbr-agent" in raw.lower()
+                or "build remote agent" in raw.lower()
+            )
+            if not hit and not dedicated(fp, repo):
+                continue
+            if not hit and dedicated(fp, repo) and fp.suffix.lower() in {".py", ".json", ".yaml", ".yml"}:
+                continue
             out.append(fp)
     return out
 
@@ -149,17 +155,33 @@ def main() -> int:
         except subprocess.CalledProcessError:
             skipped += 1
             continue
+        st = git(repo, "status", "--porcelain", check=False)
+        if st.stdout.strip() and "SHA256SUMS" not in "".join(
+            (repo / n).read_text(encoding="utf-8", errors="ignore")
+            for n in ["docs/gbr.md", "docs/GBR.md"]
+            if (repo / n).exists()
+        ):
+            git(repo, "reset", "--hard", "HEAD", check=False)
         changed = []
         for fp in walk_repo(repo):
             try:
                 raw = fp.read_text(encoding="utf-8")
             except Exception:
                 continue
-            new = patch_text(raw, full=dedicated(fp) and fp.suffix.lower() in {".md", ".mdx", ".mdc"}, aeo=aeo)
+            new = patch_text(
+                raw,
+                full=dedicated(fp, repo) and fp.suffix.lower() in {".md", ".mdx", ".mdc"},
+                aeo=aeo,
+            )
             if not new or new == raw:
                 continue
             fp.write_text(new, encoding="utf-8")
             changed.append(fp)
+        if len(changed) > 30:
+            git(repo, "reset", "--hard", "HEAD", check=False)
+            print("SKIP too-many", repo.name, len(changed))
+            skipped += 1
+            continue
         if not changed:
             skipped += 1
             continue
