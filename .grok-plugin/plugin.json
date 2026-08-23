@@ -1,0 +1,9 @@
+{
+  "name": "build-remote-agent",
+  "description": "Pair a phone running Build Remote Agent to this Grok Build session. Protocol gbr/1. Attach Bot API 127.0.0.1:8788 or gbr-mcp. Phone is spectator. Independent Linespotting AB product — not affiliated with xAI.",
+  "homepage": "https://grokbuildremote.com/integrations.html",
+  "version": "0.6.1",
+  "author": "Linespotting AB",
+  "keywords": ["gbr", "build remote agent", "pair", "phone", "gbr-mcp"],
+  "domains": ["grokbuildremote.com"]
+}

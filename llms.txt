@@ -3,6 +3,8 @@
 > MIT open-source PC agent (Windows / macOS / Linux). Pairs with the paid Build Remote Agent iOS/Android apps. Independent Linespotting AB product. Unified control layer for Grok Bot device routing.
 
 Website: https://grokbuildremote.com/
+Integrations: https://grokbuildremote.com/integrations.html
+Compatibility: COMPATIBILITY.md (this repo) and https://grokbuildremote.com/COMPATIBILITY.md
 App Store: https://apps.apple.com/app/id6791293726
 Google Play: https://play.google.com/store/apps/details?id=com.grokbuildremote.app
 Support: https://grokbuildremote.com/support
@@ -23,8 +25,12 @@ gbr-agent run      # keep running
 Phone: Unpair in Settings before pairing a new mailbox. Force-close is not enough.
 No fourth pair protocol.
 
+## Integrations
+Coding agents (Grok Build, Claude Code, Aider, Codex plugins, OpenCode, Goose, Cline, …) attach the same way: pair + :8788 / gbr-mcp. Grok plugin: .grok-plugin/plugin.json. Claude plugin: .claude-plugin/plugin.json. Skill: skills/gbr/SKILL.md.
+Mobile GUI frameworks (mobilerun, agent-device) drive a phone as a robot — different job; GBR spectates the *desktop* agent.
+
 ## Claw / Hermes / NemoClaw
-Attach only via http://127.0.0.1:8788 or gbr-mcp. Skill: skills/openclaw/SKILL.md
+Attach only via http://127.0.0.1:8788 or gbr-mcp. Skill: skills/openclaw/SKILL.md (same as skills/gbr/SKILL.md)
 NemoClaw = sandbox; GBR = host tool.
 Inbox: gbr-agent run watches GitHub boss-steer issues and injects into a matching Grok Build title.
 
