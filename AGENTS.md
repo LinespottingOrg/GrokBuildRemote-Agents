@@ -9,7 +9,7 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 | **Website** | https://grokbuildremote.com/ |
 | **Integrations** | https://grokbuildremote.com/integrations.html · [COMPATIBILITY.md](COMPATIBILITY.md) · [plugins/README.md](plugins/README.md) |
 | **Phone sees** | **Terminal windows** on the paired PC (machine mailbox). Not headless OpenCode/CodeNomad. [docs/WHAT-THE-PHONE-SEES.md](docs/WHAT-THE-PHONE-SEES.md) |
-| **Install** | Pin GitHub Release + SHA-256 — [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) |
+| **Install** | [INSTALL.md](INSTALL.md) · pin GitHub Release + SHA-256 — [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) |
 | **Support** | https://grokbuildremote.com/support |
 | **Relay (production)** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · expect `/health` `version: 0.6.0` · Bot API `/v1/mb/:id/bot` |
 | **Current agent** | **v0.6.0+** (device classes · Bot API `127.0.0.1:8788` + `gbr-mcp` · inbox watch `boss-steer`) |
@@ -17,7 +17,7 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 
 Do **not** invent a second code root. Official agent source is this GitHub repo (or the Dropbox workfolder `APPAR/Grok Build Remote/agents/` for LineSpotting machines).
 
-**Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair stays `gbr-agent pair` (QR + 8-char) then `run`. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches the issue title (`GBR_INBOX_WATCH=0` to disable).
+**Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` (REST) **or** stdio `gbr-mcp` (13 tools). Do not register `:8788` as MCP. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair stays `gbr-agent pair` (QR **or** 8-char) then `run`. NemoClaw is a **sandbox**, not a fourth pair. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches — **do not paste** after the watcher is running (`GBR_INBOX_WATCH=0` to disable). `/rename TITLE` must be its **own submitted TUI line**.
 
 ---
 
@@ -47,7 +47,7 @@ make build          # → dist/gbr-agent
 VERSION=v0.6.0 ./scripts/build-all.sh
 ```
 
-GitHub Releases: tagged `v*`. Website `latest` + `v0.6.0` are the install source of truth.
+GitHub Releases: tagged `v*`. Website `latest` + **v0.6.0** binaries are the install source of truth. Source/docs/inbox/claw skill: tag **v0.6.1**. Short path for AIs: [INSTALL.md](INSTALL.md) (install, pair, `mcp add`, Bot API `:8788`).
 
 ---
 
@@ -112,6 +112,24 @@ Session labels: `~/.gbr/sessions.json`
 
 ---
 
+## MCP add (`gbr-mcp` · 13 tools)
+
+Same host as `gbr-agent run`. No npm package. `:8788` is Bot API REST — do not `mcp add` that URL. Recipes: [mcp/gbr-mcp/INSTALL.md](mcp/gbr-mcp/INSTALL.md). `gbr_open` spawns **Grok Build CLI** (`grok`).
+
+```bash
+git clone --branch v0.6.1 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+bash GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh
+# ABS = absolute path of bin/gbr-mcp.js
+claude mcp add gbr -- node ABS          # Claude Code / Cowork
+grok mcp add gbr -- node ABS            # Grok CLI
+hermes mcp add gbr -- stdio -- node ABS # Hermes
+# Cursor: ~/.cursor/mcp.json → { "mcpServers": { "gbr": { "command": "node", "args": ["ABS"] } } }
+# OpenClaw: skills/openclaw/SKILL.md — not a fourth pair; not a core OpenClaw PR
+node ABS --diagnose                     # 13 tools
+```
+
+---
+
 ## Bot API (Grok bots / HTTP)
 
 0.5.2+. Full spec: [docs/BOT-API.md](docs/BOT-API.md) · [FAQ](FAQ.md#how-does-a-grok-bot-talk-to-the-agent).
@@ -146,10 +164,10 @@ Agent **0.5.0** only advertised the first **six** sessions. Extra terminals stol
 - `register` updates title for an existing id
 - Soft max **255** (log + drop extras; never crash)
 
-Rename:
+Rename — `/rename` must be its **own submitted TUI line** (not inside a paste). Alias `/title`. Inbox watcher does two submits: (1) `/rename TITLE` (2) the body.
 
 ```text
-# In Grok Build TUI (not an agent flag):
+# In Grok Build TUI (not an agent flag) — submit this line alone:
 /rename Phone Grok
 
 # On the PC:
@@ -212,8 +230,10 @@ Do not commit `relay/wrangler.toml`, `~/.gbr/`, pairing codes, or keys.
 
 | File | Use |
 |------|-----|
+| [INSTALL.md](INSTALL.md) | AIs first: install, pair, `mcp add`, Bot API `:8788` |
 | [README.md](README.md) | Humans: what it is, install |
 | **This file (`AGENTS.md`)** | AIs: install + debug first |
+| [mcp/gbr-mcp/INSTALL.md](mcp/gbr-mcp/INSTALL.md) | Claude / Grok CLI / Cursor / Hermes / OpenClaw |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Symptom → command → fix |
 | [SESSION-NAMES.md](SESSION-NAMES.md) | Titles, `/rename`, 6-cap, 255 |
 | [NETWORK.md](NETWORK.md) | Ports, netcheck, no VPN |

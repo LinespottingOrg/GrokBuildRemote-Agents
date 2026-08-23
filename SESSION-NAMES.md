@@ -18,7 +18,7 @@ There is **no six-session fan-out cap**. Every discovered window is advertised u
 
 ## Name a session from Grok Build
 
-In the Grok Build TUI (this is the native slash command):
+In the Grok Build TUI (this is the native slash command). **Submit `/rename …` as its own TUI line** — not inside a pasted prompt. Natural language alone does not pin `summary.json`. Inbox watcher uses two submits: (1) `/rename TITLE` (2) the job body.
 
 ```
 /rename Phone Grok

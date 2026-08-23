@@ -9,7 +9,9 @@
 
 | Read this | When |
 |-----------|------|
+| **[INSTALL.md](INSTALL.md)** | AIs first: install, pair, `mcp add`, Bot API `:8788` |
 | **[AGENTS.md](AGENTS.md)** | You are an AI installing or debugging |
+| **[mcp/gbr-mcp/INSTALL.md](mcp/gbr-mcp/INSTALL.md)** | Claude / Grok CLI / Cursor / Hermes / OpenClaw |
 | **[FAQ.md](FAQ.md)** | Same FAQ as the website (humans + AIs + schema) |
 | **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | Something failed (401, empty sessions, stale names) |
 | **[SESSION-NAMES.md](SESSION-NAMES.md)** | Six identical titles / rename / 255 sessions |

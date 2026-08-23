@@ -85,14 +85,35 @@ Or from a clone:
 cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
 ```
 
-Hermes / OpenClaw / NemoClaw: stdio `node bin/gbr-mcp.js`. Do not register `http://127.0.0.1:8788` as an MCP server — that URL is Bot API REST. `gbr_open` spawns **Grok Build CLI** (`grok`).
+Hermes / OpenClaw / NemoClaw: stdio `node bin/gbr-mcp.js`. Do not register `http://127.0.0.1:8788` as an MCP server — that URL is Bot API REST. `gbr_open` spawns **Grok Build CLI** (`grok`). NemoClaw is a sandbox, not a fourth pair.
 
 **bash (Linux):**
 ```
 cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
 ```
 
-There is **no npm package**. Always run from this clone.
+There is **no npm package**. Always run from this clone. Pin source tag **v0.6.1** (inbox + claw skill); published agent binaries stay **v0.6.0+**.
+
+## mcp add (Claude / Grok CLI / Cursor / Hermes / OpenClaw)
+
+`ABS` = absolute path of `bin/gbr-mcp.js`. Same stdio server, 13 tools, same host as `gbr-agent run`. Pair is still QR or 8-char.
+
+```bash
+# Claude Code / Claude Cowork
+claude mcp add gbr -- node ABS
+
+# Grok CLI
+grok mcp add gbr -- node ABS
+
+# Cursor — ~/.cursor/mcp.json or project .cursor/mcp.json
+# { "mcpServers": { "gbr": { "command": "node", "args": ["ABS"] } } }
+
+# Hermes (stdio on this host — never point MCP at :8788)
+hermes mcp add gbr -- stdio -- node ABS
+
+# OpenClaw — copy ../../skills/openclaw/SKILL.md (ClawHub skill gbr).
+# Not a core OpenClaw PR. Not a fourth pair.
+```
 
 ## Config block
 
