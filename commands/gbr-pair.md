@@ -2,7 +2,7 @@
 description: Pair Build Remote Agent phone to this desktop session (gbr/1)
 ---
 
-Install `gbr-agent` v0.6.0+, then:
+Install from a pinned GitHub Release + SHA-256 (`docs/PINNED-INSTALL.md`), then:
 
 ```
 gbr-agent pair

@@ -1,0 +1,12 @@
+{
+  "$comment": "OpenCode V2 user config fragment. Merge under mcp.servers. Requires gbr-agent run (Bot API 127.0.0.1:8788). The phone lists terminal windows on this PC, not the headless OpenCode HTTP server. Clone this repo; point command at the real gbr-mcp.js path.",
+  "mcp": {
+    "servers": {
+      "gbr": {
+        "type": "local",
+        "command": ["node", "mcp/gbr-mcp/bin/gbr-mcp.js"],
+        "environment": {}
+      }
+    }
+  }
+}

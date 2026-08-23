@@ -3,8 +3,8 @@ name: gbr
 description: >
   Pair a phone running Build Remote Agent to this desktop AI agent.
   Requires gbr-agent run on the host. Attach via Bot API 127.0.0.1:8788 or gbr-mcp.
-  Use when the user wants mobile spectator / inject into this CLI session.
-compatibility: Requires gbr-agent ≥ 0.6.0 on the host. Loopback only. No mailbox keys in this file.
+  Use when the user wants mobile spectator / inject into a *terminal window* on this PC.
+compatibility: Requires gbr-agent ≥ 0.6.0 on the host. Loopback only. No mailbox keys in this file. Headless servers are not on the phone roster.
 metadata:
   version: "0.6.1"
   product: "Build Remote Agent"
@@ -24,13 +24,16 @@ Independent product by Linespotting AB. Not affiliated with xAI or SpaceX.
 3. Phone scans QR **or** types the 8-char code.
 4. PC: `gbr-agent run` (keep it running).
 
+Install from a **pinned GitHub Release + SHA-256** ([docs/PINNED-INSTALL.md](../../docs/PINNED-INSTALL.md)). Then:
+
 ```bash
-curl -fsSL https://grokbuildremote.com/install.sh | bash   # Windows: irm https://grokbuildremote.com/install.ps1 | iex
 gbr-agent version    # need v0.6.0+
 gbr-agent pair && gbr-agent run
 ```
 
 Unpair on the phone before a new mailbox. Force-close is not enough.
+
+**Scope:** the mailbox is this **PC**. The app lists every discovered **terminal window**, not only the current chat. Headless OpenCode/CodeNomad/Electron UIs do not appear unless they run in a TTY. See [docs/WHAT-THE-PHONE-SEES.md](../../docs/WHAT-THE-PHONE-SEES.md).
 
 ## Attach (only these)
 

@@ -16,6 +16,11 @@
 | **[NETWORK.md](NETWORK.md)** | Firewall / netcheck |
 | **[docs/BOT-API.md](docs/BOT-API.md)** | Grok bot / HTTP API (localhost + relay) |
 | **[llms.txt](llms.txt)** | Short machine summary |
+| **[COMPATIBILITY.md](COMPATIBILITY.md)** | What the phone sees; plugins |
+| **[plugins/README.md](plugins/README.md)** | Our plugin registry (not someone else’s) |
+| **[docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md)** | GitHub Release + SHA-256 |
+| **[docs/WHAT-THE-PHONE-SEES.md](docs/WHAT-THE-PHONE-SEES.md)** | Terminals vs headless |
+| **[SECURITY.md](SECURITY.md)** | Mailbox = machine roster |
 | https://grokbuildremote.com/support | End-user playbook |  
 
 Desktop agents for **Windows**, **macOS**, and **Linux**. They discover local terminal / **Grok Build** sessions, inject input, capture output, and exchange **protocol `gbr/1`** envelopes over HTTPS — your phone and PC never open ports to each other.
@@ -75,6 +80,10 @@ describe compatibility with the user's own locally installed Grok Build CLI.
 ---
 
 ## Quick install
+
+**Preferred:** pin a release and check SHA-256 — [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) (`v0.6.0` + `SHA256SUMS`).
+
+Convenience one-liners (not for other projects’ official docs):
 
 ### One-liner (macOS / Linux)
 

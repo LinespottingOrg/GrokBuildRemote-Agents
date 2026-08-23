@@ -2,9 +2,17 @@
 
 Product: **Build Remote Agent** (store apps) + free MIT `gbr-agent`.
 Website: https://grokbuildremote.com/integrations.html
-Agent: https://github.com/LinespottingOrg/GrokBuildRemote-Agents
+Plugin registry: [plugins/README.md](plugins/README.md)
 Protocol: `gbr/1` · agent **v0.6.0+**
 Independent Linespotting AB product. Not affiliated with xAI or SpaceX.
+
+## What the phone sees
+
+Read [docs/WHAT-THE-PHONE-SEES.md](docs/WHAT-THE-PHONE-SEES.md).
+
+`gbr-agent` discovers **terminal windows** on the paired PC. One pair = one **mailbox for the whole machine**. The app can list and inject **every discovered TTY** (soft max 255), not “this one omp/qwen tab.”
+
+Headless servers (OpenCode serve, CodeNomad sidecar, Electron UIs) are **not** in that roster. A sidecar pointed at `:8788` shows Bot API JSON, not a transcript.
 
 ## Pair (one protocol)
 
@@ -13,53 +21,36 @@ gbr-agent pair    # QR in browser AND printed 8-char code
 gbr-agent run     # keep running
 ```
 
-Phone: Build Remote Agent → Scan QR (or type the code).
 Unpair in Settings before a new mailbox. Force-close is not enough.
-No fourth pair protocol.
 
 ## Attach (only these)
 
 | How | Where |
 |-----|--------|
 | Bot API | `http://127.0.0.1:8788` after `gbr-agent run` |
-| MCP | `gbr-mcp` stdio (`mcp/gbr-mcp`) |
+| MCP | `gbr-mcp` stdio (`mcp/gbr-mcp`) — desktop agent talks to terminals via Bot API |
 
-Phone is spectator + veto. Never put `mailbox_key` in git or issues.
+Phone is spectator + veto. Never put `mailbox_key` in git.
+
+## Install (pinned)
+
+Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release **v0.6.0** + `SHA256SUMS`. Do not paste `curl | bash` into other projects’ official docs.
+
+## Plugins (this repo is the registry)
+
+| Host | User drop-in |
+|------|----------------|
+| Grok Build | `.grok-plugin/` |
+| Claude Code | `.claude-plugin/` |
+| OpenCode V2 | `plugins/opencode/mcp.servers.json` |
+| AiderDesk | `plugins/aider-desk/` → `~/.aider-desk/extensions/gbr-pair` |
+| Any MCP | `mcp/gbr-mcp` |
 
 ## Compatible hosts
 
-| Class | Examples | How to attach |
-|-------|----------|----------------|
-| Grok Build | Grok Build TUI, Grok Bot 2026-08-11 | inject into the live window; Bot API device classes |
-| Grok remotes (companions) | Amnibro `:2421`, Farina `:7910`, ChrisP `:8787`, Kojo | GBR probes loopback; LAN/Tailscale UI stays |
-| Claude Code / Cowork | `gbr-mcp`, `skills/openclaw/SKILL.md` | MCP stdio |
-| Git-native CLIs | Aider and forks | MCP snippet + docs |
-| Codex ecosystem | community plugins / MCP servers (not closed Codex core) | plugin or docs |
-| Terminal TUIs | OpenCode, Crush, Gemini CLI, Qwen Code | MCP config |
-| IDE agents | Cline, Goose, Zed extensions | MCP / docs |
-| Autonomous SWE | OpenHands, SWE-agent | docs / skill |
-| Mobile GUI agents | mobilerun, agent-device | **different job** (they drive a phone). GBR pairs the *desktop* coding agent |
-
-## Install
-
-```
-curl -fsSL https://grokbuildremote.com/install.sh | bash
-gbr-agent version    # need v0.6.0+
-```
-
-Windows: `irm https://grokbuildremote.com/install.ps1 | iex`
-
-MCP:
-
-```
-git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
-cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install
-node bin/gbr-mcp.js --diagnose
-```
-
-## See also
-
-- https://grokbuildremote.com/integrations.html
-- https://grokbuildremote.com/llms.txt
-- AGENTS.md in this repo (AIs)
-- docs/BOT-API.md
+| Class | How |
+|-------|-----|
+| Agent **in a terminal** (Grok Build TUI, Aider CLI, OpenCode TUI, …) | Phone sees that window |
+| Grok remotes Amnibro/Farina/ChrisP | Companions on loopback; not a substitute for pairing |
+| Headless OpenCode / CodeNomad | MCP on the desktop agent; phone still needs a TTY |
+| Mobile GUI (mobilerun, agent-device) | Different job — they drive a phone as a robot |

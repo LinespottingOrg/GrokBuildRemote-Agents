@@ -1,0 +1,9 @@
+{
+  "name": "gbr-pair",
+  "version": "0.6.1",
+  "description": "Build Remote Agent — status + inject via local Bot API 127.0.0.1:8788. Phone spectates terminal windows on this PC, not the AiderDesk Electron UI.",
+  "main": "index.ts",
+  "keywords": ["aiderdesk", "extension", "gbr", "build-remote-agent"],
+  "author": "Linespotting AB",
+  "license": "MIT"
+}

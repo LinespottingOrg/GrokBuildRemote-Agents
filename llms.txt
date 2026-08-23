@@ -15,9 +15,14 @@ Relay: https://gbr-relay.ekobrott.workers.dev/health  (live version 0.6.0; bot:t
 Current binaries/train: v0.6.0
 
 ## Install
-macOS/Linux: curl -fsSL https://grokbuildremote.com/install.sh | bash
-Windows: irm https://grokbuildremote.com/install.ps1 | iex
+Preferred: docs/PINNED-INSTALL.md (GitHub Release v0.6.0 + SHA256SUMS). Convenience one-liners on the website are not for other repos' official docs.
 Then: gbr-agent version
+
+## What the phone sees
+Terminal windows discovered on the paired PC (machine-wide mailbox / roster). Not headless OpenCode serve, CodeNomad sidecar, or Electron UIs. Sidecar :8788 = Bot API JSON, not a transcript. docs/WHAT-THE-PHONE-SEES.md
+
+## Plugin registry (this repo)
+plugins/README.md — Grok/Claude manifests, OpenCode mcp.servers, AiderDesk extension, gbr-mcp. We do not ship vendor pages into other projects' examples/.
 
 ## Pair
 gbr-agent pair     # QR in browser AND printed 8-char code — phone scans or types

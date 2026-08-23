@@ -7,7 +7,9 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 | **Product** | Build Remote Agent |
 | **This repo** | Desktop agent only · MIT · https://github.com/LinespottingOrg/GrokBuildRemote-Agents |
 | **Website** | https://grokbuildremote.com/ |
-| **Integrations** | https://grokbuildremote.com/integrations.html · [COMPATIBILITY.md](COMPATIBILITY.md) |
+| **Integrations** | https://grokbuildremote.com/integrations.html · [COMPATIBILITY.md](COMPATIBILITY.md) · [plugins/README.md](plugins/README.md) |
+| **Phone sees** | **Terminal windows** on the paired PC (machine mailbox). Not headless OpenCode/CodeNomad. [docs/WHAT-THE-PHONE-SEES.md](docs/WHAT-THE-PHONE-SEES.md) |
+| **Install** | Pin GitHub Release + SHA-256 — [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) |
 | **Support** | https://grokbuildremote.com/support |
 | **Relay (production)** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · expect `/health` `version: 0.6.0` · Bot API `/v1/mb/:id/bot` |
 | **Current agent** | **v0.6.0+** (device classes · Bot API `127.0.0.1:8788` + `gbr-mcp` · inbox watch `boss-steer`) |
