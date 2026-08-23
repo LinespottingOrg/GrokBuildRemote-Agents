@@ -55,9 +55,17 @@ If `grok` is not on PATH, `gbr_open` opens a shell and tells you to install Grok
 
 Phone roster = that **grok TTY**, not the OpenClaw / Hermes / NemoClaw UI.
 
+## `/rename` (own TUI line)
+
+`/rename TITLE` must be its **own submitted TUI line** in Grok Build. Do not bury it in a paste. Alias `/title`. Inbox watcher uses two submits: (1) `/rename TITLE` (2) the job body.
+
+## Inbox watch (no paste)
+
+With `gbr-agent run` and `gh` on PATH, the agent polls `LinespottingOrg/grok-build-inbox` label `boss-steer`. Matching Grok Build title → inject newest comment. After the watcher is running, **do not paste**. `GBR_INBOX_WATCH=0` disables.
+
 ## NemoClaw
 
-GBR stays on the **host**. Do not copy `gbr-agent` into OpenShell. See `skills/nemoclaw/SKILL.md`.
+NemoClaw is a **sandbox, not a fourth pair**. GBR stays on the **host**. Do not copy `gbr-agent` into OpenShell. See `skills/nemoclaw/SKILL.md`.
 
 ## Hermes
 

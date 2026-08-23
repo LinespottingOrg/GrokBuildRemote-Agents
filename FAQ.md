@@ -40,10 +40,12 @@ Binaries: https://grokbuildremote.com/downloads/latest/ · [Release v0.6.0](http
 
 ## I am an AI — where do I start?
 
-1. [AGENTS.md](AGENTS.md)
-2. [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-3. [SESSION-NAMES.md](SESSION-NAMES.md)
-4. [llms.txt](llms.txt)
+1. [INSTALL.md](INSTALL.md) (install, pair, mcp add, Bot API `:8788`)
+2. [AGENTS.md](AGENTS.md)
+3. [mcp/gbr-mcp/INSTALL.md](mcp/gbr-mcp/INSTALL.md)
+4. [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+5. [SESSION-NAMES.md](SESSION-NAMES.md)
+6. [llms.txt](llms.txt)
 
 This repo is the **desktop agent only** (MIT). Mobile apps are a separate paid product.
 
@@ -59,11 +61,11 @@ Phone Unpair + live roster + Bot API: mobile **1.3.1+**.
 
 ## OpenClaw / Hermes / NemoClaw?
 
-One attach surface: Bot API `127.0.0.1:8788` or `gbr-mcp`. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair is still QR + printed 8-char + `gbr-agent run`. NemoClaw sandboxes *its* agent; GBR stays the host tool.
+One attach surface: Bot API `127.0.0.1:8788` (REST) or stdio `gbr-mcp` (13 tools). Do not register `:8788` as MCP. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair is still **QR or printed 8-char** + `gbr-agent run`. NemoClaw is a **sandbox, not a fourth pair** — GBR stays the host tool. Do not copy `gbr-agent` into the sandbox. MCP add: [mcp/gbr-mcp/INSTALL.md](mcp/gbr-mcp/INSTALL.md) (Claude / Grok CLI / Cursor / Hermes / OpenClaw).
 
 ## Inbox watch (no email paste)
 
-`gbr-agent run` polls GitHub `LinespottingOrg/grok-build-inbox` label `boss-steer` (`gh` on PATH). Matching Grok Build window title → inject newest comment + submit. No window → open `grok`, `/rename` to the title, inject issue body. Reports on the issue are not re-injected. `GBR_INBOX_WATCH=0` disables.
+`gbr-agent run` polls GitHub `LinespottingOrg/grok-build-inbox` label `boss-steer` (`gh` on PATH). Matching Grok Build window title → inject newest comment + submit. No window → two submits: (1) `/rename TITLE` as its **own TUI line**, (2) the issue body with no slash. After the watcher is running, **do not paste** inbox comments. Reports on the issue are not re-injected. `GBR_INBOX_WATCH=0` disables.
 
 ## Do I need a login?
 
@@ -83,7 +85,9 @@ Agent **0.5.0** only advertised six sessions. **0.5.1** publishes a live roster 
 
 ## How do I rename a session?
 
-In Grok Build: `/rename Phone Grok`  
+`/rename` must be its **own submitted TUI line**. Do not put it inside a pasted prompt. Alias `/title`.
+
+In Grok Build (submit this line alone): `/rename Phone Grok`  
 On the PC: `gbr-agent sessions` then `gbr-agent rename -session ID -name "Phone Grok"`
 
 ## Unpair vs Disconnect vs Clear data?
