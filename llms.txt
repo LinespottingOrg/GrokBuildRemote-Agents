@@ -18,9 +18,15 @@ Windows: irm https://grokbuildremote.com/install.ps1 | iex
 Then: gbr-agent version
 
 ## Pair
-gbr-agent pair     # QR in browser — phone scans
+gbr-agent pair     # QR in browser AND printed 8-char code — phone scans or types
 gbr-agent run      # keep running
 Phone: Unpair in Settings before pairing a new mailbox. Force-close is not enough.
+No fourth pair protocol.
+
+## Claw / Hermes / NemoClaw
+Attach only via http://127.0.0.1:8788 or gbr-mcp. Skill: skills/openclaw/SKILL.md
+NemoClaw = sandbox; GBR = host tool.
+Inbox: gbr-agent run watches GitHub boss-steer issues and injects into a matching Grok Build title.
 
 ## Bot API
 Same PC: http://127.0.0.1:8788  (gbr-agent run; gbr-agent bot)

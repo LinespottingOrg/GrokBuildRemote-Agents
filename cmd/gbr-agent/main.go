@@ -123,6 +123,8 @@ func run(args []string) int {
 		return cmdNetcheck(subArgs)
 	case "service":
 		return cmdService(subArgs)
+	case "inbox":
+		return cmdInbox(subArgs)
 	case "help", "-h", "--help":
 		printUsage()
 		return 0
@@ -167,6 +169,9 @@ Usage:
   gbr-agent [-log=info] feedback [status|on|off|expand|compact|interval SEC]
       Minimal text feedback to phone (on/off · 5s|10s|1m|10m|1h · expand).
       Default OFF. Does not change inject behaviour.
+  gbr-agent [-log=info] inbox
+      One-shot dry tick of GitHub boss-steer watch (needs gh on PATH).
+      Live inject runs inside gbr-agent run.
   gbr-agent [-log=info] service install|uninstall|status
       Auto-start in background at login (Windows Task Scheduler / macOS LaunchAgent /
       Linux systemd --user). Pair first, then install so the agent keeps polling.
@@ -181,6 +186,10 @@ Environment:
   GBR_LOG_DIR                   override log directory
   GBR_BOT_PORT                  localhost bot HTTP port (default 8788, 0=off)
   GBR_BOT_REQUIRE_KEY=1         require mailbox key even on 127.0.0.1
+  GBR_INBOX_WATCH=0             disable GitHub boss-steer → inject
+  GBR_INBOX_REPO                default LinespottingOrg/grok-build-inbox
+  GBR_INBOX_LABEL               default boss-steer
+  GBR_INBOX_POLL                default 20s
 
 Device identity: %%USERPROFILE%%\.gbr\device.json
 Sessions rename: %%USERPROFILE%%\.gbr\sessions.json
@@ -412,6 +421,9 @@ Lock file: %s
 
 	// Localhost Bot API for Grok Build / coding agents on this PC.
 	go rt.startBotAPI(ctx, mailboxID, *botPort)
+
+	// GitHub inbox → inject (kills email paste). Needs `gh` on PATH.
+	go rt.inboxLoop(ctx)
 
 	// Main poll loop
 	interval := time.Duration(cfg.PollIntervalSec) * time.Second
