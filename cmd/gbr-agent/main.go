@@ -1311,8 +1311,19 @@ func cmdPair(args []string) int {
 	// Ensure client uses key for the follow-up pair envelope push.
 	rc.SetKey(mbKey)
 
+	ident := collectPairIdent(codeNorm, dev.DeviceName, mailboxID, mbKey)
+
 	// Also push a pair envelope into the mailbox so mobile can observe.
-	payload := grok.PairPayload{PairingCode: codeNorm, DeviceName: dev.DeviceName}
+	payload := grok.PairPayload{
+		PairingCode:  codeNorm,
+		DeviceName:   dev.DeviceName,
+		AgentVersion: ident.Version,
+		SHA256:       ident.SHA256,
+		OS:           ident.OS,
+		Arch:         ident.Arch,
+		Host:         ident.Host,
+		KeyFP:        ident.KeyFP,
+	}
 	env, err := grok.NewEnvelope(grok.TypePair, dev.DeviceID, "", uuid.NewString(), payload)
 	if err != nil {
 		slog.Error("envelope", "err", err)
@@ -1326,11 +1337,8 @@ func cmdPair(args []string) int {
 		return 1
 	}
 
-	deepLink := pairDeepLink(codeNorm, dev.DeviceName)
-	webURL := fmt.Sprintf("%s?code=%s", pairPageBase, codeNorm)
-	if dev.DeviceName != "" {
-		webURL += "&name=" + urlQueryEscape(dev.DeviceName)
-	}
+	deepLink := pairDeepLinkIdent(ident)
+	webURL := pairPageURL(ident)
 
 	fmt.Printf("\n")
 	fmt.Printf("=== PAIR — phone camera scans the QR on this PC ===\n")
@@ -1339,6 +1347,7 @@ func cmdPair(args []string) int {
 	} else {
 		fmt.Printf("code (from -code):       %s\n", codeNorm)
 	}
+	fmt.Print(formatPairIdent(ident))
 	fmt.Printf("deep link:               %s\n", deepLink)
 	fmt.Printf("browser page:            %s\n", webURL)
 	fmt.Printf("\n")
@@ -1348,14 +1357,14 @@ func cmdPair(args []string) int {
 	fmt.Printf("3) Then: gbr-agent run\n")
 	fmt.Printf("\n")
 	fmt.Printf("paired device_id=%s mailbox=%s name=%s\n", dev.DeviceID, mailboxID, dev.DeviceName)
-	fmt.Printf("mailbox_key: set (%d chars)\n", len(mbKey))
+	fmt.Printf("mailbox_key: set (%d chars) — fingerprint %s (key not printed)\n", len(mbKey), ident.KeyFP)
 	fmt.Printf("relay=%s\n", rc.Base())
 	fmt.Printf("device file: %s\n", dev.Path())
-	fmt.Printf("verify: gbr-agent status   # must show mailbox_key: set\n")
+	fmt.Printf("verify: gbr-agent status   # must show mailbox_key: set + binary sha256\n")
 
 	if !*noOpen {
 		// Local HTML always works offline; also try hosted pair.html.
-		if local, err := writeLocalPairHTML(codeNorm, dev.DeviceName, deepLink); err != nil {
+		if local, err := writeLocalPairHTML(codeNorm, dev.DeviceName, deepLink, ident); err != nil {
 			slog.Warn("local pair HTML", "err", err)
 			if err := openBrowser(webURL); err != nil {
 				slog.Warn("open browser", "err", err, "url", webURL)
@@ -1409,7 +1418,7 @@ func urlQueryEscape(s string) string {
 	return r.Replace(s)
 }
 
-func writeLocalPairHTML(code, deviceName, deepLink string) (string, error) {
+func writeLocalPairHTML(code, deviceName, deepLink string, ident pairIdent) (string, error) {
 	png, err := qrcode.Encode(deepLink, qrcode.Medium, 512)
 	if err != nil {
 		return "", err
@@ -1419,6 +1428,19 @@ func writeLocalPairHTML(code, deviceName, deepLink string) (string, error) {
 	if deviceName != "" {
 		title = "Scan to pair · " + deviceName
 	}
+	idBits := ""
+	if ident.Version != "" {
+		idBits += fmt.Sprintf("<p class=\"m\">gbr-agent <b>%s</b> · %s/%s</p>", htmlEscape(ident.Version), htmlEscape(ident.OS), htmlEscape(ident.Arch))
+	}
+	if ident.SHA256 != "" {
+		idBits += fmt.Sprintf("<p class=\"p\">sha256 %s</p>", htmlEscape(ident.SHA256))
+	}
+	if ident.Host != "" {
+		idBits += fmt.Sprintf("<p class=\"m\">host %s</p>", htmlEscape(ident.Host))
+	}
+	if ident.KeyFP != "" {
+		idBits += fmt.Sprintf("<p class=\"m\">pair-key fingerprint <b>%s</b> (not the key)</p>", htmlEscape(ident.KeyFP))
+	}
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -1426,7 +1448,7 @@ func writeLocalPairHTML(code, deviceName, deepLink string) (string, error) {
 <style>
 body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
 font-family:ui-monospace,Menlo,Consolas,monospace;background:#020402;color:#3dff7a}
-.card{max-width:420px;padding:28px;border:1px solid #1a3a22;border-radius:16px;background:#081208;text-align:center}
+.card{max-width:440px;padding:28px;border:1px solid #1a3a22;border-radius:16px;background:#081208;text-align:center}
 h1{font-size:1.15rem;margin:0 0 8px} .m{color:#6a9a78;font-size:.85rem;line-height:1.45}
 .code{font-size:2rem;font-weight:800;letter-spacing:.12em;margin:16px 0 8px}
 img{background:#fff;padding:12px;border-radius:12px;width:260px;height:260px}
@@ -1436,10 +1458,11 @@ img{background:#fff;padding:12px;border-radius:12px;width:260px;height:260px}
 <p class="m">Open the mobile app → <b>Scan QR</b>. Point the <b>phone camera</b> at this window.</p>
 <img alt="pair QR" src="data:image/png;base64,%s"/>
 <div class="code">%s</div>
+%s
 <p class="p">%s</p>
 <p class="m">Then on this PC: <b>gbr-agent run</b></p>
 </div></body></html>`,
-		htmlEscape(title), htmlEscape(title), b64, htmlEscape(code), htmlEscape(deepLink))
+		htmlEscape(title), htmlEscape(title), b64, htmlEscape(code), idBits, htmlEscape(deepLink))
 
 	dir := filepath.Join(os.TempDir(), "gbr-pair")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -1590,8 +1613,11 @@ func cmdStatus(args []string) int {
 	fmt.Printf("device_id:   %s\n", dev.DeviceID)
 	fmt.Printf("device_name: %s\n", dev.DeviceName)
 	fmt.Printf("mailbox:     %s\n", dev.MailboxConversationID)
+	if sha := runningBinarySHA256(); sha != "" {
+		fmt.Printf("binary_sha256: %s\n", sha)
+	}
 	if dev.MailboxKey != "" {
-		fmt.Printf("mailbox_key: set (%d chars) — requests authenticated\n", len(dev.MailboxKey))
+		fmt.Printf("mailbox_key: set (%d chars) — fingerprint %s — requests authenticated\n", len(dev.MailboxKey), keyFingerprint(dev.MailboxKey))
 	} else {
 		fmt.Printf("mailbox_key: NOT SET — unauthenticated; re-pair to obtain one\n")
 	}
