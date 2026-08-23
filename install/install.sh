@@ -113,6 +113,67 @@ download() {
   fi
 }
 
+file_sha256() {
+  local f="$1" h=""
+  if command -v sha256sum >/dev/null 2>&1; then
+    h="$(sha256sum "$f" | awk '{print $1}')"
+  elif command -v shasum >/dev/null 2>&1; then
+    h="$(shasum -a 256 "$f" | awk '{print $1}')"
+  elif command -v openssl >/dev/null 2>&1; then
+    h="$(openssl dgst -sha256 "$f" | awk '{print $NF}')"
+  else
+    die "need sha256sum, shasum, or openssl to verify the download"
+  fi
+  printf '%s' "$h" | tr 'A-F' 'a-f'
+}
+
+expected_sha256() {
+  local sums="$1" asset="$2"
+  awk -v a="$asset" '
+    NF>=2 {
+      h=$1; n=$2
+      sub(/^\*/, "", n)
+      if (n==a) { print h; exit }
+    }
+    NF==1 && length($1)==64 { print $1; exit }
+  ' "$sums" | tr 'A-F' 'a-f'
+}
+
+sums_url_for() {
+  local url="$1"
+  echo "${url%/*}/SHA256SUMS"
+}
+
+sidecar_url_for() {
+  local url="$1"
+  echo "${url}.sha256"
+}
+
+verify_download() {
+  local bin="$1" asset="$2" url="$3"
+  local dir sums sidecar want got base
+  dir="$(dirname "$bin")"
+  sums="${dir}/SHA256SUMS"
+  sidecar="${bin}.sha256"
+  want=""
+  if download "$(sums_url_for "$url")" "$sums" 2>/dev/null; then
+    want="$(expected_sha256 "$sums" "$asset")"
+  fi
+  if [[ -z "$want" ]] && download "$(sidecar_url_for "$url")" "$sidecar" 2>/dev/null; then
+    want="$(expected_sha256 "$sidecar" "$asset")"
+  fi
+  [[ -n "$want" ]] || die "no SHA-256 for ${asset} (need SHA256SUMS next to the binary)"
+  [[ "$want" =~ ^[0-9a-f]{64}$ ]] || die "malformed checksum for ${asset}"
+  got="$(file_sha256 "$bin")"
+  if [[ "$got" != "$want" ]]; then
+    die "SHA-256 mismatch for ${asset}
+    expected ${want}
+    got      ${got}
+    url      ${url}"
+  fi
+  ok "checksum ok ${got}"
+}
+
 install_binary() {
   local src="$1" dest_dir="$2" dest_name="$3"
   mkdir -p "$dest_dir"
@@ -198,6 +259,7 @@ Free binaries: product website + Microsoft Store (planned). Source repo is priva
 
   # Basic sanity: non-empty file
   [[ -s "$dl" ]] || die "downloaded file is empty"
+  verify_download "$dl" "$asset" "$url"
 
   local dest_name="$BINARY"
   [[ "$os" == "windows" ]] && dest_name="${BINARY}.exe"

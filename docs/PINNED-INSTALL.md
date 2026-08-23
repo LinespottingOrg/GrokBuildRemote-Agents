@@ -1,6 +1,8 @@
 # Pinned install (checksum)
 
-Canonical install is a **GitHub Release asset + SHA-256**, not a pipe-to-shell. Release **v0.6.0**:
+Canonical install is a **GitHub Release asset + SHA-256**, not an unverified pipe-to-shell.
+
+Website one-liners (`install.sh` / `install.ps1`) **download SHA256SUMS and refuse to install on mismatch**. Release **v0.6.0**:
 
 https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
 
@@ -51,4 +53,4 @@ Get-Content .\gbr-agent-windows-amd64.exe.sha256
 # hashes must match; then copy to %LOCALAPPDATA%\GrokBuildRemote\
 ```
 
-Convenience one-liners (`install.sh` / `install.ps1`) still exist on the website. They are **not** what to paste into someone else’s official docs. Third-party READMEs should link this file or the Release page.
+Website one-liners still exist; they now **verify SHA-256 before install**. They are still not what to paste into someone else’s official docs — link this file or the Release page instead.

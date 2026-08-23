@@ -82,11 +82,12 @@ $env:CGO_ENABLED = "0"
 
 Write-Host "==> checksums"
 $sumsPath = Join-Path $OutDir "SHA256SUMS"
-$files = Get-ChildItem -Path $OutDir -File | Where-Object { $_.Name -like "$Binary-*" }
+$files = Get-ChildItem -Path $OutDir -File | Where-Object { $_.Name -like "$Binary-*" -and $_.Extension -ne ".sha256" }
 $lines = foreach ($f in $files) {
     $hash = (Get-FileHash -Algorithm SHA256 -Path $f.FullName).Hash.ToLowerInvariant()
+    Set-Content -Path ($f.FullName + ".sha256") -Value $hash -Encoding ascii -NoNewline
     "{0}  {1}" -f $hash, $f.Name
 }
-$lines | Set-Content -Path $sumsPath -Encoding utf8
+$lines | Set-Content -Path $sumsPath -Encoding ascii
 Get-ChildItem $OutDir | Format-Table Name, Length -AutoSize
 Write-Host "==> done -> $OutDir"
