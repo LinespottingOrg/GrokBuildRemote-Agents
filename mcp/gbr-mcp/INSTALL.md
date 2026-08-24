@@ -23,7 +23,7 @@ Pin the agent installer (do not pipe the live website): [docs/PINNED-INSTALL.md]
 
 **bash (macOS / Linux):**
 ```
-VER=v0.6.0
+VER=v0.6.2
 BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
 SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
 curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
@@ -35,7 +35,7 @@ bash /tmp/gbr-install.sh
 ```
 $sha = "b604a21b5dae5a874487a597778d15742b3c2afb2470c93a8e8ba0a76e486cdf"
 $i = Join-Path $env:TEMP "gbr-install.ps1"
-Invoke-WebRequest "https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.0/install.ps1" -OutFile $i
+Invoke-WebRequest "https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.2/install.ps1" -OutFile $i
 if ((Get-FileHash $i -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sha) { throw "checksum" }
 & $i
 ```
@@ -92,7 +92,7 @@ Hermes / OpenClaw / NemoClaw: stdio `node bin/gbr-mcp.js`. Do not register `http
 cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
 ```
 
-There is **no npm package**. Always run from this clone. Pin source tag **v0.6.1** (inbox + claw skill); published agent binaries stay **v0.6.0+**.
+There is **no npm package**. Always run from this clone. Pin source tag **v0.6.2**.
 
 ## mcp add (Claude / Grok CLI / Cursor / Hermes / OpenClaw)
 

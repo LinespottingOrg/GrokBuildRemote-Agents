@@ -90,7 +90,7 @@ describe compatibility with the user's own locally installed Grok Build CLI.
 ### macOS / Linux (pinned)
 
 ```bash
-VER=v0.6.0
+VER=v0.6.2
 BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
 SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
 curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
@@ -101,7 +101,7 @@ bash /tmp/gbr-install.sh
 ### Windows PowerShell (pinned)
 
 ```powershell
-$ver = "v0.6.0"
+$ver = "v0.6.2"
 $sha = "b604a21b5dae5a874487a597778d15742b3c2afb2470c93a8e8ba0a76e486cdf"
 $base = "https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$ver"
 $i = Join-Path $env:TEMP "gbr-install.ps1"
@@ -113,7 +113,7 @@ if ((Get-FileHash $i -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sha) { thro
 ### From source
 
 ```bash
-git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents
 # build per Makefile / go build in cmd/
 ```

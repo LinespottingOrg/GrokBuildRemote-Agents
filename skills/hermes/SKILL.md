@@ -19,7 +19,7 @@ through Build Remote Agent. Protocol `gbr/1`.
 
 ```bash
 # pin installer — https://grokbuildremote.com/PINNED-INSTALL.md
-gbr-agent version          # v0.6.0+
+gbr-agent version          # v0.6.2
 gbr-agent pair && gbr-agent run
 export GBR_BOT_REQUIRE_KEY=1
 bash /path/to/GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh

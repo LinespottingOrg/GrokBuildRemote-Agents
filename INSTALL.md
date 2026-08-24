@@ -72,7 +72,7 @@ NemoClaw is a **sandbox**, not a fourth pair. GBR stays the **host** tool (`gbr-
 
 ## 3. MCP add (`gbr-mcp` · 13 tools)
 
-Clone this repo (pin **v0.6.1** for skill/inbox docs; binaries stay v0.6.0+):
+Clone this repo (pin **v0.6.2**):
 
 ```bash
 git clone --branch v0.6.1 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git

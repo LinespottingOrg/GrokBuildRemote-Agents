@@ -27,7 +27,7 @@ Independent product by Linespotting AB. Not affiliated with xAI or SpaceX.
 Install from a **pinned GitHub Release + SHA-256** ([docs/PINNED-INSTALL.md](../../docs/PINNED-INSTALL.md)). Then:
 
 ```bash
-gbr-agent version    # need v0.6.0+
+gbr-agent version    # need v0.6.2
 gbr-agent pair && gbr-agent run
 ```
 

@@ -10,14 +10,14 @@ Google Play: https://play.google.com/store/apps/details?id=com.grokbuildremote.a
 Support: https://grokbuildremote.com/support
 Ecosystem FAQ: https://grokbuildremote.com/#faq-ecosystem
 Repo: https://github.com/LinespottingOrg/GrokBuildRemote-Agents
-Release (binaries): https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
+Release (binaries): https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.2
 Source/docs tag: v0.6.1 (inbox watch + claw skill + INSTALL.md)
 Relay: https://gbr-relay.ekobrott.workers.dev/health  (live version 0.6.0; bot:true, fleet:true, classes)
-Current binaries/train: v0.6.0+ (pin v0.6.0)
+Current binaries/train: v0.6.2 (immutable pin)
 
 ## Install
 AIs: INSTALL.md (install, pair, mcp add, Bot API :8788).
-Preferred binaries: docs/PINNED-INSTALL.md (GitHub Release v0.6.0 + SHA256SUMS). Convenience one-liners on the website are not for other repos' official docs.
+Preferred binaries: docs/PINNED-INSTALL.md (GitHub Release v0.6.2 + hard-coded SHA-256). Convenience one-liners on the website are not for other repos' official docs.
 Then: gbr-agent version
 
 ## What the phone sees

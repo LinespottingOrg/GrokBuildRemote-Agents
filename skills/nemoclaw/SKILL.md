@@ -19,7 +19,7 @@ NemoClaw sandboxes **its** agent. Build Remote Agent is the **host** tool.
 ```bash
 gbr-agent pair && gbr-agent run     # keep on the Mac/PC, not in the sandbox
 export GBR_BOT_REQUIRE_KEY=1
-bash scripts/setup-gbr-mcp.sh       # pins gbr-mcp @ v0.6.0 under ~/.gbr/gbr-mcp-src
+bash scripts/setup-gbr-mcp.sh       # pins gbr-mcp @ v0.6.2 under ~/.gbr/gbr-mcp-src
 ```
 
 Point NemoClaw at **host** stdio `node ~/.gbr/gbr-mcp-src/mcp/gbr-mcp/bin/gbr-mcp.js`
