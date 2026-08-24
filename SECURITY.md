@@ -17,7 +17,7 @@ Canonical index (FAQ + GitHub + trust): https://grokbuildremote.com/integrations
 | Surface | Bind | Auth |
 |---------|------|------|
 | Bot API on this PC | `http://127.0.0.1:8788` after `gbr-agent run` | **Unauthenticated by default.** Set `GBR_BOT_REQUIRE_KEY=1` to require the mailbox key even on loopback. |
-| HTTPS relay | `https://gbr-relay.ekobrott.workers.dev/v1/mb/{id}/bot` | **Always** `X-GBR-Key` or `Authorization: Bearer` |
+| HTTPS relay | `https://gbr-relay.ekobrott.workers.dev/v1/mb/{id}/…` | `X-GBR-Key` (or Bearer) on **push / poll / ack / Bot API**. `POST /v1/mb/:id/pair` is **unauthenticated** and throttled (12/hour/mailbox) — that is where the key is issued. See [relay/README.md](relay/README.md). |
 | MCP stdio | `gbr-mcp` on the same machine | Local process; still talks to loopback `:8788` |
 
 “Attach only loopback / stdio” is not the whole story. Anyone local on that PC can inject unless `GBR_BOT_REQUIRE_KEY=1`. Details: [docs/BOT-API.md](docs/BOT-API.md).

@@ -89,7 +89,7 @@ Plugins / SECURITY / AEO / PINNED-INSTALL live in that repo. Mobile apps are a s
 
 ## Is the Bot API on 127.0.0.1 authenticated?
 
-**No, not by default.** Loopback `http://127.0.0.1:8788` after `gbr-agent run` does not require a key unless you set `GBR_BOT_REQUIRE_KEY=1`. Anyone local on that PC can `POST /v1/inject`. The HTTPS relay always requires `X-GBR-Key` or `Authorization: Bearer`.
+**No, not by default.** Loopback `http://127.0.0.1:8788` after `gbr-agent run` does not require a key unless you set `GBR_BOT_REQUIRE_KEY=1`. Anyone local on that PC can `POST /v1/inject`. On the HTTPS relay, `POST /v1/mb/:id/pair` is unauthenticated and throttled because it issues the key; push, poll, ack, and Bot API require `X-GBR-Key` or `Authorization: Bearer`.
 
 ## Can the Bot API type into my coding-agent sessions?
 
@@ -97,7 +97,7 @@ Yes. `POST /v1/inject` types arbitrary text into listed terminal windows and can
 
 ## How does attach work?
 
-After `gbr-agent run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. Phone is spectator + veto, not orchestrator. Harden loopback with `GBR_BOT_REQUIRE_KEY=1`. Never commit mailbox keys.
+After `gbr-agent run`: Bot API `http://127.0.0.1:8788` or MCP stdio `gbr-mcp`. The paired app can inject into listed host TTYs (remote-control client; keep the host-keyboard warning). Device class `phone` is not an inject target. Harden loopback with `GBR_BOT_REQUIRE_KEY=1`. Never commit mailbox keys.
 
 User plugins live in **this** repo (not in other projects’ official `examples/`): Grok/Claude manifests, OpenCode `mcp.servers`, AiderDesk extension under `~/.aider-desk/extensions/gbr-pair`.
 
@@ -107,4 +107,4 @@ Build Remote Agent is a third-party product. Other maintainers own their docs. O
 
 ## Does it replace LAN remotes / mobilerun / Tailscale?
 
-No. Amnibro `:2421`, Farina `:7910`, ChrisP `:8787` stay LAN/Tailscale UIs. mobilerun / agent-device **drive** a phone as a robot. Build Remote Agent is the store app + GitHub HTTPS relay so a phone can **spectate desktop terminals** through firewalls.
+No. Amnibro `:2421`, Farina `:7910`, ChrisP `:8787` stay LAN/Tailscale UIs. mobilerun / agent-device **drive** a phone as a robot. Build Remote Agent is the store app + GitHub HTTPS relay so a phone can **list and inject desktop terminals** through firewalls (host-keyboard authority).
