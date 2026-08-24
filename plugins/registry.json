@@ -92,6 +92,13 @@
       "path": "skills/qa/SKILL.md",
       "docs": "docs/USE-CASE-MULTI-AGENT-QA.md",
       "note": "Grok multi-agent QA until gbr_tasks done. Agent+relay free. Pin v0.6.2."
+    },
+    {
+      "id": "password-managers-host-cli",
+      "kind": "skill",
+      "path": "skills/password-managers/SKILL.md",
+      "docs": "docs/PASSWORD-MANAGERS.md",
+      "phone": "never. Host op/lpass after pair. Not a pair protocol."
     }
   ]
 }

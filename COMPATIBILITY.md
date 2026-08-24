@@ -60,4 +60,5 @@ Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release *
 | Headless OpenCode / CodeNomad | MCP on the desktop agent; phone still needs a TTY |
 | CodeNomad + Grok Build CLI | Worked example: [docs/USE-CASE-CODENOMAD.md](docs/USE-CASE-CODENOMAD.md) — `grok` in a native terminal; CodeNomad stays the cockpit |
 | Grok multi-agent QA | [docs/USE-CASE-MULTI-AGENT-QA.md](docs/USE-CASE-MULTI-AGENT-QA.md). Agent + relay free. |
+| Host password CLIs (`op`, `lpass`) | **Not a pair.** [docs/PASSWORD-MANAGERS.md](docs/PASSWORD-MANAGERS.md) |
 | Mobile GUI (mobilerun, agent-device) | Different job — they drive a phone as a robot |
