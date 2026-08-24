@@ -41,7 +41,12 @@
     {
       "id": "codex-plugin-manifest",
       "kind": "codex-plugin",
-      "path": ".codex-plugin/plugin.json"
+      "path": ".codex-plugin/plugin.json",
+      "role": "scanner-ready-catalog",
+      "core": false,
+      "not": "openai/codex",
+      "howto": "plugins/codex/README.md",
+      "pin": "v0.6.2"
     },
     {
       "id": "goose-skill",
@@ -80,6 +85,13 @@
       "kind": "nemoclaw-host-mcp",
       "path": "plugins/nemoclaw/mcp.json",
       "note": "host only — not inside OpenShell"
+    },
+    {
+      "id": "multi-agent-qa",
+      "kind": "skill",
+      "path": "skills/qa/SKILL.md",
+      "docs": "docs/USE-CASE-MULTI-AGENT-QA.md",
+      "note": "Grok multi-agent QA until gbr_tasks done. Agent+relay free. Pin v0.6.2."
     }
   ]
 }

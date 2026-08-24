@@ -44,9 +44,12 @@ Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release *
 |------|----------------|
 | Grok Build | `.grok-plugin/` |
 | Claude Code | `.claude-plugin/` |
+| Codex CLI / ChatGPT | `.codex-plugin/` — catalog here, **not** Codex core. [plugins/codex/README.md](plugins/codex/README.md) |
 | OpenCode V2 | `plugins/opencode/mcp.servers.json` |
 | AiderDesk | `plugins/aider-desk/` → `~/.aider-desk/extensions/gbr-pair` |
-| Any MCP | `mcp/gbr-mcp` |
+| Goose | [skills/goose/SKILL.md](skills/goose/SKILL.md) |
+| Cline | [skills/cline/SKILL.md](skills/cline/SKILL.md) |
+| Any MCP | `mcp/gbr-mcp` — [skills/gbr-mcp/SKILL.md](skills/gbr-mcp/SKILL.md), pin v0.6.2 |
 
 ## Compatible hosts
 
@@ -56,4 +59,5 @@ Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release *
 | Grok remotes Amnibro/Farina/ChrisP | Companions on loopback; not a substitute for pairing |
 | Headless OpenCode / CodeNomad | MCP on the desktop agent; phone still needs a TTY |
 | CodeNomad + Grok Build CLI | Worked example: [docs/USE-CASE-CODENOMAD.md](docs/USE-CASE-CODENOMAD.md) — `grok` in a native terminal; CodeNomad stays the cockpit |
+| Grok multi-agent QA | [docs/USE-CASE-MULTI-AGENT-QA.md](docs/USE-CASE-MULTI-AGENT-QA.md). Agent + relay free. |
 | Mobile GUI (mobilerun, agent-device) | Different job — they drive a phone as a robot |
