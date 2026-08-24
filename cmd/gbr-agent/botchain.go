@@ -82,6 +82,16 @@ func (s *botServer) handleOpen(w http.ResponseWriter, r *http.Request) {
 		Holder:    body.Holder,
 	})
 	if err != nil {
+		if errors.Is(err, inject.ErrSpawnLimit) {
+			writeJSON(w, http.StatusTooManyRequests, map[string]any{
+				"ok":     false,
+				"error":  "spawn_limit",
+				"limit":  inject.MaxAutoOpen,
+				"hint":   "auto-open capped at 3 Grok consoles / 10 min — attach an existing session, do not spawn another popup",
+				"detail": err.Error(),
+			})
+			return
+		}
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}

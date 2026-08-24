@@ -23,6 +23,7 @@ type Hybrid struct {
 
 	mu      sync.Mutex
 	windows map[string]windowSess
+	spawns  *spawnGuard
 }
 
 // NewHybrid builds a hybrid injector. ui may be nil (PTY-only).
@@ -35,6 +36,7 @@ func NewHybrid(ui Injector, pty *Manager) *Hybrid {
 		PTY:     pty,
 		log:     slog.Default(),
 		windows: make(map[string]windowSess),
+		spawns:  newSpawnGuard(),
 	}
 }
 
@@ -229,6 +231,10 @@ func (h *Hybrid) ManagedIDs() []string {
 
 // OpenOrAttach starts grok (or a shell) so inject can actually type.
 // On Windows, grok is ConPTY (real TTY) or a visible console window — never a dead pipe.
+//
+// Anti-spam: empty session_id attaches an already-open Grok window instead of
+// spawning. Auto CREATE_NEW_CONSOLE is hard-capped at MaxAutoOpen (3) per
+// AutoOpenWindow — a retry loop used to lock the PC under popup consoles.
 func (h *Hybrid) OpenOrAttach(req OpenRequest) (OpenResult, error) {
 	if h == nil {
 		return OpenResult{}, fmt.Errorf("open: no session manager")
@@ -252,12 +258,34 @@ func (h *Hybrid) OpenOrAttach(req OpenRequest) (OpenResult, error) {
 	wantGrok := cmdName == "" || cmdName == "grok" || cmdName == "grok-build"
 
 	if wantGrok {
-		// Windows: a real console window so SendInput reaches the TUI.
-		// Pipe/ConPTY fallback is the original bug (splash captured, keys ignored).
+		// Phone/Bot diagnose with no session_id: never spawn a second console.
+		if sid == "" {
+			if att, ok := h.attachExistingGrok(req); ok {
+				return att, nil
+			}
+		}
+
+		if runtime.GOOS == "windows" && h.UI != nil {
+			if err := h.spawns.allow(); err != nil {
+				if att, ok := h.attachExistingGrok(req); ok {
+					att.Note = "spawn cap 3 — attached existing instead of opening another window"
+					return att, nil
+				}
+				h.log.Warn("auto-spawn refused", "limit", MaxAutoOpen, "err", err)
+				return OpenResult{}, err
+			}
+			wres, werr := h.openGrokWindow(req)
+			if werr != nil {
+				return OpenResult{}, fmt.Errorf("open grok window: %w", werr)
+			}
+			h.spawns.record(wres.PID)
+			n, _ := h.spawns.used()
+			h.log.Info("auto-spawn grok window", "pid", wres.PID, "session", wres.SessionID, "used", fmt.Sprintf("%d/%d", n, MaxAutoOpen))
+			return wres, nil
+		}
+
 		if wres, werr := h.openGrokWindow(req); werr == nil {
 			return wres, nil
-		} else if runtime.GOOS == "windows" && h.UI != nil {
-			return OpenResult{}, fmt.Errorf("open grok window: %w", werr)
 		} else if h.PTY != nil {
 			res, err := h.PTY.OpenOrAttach(req)
 			if err == nil {
@@ -273,6 +301,62 @@ func (h *Hybrid) OpenOrAttach(req OpenRequest) (OpenResult, error) {
 		return h.PTY.OpenOrAttach(req)
 	}
 	return OpenResult{}, fmt.Errorf("open: no session manager")
+}
+
+func isGrokBuildWindow(w TerminalWindow) bool {
+	if w.HWND == 0 || IsProtectedTitle(w.Title) {
+		return false
+	}
+	if w.Kind == KindGrokBuild {
+		return true
+	}
+	return containsFold(w.Title, "grok") || containsFold(w.ExeName, "grok")
+}
+
+// attachExistingGrok binds an already-visible Grok Build console. No CreateProcess.
+func (h *Hybrid) attachExistingGrok(req OpenRequest) (OpenResult, bool) {
+	if h == nil || h.UI == nil {
+		return OpenResult{}, false
+	}
+	wins, err := h.UI.Discover()
+	if err != nil || len(wins) == 0 {
+		return OpenResult{}, false
+	}
+	var chosen TerminalWindow
+	want := sanitizeOpenID(req.SessionID)
+	for _, w := range wins {
+		if !isGrokBuildWindow(w) {
+			continue
+		}
+		if want != "" && (containsFold(w.Title, want) || containsFold(w.ExeName, want)) {
+			chosen = w
+			break
+		}
+		if chosen.HWND == 0 {
+			chosen = w
+		}
+	}
+	if chosen.HWND == 0 {
+		return OpenResult{}, false
+	}
+	sid := want
+	if sid == "" {
+		sid = newOpenSessionID(req.Resume)
+	}
+	if err := h.UI.Bind(sid, chosen); err != nil {
+		return OpenResult{}, false
+	}
+	h.rememberWindow(sid, int(chosen.PID), chosen.HWND)
+	return OpenResult{
+		SessionID: sid,
+		Attached:  true,
+		Method:    "window",
+		Command:   "grok",
+		CWD:       resolveOpenCWD(req.CWD),
+		PID:       int(chosen.PID),
+		HWND:      chosen.HWND,
+		Note:      "attached existing Grok Build window — did not spawn",
+	}, true
 }
 
 func (h *Hybrid) waitReady(sessionID string, timeout time.Duration) {
