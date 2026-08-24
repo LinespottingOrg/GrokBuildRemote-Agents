@@ -24,7 +24,7 @@ The phone lists **terminal windows** (iTerm, Windows Terminal, gnome-terminal, �
 
 ## Walkthrough (Grok Build CLI)
 
-1. Pin and checksum `gbr-agent` **v0.6.0** — [PINNED-INSTALL.md](PINNED-INSTALL.md). Do not paste live `curl | bash` into CodeNomad docs.
+1. Pin and checksum `gbr-agent` **v0.6.2** — [PINNED-INSTALL.md](PINNED-INSTALL.md). Do not paste live `curl | bash` into CodeNomad docs.
 2. PC: `gbr-agent pair` then `gbr-agent run` (keep it running). Scan the QR with **Build Remote Agent**.
 3. Open a **real terminal** on the same PC (not a CodeNomad SideCar tab).
 4. In that terminal, run Grok Build CLI:

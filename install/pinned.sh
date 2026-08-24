@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Verify the tagged installer, then run it.
-# Copy this file from a git tag (v0.6.0) or from docs/PINNED-INSTALL.md.
+# Copy this file from a git tag (v0.6.2) or from docs/PINNED-INSTALL.md.
 # Do not curl the live website as the trust root.
 set -euo pipefail
-VER="${GBR_VERSION:-v0.6.0}"
-SHA="${GBR_INSTALLER_SHA256:-0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301}"
+VER="${GBR_VERSION:-v0.6.2}"
+SHA="${GBR_INSTALLER_SHA256:-f91ce49afbc21ac51ccf8b69b95ee407ff2d8a60926e2868bb192bb03eca796d}"
 REPO="${GBR_REPO:-LinespottingOrg/GrokBuildRemote-Agents}"
 BASE="https://github.com/${REPO}/releases/download/${VER}"
 tmp="$(mktemp "${TMPDIR:-/tmp}/gbr-install.XXXXXX.sh")"

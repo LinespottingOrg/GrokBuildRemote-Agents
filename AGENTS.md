@@ -12,7 +12,7 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 | **Install** | [INSTALL.md](INSTALL.md) · pin GitHub Release + SHA-256 — [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) |
 | **Support** | https://grokbuildremote.com/support |
 | **Relay (production)** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · expect `/health` `version: 0.6.0` · Bot API `/v1/mb/:id/bot` |
-| **Current agent** | **v0.6.0+** (device classes · Bot API `127.0.0.1:8788` + `gbr-mcp` · inbox watch `boss-steer`) |
+| **Current agent** | **v0.6.2** pin (device classes · Bot API `127.0.0.1:8788` + `gbr-mcp` · inbox watch `boss-steer`). Leave v0.6.0 / v0.6.1 frozen. |
 | **Mobile apps** | Separate private product. iOS/Android store name **Build Remote Agent**. Not in this repo. |
 
 Do **not** invent a second code root. Official agent source is this GitHub repo (or the Dropbox workfolder `APPAR/Grok Build Remote/agents/` for LineSpotting machines).
@@ -28,26 +28,26 @@ Live `curl | bash` of grokbuildremote.com is mutable. Recipe: [docs/PINNED-INSTA
 
 ```bash
 # macOS / Linux
-VER=v0.6.0
+VER=v0.6.2
 BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
-SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
+SHA=f91ce49afbc21ac51ccf8b69b95ee407ff2d8a60926e2868bb192bb03eca796d
 curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
 echo "$SHA  /tmp/gbr-install.sh" | shasum -a 256 -c -
 bash /tmp/gbr-install.sh
-gbr-agent version    # must print v0.6.0 or newer
+gbr-agent version    # must print v0.6.2
 ```
 
 From this repo (pin the tag):
 
 ```bash
-git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents
 make build          # → dist/gbr-agent
 # or
-VERSION=v0.6.0 ./scripts/build-all.sh
+VERSION=v0.6.2 ./scripts/build-all.sh
 ```
 
-GitHub Releases: tagged `v*`. Website `latest` + **v0.6.0** binaries are the install source of truth. Source/docs/inbox/claw skill: tag **v0.6.1**. Short path for AIs: [INSTALL.md](INSTALL.md) (install, pair, `mcp add`, Bot API `:8788`).
+GitHub Releases: tagged `v*`. Pin **v0.6.2** (immutable). Do not mutate v0.6.0 or v0.6.1. Short path for AIs: [INSTALL.md](INSTALL.md) (install, pair, `mcp add`, Bot API `:8788`).
 
 ---
 

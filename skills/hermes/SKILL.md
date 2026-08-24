@@ -38,4 +38,4 @@ bash /path/to/GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh
 
 Phone (if paired) lists that Grok Build window. Do not expect Hermes UI on the phone.
 
-Pin clone: `git clone --branch v0.6.0 --depth 1` — never default-branch + `npm install`.
+Pin clone: `git clone --branch v0.6.2 --depth 1` — never default-branch + `npm install`.

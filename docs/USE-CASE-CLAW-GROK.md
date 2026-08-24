@@ -20,6 +20,6 @@ Phone (optional) spectates that grok window after pair
 | OpenClaw | Skill + same stdio MCP. ClawHub publish is human login. OpenClaw *phone* pair ≠ `gbr/1`. |
 | NemoClaw | MCP / Bot API on the **host**. Not inside OpenShell. |
 
-Setup: `scripts/setup-gbr-mcp.sh` (pins tag v0.6.0). Skills: `skills/hermes`, `skills/openclaw`, `skills/nemoclaw`.
+Setup: `scripts/setup-gbr-mcp.sh` (pins tag v0.6.2). Skills: `skills/hermes`, `skills/openclaw`, `skills/nemoclaw`.
 
 `:8788` = Bot API REST. MCP = stdio `gbr-mcp`. Mixing them is why attach “doesn’t work”.

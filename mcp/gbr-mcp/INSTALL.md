@@ -75,7 +75,7 @@ cd ~ && curl -sS http://127.0.0.1:8788/v1/status
 Pin the repo tag (not default branch):
 
 ```
-git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 bash GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh
 ```
 

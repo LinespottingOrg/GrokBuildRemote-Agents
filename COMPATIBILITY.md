@@ -36,7 +36,7 @@ Phone is spectator + veto. Never put `mailbox_key` in git.
 
 ## Install (pinned)
 
-Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release **v0.6.0** + `SHA256SUMS`. Do not paste `curl | bash` into other projects’ official docs.
+Canonical: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md) — GitHub Release **v0.6.2** + hard-coded SHA-256. Do not mutate v0.6.0 / v0.6.1. Do not paste `curl | bash` into other projects’ official docs.
 
 ## Plugins (this repo is the registry)
 

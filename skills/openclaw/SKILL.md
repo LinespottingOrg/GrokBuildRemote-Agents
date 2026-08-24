@@ -18,7 +18,7 @@ Independent Linespotting AB. Not affiliated with OpenClaw, Hermes, NVIDIA, xAI, 
 
 ## Pair (phone spectator — optional, same mailbox)
 
-1. Pin `gbr-agent` v0.6.0 — https://grokbuildremote.com/PINNED-INSTALL.md
+1. Pin `gbr-agent` v0.6.2 — https://grokbuildremote.com/PINNED-INSTALL.md
 2. PC: `gbr-agent pair` then `gbr-agent run` (keep running).
 3. Phone: Build Remote Agent → scan QR.
 4. OpenClaw **device-pair** (LAN/Bonjour) is a **different** protocol. Do not mix with `gbr/1`.
@@ -41,7 +41,7 @@ bash scripts/setup-gbr-mcp.sh
 # hermes mcp add gbr -- stdio -- node $HOME/.gbr/gbr-mcp-src/mcp/gbr-mcp/bin/gbr-mcp.js
 ```
 
-Pin: `git clone --branch v0.6.0 --depth 1` if you clone by hand. Never default branch + `npm install`.
+Pin: `git clone --branch v0.6.2 --depth 1` if you clone by hand. Never default branch + `npm install`.
 
 ## Loop — this is what makes grok work
 

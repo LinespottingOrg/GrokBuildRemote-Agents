@@ -6,31 +6,31 @@ AIs: also read [AGENTS.md](AGENTS.md), [TROUBLESHOOTING.md](TROUBLESHOOTING.md),
 
 ## How do I install the desktop agent?
 
-Current binaries/train are **v0.6.0** ([GitHub Release v0.6.0](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0)). Device classes (`phone` | `linux` | `pc` | `laptop` | `mac_mini`) and a companion-remote health watchdog.
+Current binaries/train are **v0.6.2** ([GitHub Release v0.6.2](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.2)). Do not mutate v0.6.0 / v0.6.1. Device classes (`phone` | `linux` | `pc` | `laptop` | `mac_mini`) and a companion-remote health watchdog.
 
 Pin the **installer** (mutable website `curl | bash` is not the trust root): [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md).
 
 ```bash
-VER=v0.6.0
+VER=v0.6.2
 BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
-SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
+SHA=f91ce49afbc21ac51ccf8b69b95ee407ff2d8a60926e2868bb192bb03eca796d
 curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
 echo "$SHA  /tmp/gbr-install.sh" | shasum -a 256 -c -
 bash /tmp/gbr-install.sh
-gbr-agent version    # must print v0.6.0+
+gbr-agent version    # must print v0.6.2
 ```
 
 Windows:
 
 ```powershell
-$sha = "b604a21b5dae5a874487a597778d15742b3c2afb2470c93a8e8ba0a76e486cdf"
+$sha = "572e7008400d16e7b666ba42b6fcd81ef03c0ab45190a1151f09f6d97716b5e1"
 $i = Join-Path $env:TEMP "gbr-install.ps1"
-Invoke-WebRequest "https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.0/install.ps1" -OutFile $i
+Invoke-WebRequest "https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.2/install.ps1" -OutFile $i
 if ((Get-FileHash $i -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sha) { throw "checksum" }
 & $i
 ```
 
-Binaries: https://grokbuildremote.com/downloads/latest/ · [Release v0.6.0](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0)
+Binaries: https://grokbuildremote.com/downloads/latest/ · [Release v0.6.2](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.2)
 
 | | |
 |--|--|
