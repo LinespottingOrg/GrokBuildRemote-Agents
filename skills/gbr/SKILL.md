@@ -24,11 +24,14 @@ Independent product by Linespotting AB. Not affiliated with xAI or SpaceX.
 3. Phone scans QR **or** types the 8-char code.
 4. PC: `gbr-agent run` (keep it running).
 
-Install from a **pinned GitHub Release + SHA-256** ([docs/PINNED-INSTALL.md](../../docs/PINNED-INSTALL.md)). Then:
+Install from a **pinned GitHub Release + SHA-256** ([docs/PINNED-INSTALL.md](../../docs/PINNED-INSTALL.md)). Desktop agent is MIT. The mobile spectator is a **separate paid closed-source app** — not required for Bot API / `gbr-mcp` on the host. After pair, the PC talks outbound HTTPS to the vendor relay (`gbr-relay.ekobrott.workers.dev`); loopback `:8788` is unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`. macOS Accessibility is required to type into terminals. Then:
 
 ```bash
-gbr-agent version    # need v0.6.0+
-gbr-agent pair && gbr-agent run
+gbr-agent version    # pin recipe: v0.6.0
+gbr-agent pair       # one terminal
+# other terminal:
+gbr-agent run
+export GBR_BOT_REQUIRE_KEY=1
 ```
 
 Unpair on the phone before a new mailbox. Force-close is not enough.
