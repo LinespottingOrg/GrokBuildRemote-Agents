@@ -46,13 +46,13 @@ func installPlatform() error {
     <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
     <AllowStartOnDemand>true</AllowStartOnDemand>
     <Enabled>true</Enabled>
-    <Hidden>false</Hidden>
+    <Hidden>true</Hidden>
     <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>%s</Command>
-      <Arguments>-log=info run</Arguments>
+      <Command>powershell.exe</Command>
+      <Arguments>-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%s' -ArgumentList '-log=info','run' -WindowStyle Hidden"</Arguments>
       <WorkingDirectory>%s</WorkingDirectory>
     </Exec>
   </Actions>
@@ -124,9 +124,9 @@ func installStartupFolder(binary string) error {
 	if err := os.MkdirAll(startup, 0o755); err != nil {
 		return err
 	}
-	// .cmd launcher (no PowerShell execution policy issues)
+	// Hidden launcher — do not use `start` on a console binary (Win11 Terminal flash).
 	cmdPath := filepath.Join(startup, "GrokBuildRemoteAgent.cmd")
-	body := fmt.Sprintf("@echo off\r\nstart \"\" \"%s\" -log=info run\r\n", binary)
+	body := fmt.Sprintf("@echo off\r\npowershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"Start-Process -FilePath '%s' -ArgumentList '-log=info','run' -WindowStyle Hidden\"\r\n", binary)
 	return os.WriteFile(cmdPath, []byte(body), 0o644)
 }
 

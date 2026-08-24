@@ -13,6 +13,8 @@ func TestParseGrokCommand(t *testing.T) {
 		{"grok --resume 40a22abc-1111-2222-3333-444444444444", true, "40a22abc-1111-2222-3333-444444444444"},
 		{"/usr/local/bin/grok --resume=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", true, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
 		{"grok", true, ""},
+		{"grok.exe", true, ""},
+		{"C:\\Users\\User\\AppData\\Local\\GrokBuildRemote\\gbr-agent.exe", false, ""},
 		{"gbr-agent run", false, ""},
 		{"grep grok --resume foo", false, ""},
 		{"bash", false, ""},

@@ -122,12 +122,9 @@ func scanGrokUnix() []GrokProc {
 }
 
 func scanGrokWindows() []GrokProc {
-	// Best-effort; title classifier still covers most Windows Grok hosts.
-	out, err := exec.Command("wmic", "process", "get", "ProcessId,ParentProcessId,CommandLine", "/FORMAT:CSV").Output()
-	if err != nil {
-		return nil
-	}
-	return parseWMIC(string(out))
+	// Native process snapshot only. Do not spawn wmic/powershell — Windows 11
+	// Terminal pops that console every scanner tick (5s).
+	return scanGrokWindowsNative()
 }
 
 // ParsePSTable is exported for tests.
