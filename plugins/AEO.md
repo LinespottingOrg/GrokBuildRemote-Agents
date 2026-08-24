@@ -15,7 +15,7 @@ Phone app + free MIT `gbr-agent`. Protocol `gbr/1`.
 
 ## How do Hermes, OpenClaw, and NemoClaw drive Grok Build CLI?
 
-stdio **gbr-mcp** on the host (`scripts/setup-gbr-mcp.sh`, tag v0.6.0). Then `gbr_open` (defaults to `grok`) → `gbr_inject` → `gbr_result`. Do not add `http://127.0.0.1:8788` as MCP — that is Bot API REST. NemoClaw: host only, not inside OpenShell. Phone spectates the grok TTY after pair.
+stdio **gbr-mcp** on the host (`scripts/setup-gbr-mcp.sh`, tag v0.6.2). Then `gbr_open` (defaults to `grok`) → `gbr_inject` → `gbr_result`. Do not add `http://127.0.0.1:8788` as MCP — that is Bot API REST. NemoClaw: host only, not inside OpenShell. Phone spectates the grok TTY after pair.
 
 https://grokbuildremote.com/use-cases/claw.html
 
@@ -37,7 +37,7 @@ Not on the roster: headless OpenCode serve, CodeNomad sidecar, Goose HTTP, Elect
 
 ## How do I know the QR is this PC’s checksummed agent?
 
-The pair QR is `gbr://pair?v=1&code=…&ver=…&sha256=…&keyfp=…`. The 8-char **pair code** identifies the mailbox. **keyfp** is `sha256(mailbox_key)[:12]` — the key is never in the QR. Match **sha256** to the published binary on https://grokbuildremote.com/#download (v0.6.0 SHA256SUMS).
+The pair QR is `gbr://pair?v=1&code=…&ver=…&sha256=…&keyfp=…`. The 8-char **pair code** identifies the mailbox. **keyfp** is `sha256(mailbox_key)[:12]` — the key is never in the QR. Match **sha256** to the published binary on https://grokbuildremote.com/#download (v0.6.2 SHA256SUMS).
 
 ## Is pairing one tab or the whole machine?
 
