@@ -9,6 +9,8 @@
       "id": "gbr-mcp",
       "kind": "mcp-stdio",
       "path": "mcp/gbr-mcp",
+      "skill": "skills/gbr-mcp/SKILL.md",
+      "pin": "git clone --branch v0.6.2 --depth 1",
       "attach": "127.0.0.1:8788 after gbr-agent run",
       "phone": "terminals discovered on the PC, not this MCP client"
     },
@@ -40,6 +42,25 @@
       "id": "codex-plugin-manifest",
       "kind": "codex-plugin",
       "path": ".codex-plugin/plugin.json"
+    },
+    {
+      "id": "goose-skill",
+      "kind": "skill",
+      "path": "skills/goose/SKILL.md",
+      "phone": "Goose CLI in a TTY; else gbr-mcp on desktop Goose. Not a PR into block/goose."
+    },
+    {
+      "id": "cline-skill",
+      "kind": "skill",
+      "path": "skills/cline/SKILL.md",
+      "phone": "Cline CLI in a TTY; else gbr-mcp on desktop Cline. Not a PR into cline/cline."
+    },
+    {
+      "id": "gbr-mcp-skill",
+      "kind": "skill",
+      "path": "skills/gbr-mcp/SKILL.md",
+      "pin": "v0.6.2",
+      "install": "git clone --branch v0.6.2 --depth 1; npm install in mcp/gbr-mcp"
     },
     {
       "id": "hermes-mcp",

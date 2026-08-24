@@ -10,7 +10,9 @@ Index: [registry.json](registry.json) · honesty: [docs/WHAT-THE-PHONE-SEES.md](
 | Claude Code | `.claude-plugin/` — same marketplace add |
 | OpenCode V2 | `plugins/opencode/mcp.servers.json` → user `mcp.servers` |
 | AiderDesk | `plugins/aider-desk/` → `~/.aider-desk/extensions/gbr-pair` |
-| Any MCP host | `mcp/gbr-mcp` stdio |
+| Goose | [skills/goose/SKILL.md](../skills/goose/SKILL.md) — TTY roster; else user MCP on desktop Goose |
+| Cline | [skills/cline/SKILL.md](../skills/cline/SKILL.md) — TTY roster; else user MCP on desktop Cline |
+| Any MCP host | `mcp/gbr-mcp` stdio — [skills/gbr-mcp/SKILL.md](../skills/gbr-mcp/SKILL.md), pin `--branch v0.6.2` |
 | Hermes | `plugins/hermes/mcp.json` — stdio only; `:8788` is not MCP |
 | OpenClaw | `plugins/openclaw/mcp.json` + `skills/openclaw/SKILL.md` |
 | NemoClaw | `plugins/nemoclaw/mcp.json` on the **host** |
