@@ -424,6 +424,7 @@ func (s *botServer) injectLocal(w http.ResponseWriter, sessionID, text string, s
 		"ok": injErr == nil, "command_id": commandID, "session_id": sessionID,
 		"device": map[string]any{"id": "local", "kind": "local", "mailbox_id": s.mailboxID, "os": runtime.GOOS},
 		"queued": false, "local": true, "phone_status": notify, "error": errString(injErr),
+		"retry": false, // never re-issue this command_id; timed-out / failed injects die
 	}
 	if l, ok := core.GetLease(sessionID); ok {
 		out["lock"] = l.Public(false)

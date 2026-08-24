@@ -96,6 +96,51 @@ func TestHybrid_WindowSessionUsesUI(t *testing.T) {
 	}
 }
 
+func TestHybrid_ReplaySameCommandID(t *testing.T) {
+	pty := NewManager(NewRateLimiter(time.Millisecond, 50, time.Second))
+	defer pty.Close()
+	ui := &stubUI{}
+	h := NewHybrid(ui, pty)
+	req := InjectRequest{Text: "do the thing", Submit: true, CommandID: "cmd-loop"}
+	if err := h.Inject("gbr-open-a", req); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Inject("gbr-open-a", req); !errors.Is(err, ErrInjectReplay) {
+		t.Fatalf("same command_id must die, not re-type: %v", err)
+	}
+	if ui.n != 1 {
+		t.Fatalf("replay must not SendInput again, got %d UI injects", ui.n)
+	}
+}
+
+type splashUI struct{ stubUI }
+
+func (s *splashUI) Capture(string) (CaptureResult, error) {
+	return CaptureResult{
+		Text:   "Grok Build 1.0.5\nGrok 4.6 is here\nNew worktree    Resume    Changelog\n>",
+		Method: "ui",
+	}, nil
+}
+
+func TestHybrid_SplashRefusesInject(t *testing.T) {
+	h := NewHybrid(&splashUI{}, NewManager(nil))
+	err := h.Inject("gbr-open-splash", InjectRequest{Text: "fix tests", Submit: true, CommandID: "c-splash"})
+	if !errors.Is(err, ErrSplash) {
+		t.Fatalf("want ErrSplash, got %v", err)
+	}
+	if h.attempts.Seen("c-splash") {
+		t.Fatal("splash must not consume command_id — caller may retry after ready")
+	}
+}
+
+func TestHybrid_HaltRefusesInject(t *testing.T) {
+	t.Setenv("GBR_INJECT_HALT", "1")
+	h := NewHybrid(&stubUI{}, NewManager(nil))
+	if err := h.Inject("gbr-open-h", InjectRequest{Text: "hi", Submit: true, CommandID: "c-h"}); !errors.Is(err, ErrInjectHalted) {
+		t.Fatalf("halt must refuse, got %v", err)
+	}
+}
+
 func TestPickInjectTargetSkipsProtected(t *testing.T) {
 	wins := []TerminalWindow{
 		{Title: "++ Felanmälan.org", Kind: KindGrokBuild, HWND: 1},

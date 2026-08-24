@@ -21,9 +21,10 @@ type Hybrid struct {
 	PTY *Manager
 	log *slog.Logger
 
-	mu      sync.Mutex
-	windows map[string]windowSess
-	spawns  *spawnGuard
+	mu       sync.Mutex
+	windows  map[string]windowSess
+	spawns   *spawnGuard
+	attempts *AttemptGuard
 }
 
 // NewHybrid builds a hybrid injector. ui may be nil (PTY-only).
@@ -32,11 +33,12 @@ func NewHybrid(ui Injector, pty *Manager) *Hybrid {
 		pty = NewManager(nil)
 	}
 	return &Hybrid{
-		UI:      ui,
-		PTY:     pty,
-		log:     slog.Default(),
-		windows: make(map[string]windowSess),
-		spawns:  newSpawnGuard(),
+		UI:       ui,
+		PTY:      pty,
+		log:      slog.Default(),
+		windows:  make(map[string]windowSess),
+		spawns:   newSpawnGuard(),
+		attempts: newAttemptGuard(),
 	}
 }
 
@@ -85,6 +87,19 @@ func (h *Hybrid) rememberWindow(sessionID string, pid int, hwnd uintptr) {
 func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 	if err := ValidateRequest(sessionID, req); err != nil {
 		return err
+	}
+	// Splash first (do not consume command_id — caller may retry after ready).
+	if cr, err := h.Capture(sessionID); err == nil && LooksLikeGrokSplash(cr.Text) {
+		return ErrSplash
+	}
+	// Record command_id before typing so a failed / timed-out inject cannot
+	// be replayed into another Grok approval card.
+	if h.attempts != nil {
+		if err := h.attempts.Admit(sessionID, req.CommandID); err != nil {
+			return err
+		}
+	} else if HaltInject() || InjectMaxFromEnv() == 0 {
+		return ErrInjectHalted
 	}
 	// Window-backed grok (visible console): never rediscover — pickInjectTarget
 	// would happily steal ++ Felanmälan.org because it also says "Grok Build".
@@ -265,22 +280,23 @@ func (h *Hybrid) OpenOrAttach(req OpenRequest) (OpenResult, error) {
 			}
 		}
 
-		if runtime.GOOS == "windows" && h.UI != nil {
-			if err := h.spawns.allow(); err != nil {
-				if att, ok := h.attachExistingGrok(req); ok {
-					att.Note = "spawn cap 3 — attached existing instead of opening another window"
-					return att, nil
-				}
-				h.log.Warn("auto-spawn refused", "limit", MaxAutoOpen, "err", err)
-				return OpenResult{}, err
+		if err := h.spawns.allow(); err != nil {
+			if att, ok := h.attachExistingGrok(req); ok {
+				att.Note = "spawn cap — attached existing instead of opening another window"
+				return att, nil
 			}
+			h.log.Warn("auto-spawn refused", "limit", AutoOpenMax(), "err", err)
+			return OpenResult{}, err
+		}
+
+		if runtime.GOOS == "windows" && h.UI != nil {
 			wres, werr := h.openGrokWindow(req)
 			if werr != nil {
 				return OpenResult{}, fmt.Errorf("open grok window: %w", werr)
 			}
 			h.spawns.record(wres.PID)
 			n, _ := h.spawns.used()
-			h.log.Info("auto-spawn grok window", "pid", wres.PID, "session", wres.SessionID, "used", fmt.Sprintf("%d/%d", n, MaxAutoOpen))
+			h.log.Info("auto-spawn grok window", "pid", wres.PID, "session", wres.SessionID, "used", fmt.Sprintf("%d/%d", n, AutoOpenMax()))
 			return wres, nil
 		}
 

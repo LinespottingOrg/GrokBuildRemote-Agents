@@ -205,6 +205,7 @@ Shipped in mobile **1.3.0** (Play vc22 live; iOS 1.3.0 b20 in App Review). Older
 | Empty sessions on Windows | Many terminals collapsed; old agent | 0.5.1+; `gbr-agent sessions`; close extras |
 | Netcheck fail | Firewall / TLS intercept | Outbound 443 to `gbr-relay.ekobrott.workers.dev` |
 | Two agents fighting | Two processes same mailbox | One `gbr-agent run` per mailbox; `service status` |
+| Grok approval cards loop on Windows | Unacked inject re-typed every poll; or bot retries `/result` timeout | Same `command_id` is typed once. Kill-switch: `GBR_INJECT_HALT=1` / `gbr-agent run -inject-halt`. `GBR_INJECT_MAX=1`. `GBR_NO_AUTO_OPEN=1`. `/result` `retry:false` on timeout — do not re-inject. |
 
 More: [TROUBLESHOOTING.md](TROUBLESHOOTING.md) · https://grokbuildremote.com/support
 

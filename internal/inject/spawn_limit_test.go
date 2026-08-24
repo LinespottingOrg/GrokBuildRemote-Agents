@@ -75,6 +75,22 @@ func TestHybrid_SpawnCapAttachesInsteadOfFourthWindow(t *testing.T) {
 	}
 }
 
+func TestSpawnGuard_NoAutoOpenEnv(t *testing.T) {
+	t.Setenv("GBR_NO_AUTO_OPEN", "1")
+	g := newSpawnGuard()
+	if err := g.allow(); !errors.Is(err, ErrSpawnLimit) {
+		t.Fatalf("GBR_NO_AUTO_OPEN=1 must refuse spawn, got %v", err)
+	}
+}
+
+func TestSpawnGuard_MaxAutoOpenZero(t *testing.T) {
+	t.Setenv("GBR_MAX_AUTO_OPEN", "0")
+	g := newSpawnGuard()
+	if err := g.allow(); !errors.Is(err, ErrSpawnLimit) {
+		t.Fatalf("GBR_MAX_AUTO_OPEN=0 must refuse spawn, got %v", err)
+	}
+}
+
 func TestHybrid_SpawnCapErrorsWhenNothingToAttach(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("CREATE_NEW_CONSOLE spawn cap is Windows-only")

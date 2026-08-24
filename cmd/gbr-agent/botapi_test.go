@@ -69,6 +69,17 @@ func TestBotDiscoveryJSON(t *testing.T) {
 	}
 }
 
+func TestCollectResultRetryFalseWhenNotPrompt(t *testing.T) {
+	s := &botServer{rt: &agentRuntime{}, mailboxID: "gbr-x"}
+	res := s.collectResult("missing", "cmd-1", 0, 0, 400)
+	if res["retry"] != false {
+		t.Fatalf("timeout/empty must set retry=false so bots do not re-inject: %+v", res)
+	}
+	if res["state"] == "idle" && res["prompt"] == true {
+		t.Fatalf("missing session must not look like a prompt: %+v", res)
+	}
+}
+
 func TestBotInjectEmpty(t *testing.T) {
 	s := &botServer{rt: &agentRuntime{}}
 	w := httptest.NewRecorder()

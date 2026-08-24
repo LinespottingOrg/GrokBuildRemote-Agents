@@ -92,6 +92,28 @@ gbr-agent service status
 # stop extras; only one run per mailbox
 ```
 
+Stale **0.5.0** on `%LOCALAPPDATA%\GrokBuildRemote` plus a newer `dist` binary both polling the same mailbox will double-inject. `gbr-agent version` on every PATH copy; keep one `run`.
+
+### Grok / GBR approval cards looping on Windows
+
+Same inject was being re-typed every poll (2–5s) when handle/capture failed — relay `PollOverlap` is 30s and used to skip ack on error. Agent now acks anyway and refuses a replay of the same `command_id`.
+
+Kill-switch (one inject cannot open N cards):
+
+```bash
+# refuse every inject
+set GBR_INJECT_HALT=1
+# or: gbr-agent run -inject-halt
+
+# cap injects per session / 2 minutes
+set GBR_INJECT_MAX=1
+
+# refuse agent-spawned grok consoles
+set GBR_NO_AUTO_OPEN=1
+```
+
+`GET /v1/result` sets `retry: false` on timeout / splash / quiet-without-prompt. Do not re-open + re-inject that command.
+
 ### Firewall
 
 Outbound **HTTPS 443** to the relay host only. No inbound ports.  

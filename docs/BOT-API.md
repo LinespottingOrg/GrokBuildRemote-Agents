@@ -164,7 +164,8 @@ Rules that keep the two ecosystems from fighting:
 
 - **Do not hide `unknown-*`.** Those windows are injectable. Only the literal id `session` is the agent pseudo-session (inject hangs).
 - **One lease per window.** Grok bot and Claude Cowork must not share a `session_id` without `steal=true`. Holders: `grok-bot`, `claude-coworker`, `phone`.
-- **Do not wait for full Grok TUI scrollback.** `/result` stops on a prompt, ~2.5s of quiet output, or `wait_ms`. Empty excerpt on a Grok UI window is honest — judge what you have.
+- **Do not wait for full Grok TUI scrollback.** `/result` stops on a prompt, ~2.5s of quiet output, or `wait_ms`. Empty excerpt on a Grok UI window is honest — judge what you have. `retry` is `true` only on a real prompt. Timeout / splash / quiet-without-prompt → `retry: false` — do not re-issue the same inject (that loop opens Grok approval cards).
+- **Kill-switch:** `GBR_INJECT_HALT=1` or `gbr-agent run -inject-halt` refuses every inject. `GBR_INJECT_MAX=N` caps injects per session / 2 min (`0` = halt). `GBR_NO_AUTO_OPEN=1` refuses agent-spawned grok consoles. Same `command_id` is never typed twice.
 - **Phone is spectator.** Short `bot · local · open|lock|inject` lines. It does not orchestrate.
 - **Relay `/result` is a snapshot harvest.** Local `127.0.0.1:8788/v1/result?wait_ms=` is the one that actually waits for idle.
 
