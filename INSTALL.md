@@ -11,7 +11,7 @@ AIs: read this, then [AGENTS.md](AGENTS.md) and [llms.txt](llms.txt).
 | **Attach** | One surface: stdio `gbr-mcp` (13 tools) **or** Bot API `http://127.0.0.1:8788` (REST, not MCP) |
 | **Relay** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · `/health` `0.6.0` |
 
-Live website `curl | bash` is **mutable**. Pin the GitHub installer SHA-256: [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md).
+Live website `curl | bash` is **mutable**. Pin the GitHub **installer** SHA-256 (trust anchor): [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md). A co-downloaded `SHA256SUMS` from the same release is **not** a trust anchor.
 
 ---
 
@@ -42,6 +42,8 @@ if ((Get-FileHash $i -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sha) { thro
 & $i
 gbr-agent version
 ```
+
+**Binary only** (skip the installer): verify a **hard-coded** digest from [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md), then `mkdir -p ~/.local/bin`, `install` onto that path, and `export PATH="$HOME/.local/bin:$PATH"`. Do not `curl SHA256SUMS && shasum -c`.
 
 From source (inbox watch + claw skill live on **v0.6.1**):
 

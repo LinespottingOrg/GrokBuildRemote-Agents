@@ -3,11 +3,16 @@
 `curl https://grokbuildremote.com/install.sh | bash` is a **mutable remote install**.
 The website file can change. Do not paste that into other projects’ official docs.
 
-Canonical path:
+Canonical path (preferred — **installer SHA-256 is the trust anchor**):
 
 1. Download `install.sh` / `install.ps1` from a **GitHub Release tag** (v0.6.0).
 2. Check **this script’s** SHA-256 (table below).
 3. Run it. It then downloads the matching `gbr-agent` asset and checks `SHA256SUMS`.
+
+A co-downloaded `SHA256SUMS` from the **same** GitHub release is **not** a trust
+anchor — binary and sums can be replaced together. Skip `curl SHA256SUMS && shasum
+-c`. For binary-only installs, compare against a **hard-coded digest** from this
+file (table below).
 
 Release: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
 
@@ -30,32 +35,41 @@ SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
 curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
 echo "$SHA  /tmp/gbr-install.sh" | shasum -a 256 -c -
 bash /tmp/gbr-install.sh
+export PATH="$HOME/.local/bin:$PATH"
 gbr-agent version   # must print v0.6.0+
 ```
 
-Or skip the installer and fetch the binary yourself:
+## Binary only — hard-coded digest (darwin-arm64)
+
+Do **not** `curl SHA256SUMS && shasum -c`. Compare against the digest below.
+A fresh Mac does not have `~/.local/bin` on `PATH`.
 
 ```bash
 VER=v0.6.0
 BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
-# darwin-arm64 shown; swap the asset for your OS/arch
+SHA=de7e065ef2cf6877b3b2cd04679a67b627f876337f529247e236204543e4062c
 curl -fsSL -o gbr-agent-darwin-arm64 "$BASE/gbr-agent-darwin-arm64"
-curl -fsSL -o SHA256SUMS "$BASE/SHA256SUMS"
-shasum -a 256 -c SHA256SUMS --ignore-missing
+echo "$SHA  gbr-agent-darwin-arm64" | shasum -a 256 -c -
 mkdir -p ~/.local/bin
 install -m 0755 gbr-agent-darwin-arm64 ~/.local/bin/gbr-agent
+export PATH="$HOME/.local/bin:$PATH"
 gbr-agent version
 ```
+
+Swap the asset name and digest for other OS/arch (table below).
 
 ## Linux amd64 (binary only)
 
 ```bash
 VER=v0.6.0
 BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
+SHA=a50a5c41993e6531a3b477eb409ccc845212bf541384dc803061c80657f86719
 curl -fsSL -o gbr-agent-linux-amd64 "$BASE/gbr-agent-linux-amd64"
-curl -fsSL -o SHA256SUMS "$BASE/SHA256SUMS"
-sha256sum -c SHA256SUMS --ignore-missing
+echo "$SHA  gbr-agent-linux-amd64" | sha256sum -c -
+mkdir -p ~/.local/bin
 install -m 0755 gbr-agent-linux-amd64 ~/.local/bin/gbr-agent
+export PATH="$HOME/.local/bin:$PATH"
+gbr-agent version
 ```
 
 ## Windows PowerShell — verify the installer, then run it
@@ -81,6 +95,18 @@ a50a5c41993e6531a3b477eb409ccc845212bf541384dc803061c80657f86719  gbr-agent-linu
 f773b89fd31310172b756e0593e0f3b2382b0a3440af2a7d0a8b3073b0c23e27  gbr-agent-windows-amd64.exe
 8fb9efcbc7e2ac91c11964944bf0f45e31bb23f4356d9dcb4b305d7cb9b0fe8c  gbr-agent-windows-arm64.exe
 ```
+
+## Trust
+
+- Loopback Bot API `http://127.0.0.1:8788` is **unauthenticated** unless
+  `GBR_BOT_REQUIRE_KEY=1`.
+- `POST /v1/inject` types into listed TTYs and can submit.
+- Relay `https://gbr-relay.ekobrott.workers.dev` is outbound HTTPS. It sees
+  session titles and output for the mailbox.
+- macOS inject needs **Accessibility** permission for the agent.
+- Do not paste `curl | bash` website installer into other projects’ official docs.
+
+More: [SECURITY.md](../SECURITY.md) · [BOT-API.md](BOT-API.md)
 
 ## MCP (`gbr-mcp`) — pin the clone
 
