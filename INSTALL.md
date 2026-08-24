@@ -5,8 +5,8 @@ AIs: read this, then [AGENTS.md](AGENTS.md) and [llms.txt](llms.txt).
 | | |
 |--|--|
 | **Product** | Build Remote Agent (Linespotting AB). Independent. Not xAI. |
-| **Pin binaries** | GitHub Release **[v0.6.0](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0)** (`v0.6.0+`) |
-| **Source / docs / inbox / claw skill** | Tag **v0.6.1** (this tree) |
+| **Pin binaries** | GitHub Release **[v0.6.2](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.2)** (`v0.6.2`). Do not mutate v0.6.0 / v0.6.1. |
+| **Source / docs** | Same tag **v0.6.2** |
 | **Pair** | Unchanged: QR **or** printed 8-char, then `gbr-agent run` |
 | **Attach** | One surface: stdio `gbr-mcp` (13 tools) **or** Bot API `http://127.0.0.1:8788` (REST, not MCP) |
 | **Relay** | `https://gbr-relay.ekobrott.workers.dev` · proto `gbr/1` · `/health` `0.6.0` |
@@ -20,21 +20,21 @@ Live website `curl | bash` is **mutable**. Pin the GitHub **installer** SHA-256 
 **macOS / Linux** (checksum the installer, then run it):
 
 ```bash
-VER=v0.6.0
+VER=v0.6.2
 BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
-SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
+SHA=f91ce49afbc21ac51ccf8b69b95ee407ff2d8a60926e2868bb192bb03eca796d
 curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
 echo "$SHA  /tmp/gbr-install.sh" | shasum -a 256 -c -
 bash /tmp/gbr-install.sh
 export PATH="$HOME/.local/bin:$PATH"
-gbr-agent version    # must print v0.6.0 or newer
+gbr-agent version    # must print v0.6.2
 ```
 
 **Windows:**
 
 ```powershell
-$ver = "v0.6.0"
-$sha = "b604a21b5dae5a874487a597778d15742b3c2afb2470c93a8e8ba0a76e486cdf"
+$ver = "v0.6.2"
+$sha = "572e7008400d16e7b666ba42b6fcd81ef03c0ab45190a1151f09f6d97716b5e1"
 $base = "https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$ver"
 $i = Join-Path $env:TEMP "gbr-install.ps1"
 Invoke-WebRequest "$base/install.ps1" -OutFile $i -UseBasicParsing

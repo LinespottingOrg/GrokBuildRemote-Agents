@@ -6,7 +6,7 @@ For AIs: start with [AGENTS.md](AGENTS.md). For humans: https://grokbuildremote.
 
 ```bash
 gbr-agent version
-# expect: gbr-agent v0.6.0 …
+# expect: gbr-agent v0.6.2 …
 
 curl -sS https://gbr-relay.ekobrott.workers.dev/health
 # expect: "version":"0.5.4"  "bot":true
@@ -18,9 +18,9 @@ If the agent is older:
 
 ```bash
 # pin the installer — see docs/PINNED-INSTALL.md
-VER=v0.6.0
+VER=v0.6.2
 BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
-SHA=0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301
+SHA=f91ce49afbc21ac51ccf8b69b95ee407ff2d8a60926e2868bb192bb03eca796d
 curl -fsSL -o /tmp/gbr-install.sh "$BASE/install.sh"
 echo "$SHA  /tmp/gbr-install.sh" | shasum -a 256 -c -
 bash /tmp/gbr-install.sh

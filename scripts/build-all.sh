@@ -24,6 +24,7 @@ LDFLAGS_STR="${LDFLAGS[*]}"
 
 TARGETS=(
   "windows/amd64"
+  "windows/arm64"
   "darwin/amd64"
   "darwin/arm64"
   "linux/amd64"

@@ -5,8 +5,8 @@
 # https://grokbuildremote.com/install.sh is a convenience mirror and CAN CHANGE.
 # Do not pipe a live URL into bash as a trust root.
 #
-# Canonical (tag v0.6.0):
-#   https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.0/install.sh
+# Canonical (tag v0.6.2):
+#   https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.2/install.sh
 # Verify THIS script against the SHA-256 in docs/PINNED-INSTALL.md, then run it.
 # The binary it downloads is also SHA-256 checked (SHA256SUMS on that release).
 #
@@ -20,7 +20,7 @@ set -euo pipefail
 PRODUCT="Build Remote Agent"
 BINARY="gbr-agent"
 REPO="${GBR_REPO:-LinespottingOrg/GrokBuildRemote-Agents}"
-VERSION="${GBR_VERSION:-v0.6.0}"
+VERSION="${GBR_VERSION:-v0.6.2}"
 SITE="${GBR_SITE:-https://grokbuildremote.com}"
 INSTALL_DIR="${GBR_INSTALL_DIR:-}"
 
@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
     --dir) INSTALL_DIR="$2"; shift 2 ;;
     --help|-h)
       echo "gbr-agent installer — pin a release. See docs/PINNED-INSTALL.md"
-      echo "  --version v0.6.0   --dir ~/.local/bin"
+      echo "  --version v0.6.2   --dir ~/.local/bin"
       exit 0
       ;;
     *) shift ;;
@@ -43,7 +43,7 @@ done
 
 case "$VERSION" in
   latest|LATEST|Latest|main|master|HEAD)
-    die "refusing mutable version '$VERSION'. Pin GBR_VERSION=v0.6.0 (docs/PINNED-INSTALL.md)"
+    die "refusing mutable version '$VERSION'. Pin GBR_VERSION=v0.6.2 (docs/PINNED-INSTALL.md)"
     ;;
 esac
 [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+ ]] || die "version must look like v0.6.0 (got '$VERSION')"

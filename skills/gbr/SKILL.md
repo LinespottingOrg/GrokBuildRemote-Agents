@@ -55,7 +55,7 @@ curl -sS -X POST http://127.0.0.1:8788/v1/inject \
 ## MCP
 
 ```bash
-git clone --branch v0.6.0 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents
 bash scripts/setup-gbr-mcp.sh
 # gbr_open defaults to spawning Grok Build CLI (`grok`)

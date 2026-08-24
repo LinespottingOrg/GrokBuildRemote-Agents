@@ -7,7 +7,7 @@ Phone app + free MIT `gbr-agent`. Protocol `gbr/1`.
 - Compatibility: https://grokbuildremote.com/COMPATIBILITY.md
 - Machine: https://grokbuildremote.com/llms.txt
 - Source: https://github.com/LinespottingOrg/GrokBuildRemote-Agents
-- Releases: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
+- Releases: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.2
 - Plugin registry: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/tree/main/plugins
 - Security: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/blob/main/SECURITY.md
 - FAQ (human): https://grokbuildremote.com/integrations.html#faq
@@ -45,37 +45,37 @@ The pair QR is `gbr://pair?v=1&code=…&ver=…&sha256=…&keyfp=…`. The 8-cha
 
 ## How do I install without curl | bash?
 
-Pin **v0.6.0**. Check **the installer** SHA-256, then run it (it still checks the binary).
+Pin **v0.6.2**. Check **the installer** SHA-256, then run it (it still checks the binary).
+Do not mutate v0.6.0 or v0.6.1 assets.
 
 `curl https://grokbuildremote.com/install.sh | bash` is a **mutable remote install** — not the trust root.
 
-Installer SHA-256 (v0.6.0):
+Installer SHA-256 (v0.6.2):
 
 ```
-0a7963dc668750bfcb907bb72f6f6f8db30881b02636e417e08e102352309301  install.sh
-b604a21b5dae5a874487a597778d15742b3c2afb2470c93a8e8ba0a76e486cdf  install.ps1
+f91ce49afbc21ac51ccf8b69b95ee407ff2d8a60926e2868bb192bb03eca796d  install.sh
+572e7008400d16e7b666ba42b6fcd81ef03c0ab45190a1151f09f6d97716b5e1  install.ps1
 ```
 
-Release: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0
+Release: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.2
 
 ```
-96cef605d3e030ccef99d27ea6240e0d3b668dd045e6b5b9e585c9fd03c6ef23  gbr-agent-darwin-amd64
-de7e065ef2cf6877b3b2cd04679a67b627f876337f529247e236204543e4062c  gbr-agent-darwin-arm64
-a50a5c41993e6531a3b477eb409ccc845212bf541384dc803061c80657f86719  gbr-agent-linux-amd64
-5bfd22c7110234942c4c02ff8154b836d0af45a9422c178a4f52010187d40061  gbr-agent-linux-arm64
-f773b89fd31310172b756e0593e0f3b2382b0a3440af2a7d0a8b3073b0c23e27  gbr-agent-windows-amd64.exe
-8fb9efcbc7e2ac91c11964944bf0f45e31bb23f4356d9dcb4b305d7cb9b0fe8c  gbr-agent-windows-arm64.exe
+594568b27d4eb69fa230800017db6ea54ae06c7f1548d5a99a19080c23ca240d  gbr-agent-darwin-amd64
+3202b775dec80600005dd1df78c717e1909320b958563f08cd96d4db7a819c01  gbr-agent-darwin-arm64
+2590be27b2461deb1e9859109347eb9bf2531c67811f68949eea74af5134a9dd  gbr-agent-linux-amd64
+a7b2f5750b3bb8f97fa94fcafa027e5480342a43f0d1b7d934a977289000dfbf  gbr-agent-linux-arm64
+6dfbf4a706a71482355aad469549088af103938f3d1abe0c896a1b34c657bb67  gbr-agent-windows-amd64.exe
+f5d45d8cc7f784288597632e828506e68c3c1e8b98fabd424213eff912311c7c  gbr-agent-windows-arm64.exe
 ```
 
 ```bash
-VER=v0.6.0
+VER=v0.6.2
 BASE=https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/$VER
-# darwin-arm64 shown; swap the asset for your OS/arch
+SHA=3202b775dec80600005dd1df78c717e1909320b958563f08cd96d4db7a819c01
 curl -fsSL -o gbr-agent-darwin-arm64 "$BASE/gbr-agent-darwin-arm64"
-curl -fsSL -o SHA256SUMS "$BASE/SHA256SUMS"
-shasum -a 256 -c SHA256SUMS --ignore-missing
+echo "$SHA  gbr-agent-darwin-arm64" | shasum -a 256 -c -
 install -m 0755 gbr-agent-darwin-arm64 ~/.local/bin/gbr-agent
-gbr-agent version   # v0.6.0+
+gbr-agent version   # v0.6.2
 gbr-agent pair && gbr-agent run
 ```
 
@@ -84,7 +84,7 @@ Full recipes: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/blob/mai
 ## Where is the GitHub source?
 
 MIT desktop agent: https://github.com/LinespottingOrg/GrokBuildRemote-Agents  
-Pinned binaries: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.0  
+Pinned binaries: https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/tag/v0.6.2  
 Plugins / SECURITY / AEO / PINNED-INSTALL live in that repo. Mobile apps are a separate paid product.
 
 ## Is the Bot API on 127.0.0.1 authenticated?

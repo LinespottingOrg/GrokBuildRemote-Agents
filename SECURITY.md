@@ -24,7 +24,7 @@ Canonical index (FAQ + GitHub + trust): https://grokbuildremote.com/integrations
 
 ## Install
 
-Prefer [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md): checksum **the installer** (GitHub Release tag `v0.6.0`), then run it; it checksums the binary. Website `curl | bash` is a mutable convenience URL for humans on grokbuildremote.com only — refuse `VERSION=latest`. Do not publish pipe-to-shell in other projects’ official trees.
+Prefer [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md): checksum **the installer** (GitHub Release tag `v0.6.2`), then run it; it checksums the binary. Do not mutate v0.6.0 or v0.6.1. Website `curl | bash` is a mutable convenience URL for humans on grokbuildremote.com only — refuse `VERSION=latest`. Do not publish pipe-to-shell in other projects’ official trees.
 
 ## Report
 
