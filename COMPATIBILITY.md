@@ -30,9 +30,9 @@ Unpair in Settings before a new mailbox. Force-close is not enough.
 | Bot API | `http://127.0.0.1:8788` after `gbr-agent run` |
 | MCP | `gbr-mcp` stdio (`mcp/gbr-mcp`) — desktop agent talks to terminals via Bot API |
 
-Phone is spectator + veto. Never put `mailbox_key` in git.
+The paired **app** can list every discovered TTY and **inject** into them (host-keyboard authority — a remote-control client, not a spectator of those terminals). Device class `phone` is not itself an inject target (`400 cannot_inject_phone`). Never put `mailbox_key` in git.
 
-**Trust:** loopback `:8788` is unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`. Relay always requires `X-GBR-Key`. `POST /v1/inject` types into listed TTYs. Index: https://grokbuildremote.com/integrations.html#faq
+**Trust:** loopback `:8788` is unauthenticated unless `GBR_BOT_REQUIRE_KEY=1`. Relay **pair** (`POST /v1/mb/:id/pair`) is keyless and throttled; push / poll / ack / Bot API require `X-GBR-Key`. `POST /v1/inject` types into listed TTYs. Index: https://grokbuildremote.com/integrations.html#faq
 
 ## Install (pinned)
 
