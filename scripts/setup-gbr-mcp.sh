@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Pin gbr-mcp from GitHub tag v0.6.0 and print Hermes / OpenClaw / NemoClaw attach commands.
+# Pin gbr-mcp from GitHub tag v0.6.2 and print Hermes / OpenClaw / NemoClaw attach commands.
 # Default target is Grok Build CLI (`grok`) via gbr_open — not a SideCar, not Bot API as MCP.
 set -euo pipefail
-VER="${GBR_VERSION:-v0.6.0}"
+VER="${GBR_VERSION:-v0.6.2}"
 DEST="${GBR_MCP_SRC:-$HOME/.gbr/gbr-mcp-src}"
 REPO="https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git"
 

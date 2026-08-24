@@ -4,15 +4,15 @@
 # https://grokbuildremote.com/install.ps1 is a convenience mirror and CAN CHANGE.
 # Do not pipe a live URL into iex as a trust root.
 #
-# Canonical (tag v0.6.0):
-#   https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.0/install.ps1
+# Canonical (tag v0.6.2):
+#   https://github.com/LinespottingOrg/GrokBuildRemote-Agents/releases/download/v0.6.2/install.ps1
 # Verify THIS script against the SHA-256 in docs/PINNED-INSTALL.md, then run it.
 #
 # Pinned: docs/PINNED-INSTALL.md
 # Convenience (mutable): irm https://grokbuildremote.com/install.ps1 | iex
 
 param(
-  [string]$Version = $(if ($env:GBR_VERSION) { $env:GBR_VERSION } else { "v0.6.0" }),
+  [string]$Version = $(if ($env:GBR_VERSION) { $env:GBR_VERSION } else { "v0.6.2" }),
   [string]$InstallDir = $(if ($env:GBR_INSTALL_DIR) { $env:GBR_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA "GrokBuildRemote" }),
   [string]$Site = $(if ($env:GBR_SITE) { $env:GBR_SITE } else { "https://grokbuildremote.com" })
 )
@@ -24,7 +24,7 @@ $Asset = "gbr-agent-windows-amd64.exe"
 $BinName = "gbr-agent.exe"
 
 if ($Version -match '^(latest|LATEST|Latest|main|master|HEAD)$') {
-  throw "refusing mutable version '$Version'. Pin -Version v0.6.0 (docs/PINNED-INSTALL.md)"
+  throw "refusing mutable version '$Version'. Pin -Version v0.6.2 (docs/PINNED-INSTALL.md)"
 }
 if ($Version -notmatch '^v[0-9]+\.[0-9]+') {
   throw "version must look like v0.6.0 (got '$Version')"
