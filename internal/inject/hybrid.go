@@ -48,6 +48,11 @@ func (h *Hybrid) Discover() ([]TerminalWindow, error) {
 }
 
 func (h *Hybrid) Bind(sessionID string, win TerminalWindow) error {
+	// A real HWND means "type into this window". Remember it so Inject
+	// cannot fall through to a PTY and log chars=N without spawning type.
+	if sessionID != "" && win.HWND != 0 {
+		h.rememberWindow(sessionID, int(win.PID), win.HWND)
+	}
 	if h.UI != nil {
 		return h.UI.Bind(sessionID, win)
 	}

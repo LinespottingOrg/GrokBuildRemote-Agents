@@ -23,6 +23,10 @@ type Injector struct {
 	OpTimeout             time.Duration
 	AllowClipboardCapture bool
 
+	// Exec runs one helper invocation (xdotool argv, no binary name).
+	// Tests inject a recorder. Nil uses the real xdotool binary.
+	Exec func(ctx context.Context, args ...string) (string, error)
+
 	MinInterval time.Duration
 	MaxBurst    int
 	BurstWindow time.Duration
@@ -141,7 +145,7 @@ func (inj *Injector) Inject(ctx context.Context, sessionID, text string, submit 
 		return fmt.Errorf("linux inject: no X window id for session %q", sessionID)
 	}
 
-	if _, err := runXdotool(ctx, "windowactivate", "--sync", win.ID); err != nil {
+	if _, err := inj.run(ctx, "windowactivate", "--sync", win.ID); err != nil {
 		_ = err
 	}
 	if inj.FocusPause > 0 {
@@ -150,30 +154,31 @@ func (inj *Injector) Inject(ctx context.Context, sessionID, text string, submit 
 		}
 	}
 
+	typed := false
 	if text != "" {
 		parts := strings.Split(text, "\n")
 		for i, part := range parts {
 			part = strings.TrimSuffix(part, "\r")
 			if part != "" {
-				args := []string{"type", "--window", win.ID}
-				if inj.TypeDelayMs > 0 {
-					args = append(args, "--delay", fmt.Sprintf("%d", inj.TypeDelayMs))
-				}
-				args = append(args, "--", part)
-				if _, err := runXdotool(ctx, args...); err != nil {
+				args := typeWindowArgs(win.ID, part)
+				if _, err := inj.run(ctx, args...); err != nil {
 					return fmt.Errorf("linux inject: type into window %s (%q): %w", win.ID, win.Title, err)
 				}
+				typed = true
 			}
 			if i < len(parts)-1 {
-				if _, err := runXdotool(ctx, "key", "--window", win.ID, "Return"); err != nil {
+				if _, err := inj.run(ctx, "key", "--window", win.ID, "Return"); err != nil {
 					return fmt.Errorf("linux inject: newline Return: %w", err)
 				}
 			}
 		}
 	}
+	if strings.TrimSpace(text) != "" && !typed {
+		return fmt.Errorf("linux inject: type helper was not spawned for session %q (window %s) — refusing focus-only success", sessionID, win.ID)
+	}
 
 	if submit {
-		if _, err := runXdotool(ctx, "key", "--window", win.ID, "Return"); err != nil {
+		if _, err := inj.run(ctx, "key", "--window", win.ID, "Return"); err != nil {
 			return fmt.Errorf("linux inject: submit Return: %w", err)
 		}
 	}
@@ -227,7 +232,17 @@ func (inj *Injector) Close() error {
 	return nil
 }
 
+func (inj *Injector) run(ctx context.Context, args ...string) (string, error) {
+	if inj != nil && inj.Exec != nil {
+		return inj.Exec(ctx, args...)
+	}
+	return runXdotool(ctx, args...)
+}
+
 func (inj *Injector) checkEnv(ctx context.Context) error {
+	if inj != nil && inj.Exec != nil {
+		return nil
+	}
 	if sessionIsWayland() && !displayEnvOK() {
 		return fmt.Errorf("linux inject: Wayland session without DISPLAY — xdotool requires X11/XWayland (see package docs)")
 	}
