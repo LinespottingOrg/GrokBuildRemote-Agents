@@ -17,7 +17,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: HOL Plugin Scanner
-        uses: hashgraph-online/ai-plugin-scanner-action@v1
+        # Pin commit, not the floating v1 tag (supply-chain). String still contains
+        # hashgraph-online/ai-plugin-scanner-action so the awesome-list gate matches.
+        uses: hashgraph-online/ai-plugin-scanner-action@3908ae0d692dcf97f2eaea63a89f532e19d22659  # v1.2.570
         with:
           plugin_dir: "."
           mode: scan
