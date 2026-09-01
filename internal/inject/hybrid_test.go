@@ -79,6 +79,25 @@ func TestHybrid_WindowNotFoundIsError(t *testing.T) {
 	}
 }
 
+func TestHybrid_BindWindowBeatsPTY(t *testing.T) {
+	pty := NewManager(NewRateLimiter(time.Millisecond, 50, time.Second))
+	defer pty.Close()
+	if _, err := pty.Ensure("grok-build-abc", ""); err != nil {
+		t.Fatal(err)
+	}
+	ui := &stubUI{}
+	h := NewHybrid(ui, pty)
+	if err := h.Bind("grok-build-abc", TerminalWindow{HWND: 48234499, Title: "Grok Build"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.Inject("grok-build-abc", InjectRequest{Text: "echo gbr-ok", Submit: true}); err != nil {
+		t.Fatal(err)
+	}
+	if ui.n != 1 {
+		t.Fatalf("bound X11/HWND session must UI-inject (type path), got %d UI calls", ui.n)
+	}
+}
+
 func TestHybrid_WindowSessionUsesUI(t *testing.T) {
 	pty := NewManager(NewRateLimiter(time.Millisecond, 50, time.Second))
 	defer pty.Close()

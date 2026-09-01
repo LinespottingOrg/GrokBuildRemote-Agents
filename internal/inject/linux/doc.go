@@ -7,9 +7,11 @@
 //
 // # Injection path
 //
-// Discover terminal windows with `xdotool search`, resolve session_id against
-// window name/title (or a prior Bind), then `xdotool type --window <id>` and
-// optional `key Return` when submit is requested.
+// Discover terminal windows with `xdotool search` (plus Grok/Chrome/Electron
+// titles), resolve session_id against window name/title (or a prior Bind), then
+// exec the same helper path as a hand test: `xdotool type --window <id> <text>`.
+// Optional `key Return` when submit is requested. Focus-only (activate without
+// a type spawn) is an error — never a silent chars=N success.
 //
 // # X11 first
 //

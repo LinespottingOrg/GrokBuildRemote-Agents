@@ -36,7 +36,7 @@ func ListWindows(ctx context.Context, classHints []string) ([]WinInfo, error) {
 		}
 	}
 
-	for _, token := range []string{"Terminal", "terminal", "tmux", "zsh", "bash", "fish"} {
+	for _, token := range []string{"Terminal", "terminal", "tmux", "zsh", "bash", "fish", "Grok", "grok"} {
 		ids, err := searchWindowIDs(ctx, "--name", token)
 		if err != nil {
 			continue
@@ -50,6 +50,25 @@ func ListWindows(ctx context.Context, classHints []string) ([]WinInfo, error) {
 			if isTerminalLike(info, hints) {
 				out = append(out, info)
 			}
+		}
+	}
+
+	// Chrome/Electron hosts: title-gate so we do not advertise every browser tab.
+	for _, class := range grokHostClasses() {
+		cids, err := searchWindowIDs(ctx, "--class", class)
+		if err != nil {
+			continue
+		}
+		for _, id := range cids {
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			info := inspectWindow(ctx, id)
+			if !looksLikeGrok(info.Name, info.Class) {
+				continue
+			}
+			seen[id] = struct{}{}
+			out = append(out, info)
 		}
 	}
 
@@ -116,7 +135,25 @@ func inspectWindow(ctx context.Context, id string) WinInfo {
 	return info
 }
 
+func grokHostClasses() []string {
+	return []string{
+		"google-chrome", "Google-chrome",
+		"chromium", "Chromium",
+		"chrome", "Chrome",
+		"electron", "Electron",
+		"grok", "Grok",
+	}
+}
+
+func looksLikeGrok(name, class string) bool {
+	lt := strings.ToLower(name + " " + class)
+	return strings.Contains(lt, "grok")
+}
+
 func isTerminalLike(w WinInfo, classHints []string) bool {
+	if looksLikeGrok(w.Name, w.Class) {
+		return true
+	}
 	class := strings.ToLower(w.Class)
 	name := strings.ToLower(w.Name)
 	for _, h := range classHints {
