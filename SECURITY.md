@@ -2,6 +2,13 @@
 
 Desktop agent: MIT. Mobile apps: separate paid product.
 
+## Supported versions
+
+| Version | Supported |
+| ------- | --------- |
+| 0.6.x   | yes |
+| < 0.6.0 | no — upgrade; 0.5.0 has no inject/spawn guards |
+
 Canonical index (FAQ + GitHub + trust): https://grokbuildremote.com/integrations.html
 
 ## Threat model (pairing)
