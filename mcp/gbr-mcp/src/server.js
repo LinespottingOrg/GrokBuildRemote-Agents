@@ -188,9 +188,9 @@ async function dispatch(client, name, args, cid) {
           completed: Boolean(injected.result.idle),
           timed_out: !injected.result.idle,
           result: injected.result,
-          _note: injected.result.idle
-            ? 'Idle (prompt or quiet). Judge the excerpt and iterate or close.'
-            : `Not idle yet (state=${injected.result.state}). Poll gbr_result session_id=${args.session_id}.`,
+          _note: injected.result.idle && injected.result.retry
+            ? 'Idle at a prompt. Judge the excerpt and iterate or close.'
+            : `Not ready to re-inject (state=${injected.result.state}, retry=${injected.result.retry === true}). Do not re-issue this command_id. Poll gbr_result or stop.`,
         };
       }
       const commandId = injected?.command_id;

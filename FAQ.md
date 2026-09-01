@@ -116,7 +116,7 @@ Yes (agent/relay/MCP **0.5.4+**). They share one contract:
 1. `gbr_diagnose` / `GET /`
 2. `gbr_open` / `POST /v1/sessions/open` (spawn `grok` / `grok --resume`, or attach)
 3. `gbr_lock` / `POST /v1/lock` so they do **not** type into the same window
-4. `gbr_inject` then `gbr_result` (`GET /v1/result?wait_ms=`) — wait for a prompt or quiet output, harvest an excerpt, iterate
+4. `gbr_inject` then `gbr_result` (`GET /v1/result?wait_ms=`) — wait for a **prompt**. `retry` is true only then. Timeout / splash / quiet → do **not** re-inject (that looped Grok approval cards on Windows).
 5. Release the lock when the task is done
 
 `unknown-N` sessions are injectable. Only the literal id `session` is forbidden. The phone is spectator (status lines), not orchestrator. Claude Cowork talks through **gbr-mcp**; Grok bot talks HTTP to `127.0.0.1:8788` or the hub Bot URL.
@@ -161,6 +161,12 @@ Relay: copy Bot URL + mailbox key in the app, then `GET …/sessions`, `POST …
 ## 401 unauthorized / missing mailbox_key?
 
 Old agent. Install **v0.5.1+**, Unpair, pair again.
+
+## Grok approval cards looping on Windows?
+
+The agent was re-typing the same mailbox inject when capture/push failed (`PollOverlap` 30s, no ack). That is fixed: same `command_id` is typed once; failed handle still acks. `/result` sets `retry: false` on timeout/splash.
+
+Kill-switch: `GBR_INJECT_HALT=1` or `gbr-agent run -inject-halt`. Cap: `GBR_INJECT_MAX=1`. No new consoles: `GBR_NO_AUTO_OPEN=1`. One `gbr-agent run` — a leftover 0.5.0 in `%LOCALAPPDATA%` plus a newer binary both inject.
 
 ## Offline inject?
 

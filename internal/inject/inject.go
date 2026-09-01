@@ -31,6 +31,10 @@ var (
 	ErrCaptureUnavail = errors.New("inject: console capture unavailable")
 	ErrSessionClosed  = errors.New("inject: session closed")
 	ErrNotSupported   = errors.New("inject: operation not supported on this platform")
+	ErrInjectHalted   = errors.New("inject: halted (GBR_INJECT_HALT=1 or GBR_INJECT_MAX=0)")
+	ErrInjectReplay   = errors.New("inject: command_id already attempted — refusing replay")
+	ErrInjectBudget   = errors.New("inject: session inject budget exhausted")
+	ErrSplash         = errors.New("inject: session is still on the Grok welcome splash — not typing")
 )
 
 // Kind classifies a discovered terminal window (best-effort).
@@ -67,10 +71,10 @@ type InjectRequest struct {
 
 // CaptureResult is a best-effort console buffer snapshot.
 type CaptureResult struct {
-	Text      string
-	Partial   bool   // true when capture is incomplete or heuristic
-	Method    string // e.g. "readconsole", "pty", "none"
-	Note      string // human-readable limitation note
+	Text    string
+	Partial bool   // true when capture is incomplete or heuristic
+	Method  string // e.g. "readconsole", "pty", "none"
+	Note    string // human-readable limitation note
 }
 
 // Injector is the platform inject surface.

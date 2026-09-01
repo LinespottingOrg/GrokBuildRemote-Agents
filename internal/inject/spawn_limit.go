@@ -2,6 +2,9 @@ package inject
 
 import (
 	"errors"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -55,15 +58,38 @@ func (g *spawnGuard) pruneLocked(now time.Time) {
 	}
 }
 
+// AutoOpenMax is the effective spawn cap. GBR_NO_AUTO_OPEN=1 or
+// GBR_MAX_AUTO_OPEN=0 disable CREATE_NEW_CONSOLE / grok spawn.
+func AutoOpenMax() int {
+	v := strings.TrimSpace(os.Getenv("GBR_NO_AUTO_OPEN"))
+	if v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on") {
+		return 0
+	}
+	if s := strings.TrimSpace(os.Getenv("GBR_MAX_AUTO_OPEN")); s != "" {
+		n, err := strconv.Atoi(s)
+		if err == nil && n >= 0 {
+			return n
+		}
+	}
+	return MaxAutoOpen
+}
+
 func (g *spawnGuard) allow() error {
+	max := AutoOpenMax()
+	if max == 0 {
+		return ErrSpawnLimit
+	}
 	if g == nil {
+		if max == 0 {
+			return ErrSpawnLimit
+		}
 		return nil
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	now := g.clock()
 	g.pruneLocked(now)
-	if len(g.attempts) >= MaxAutoOpen || len(g.live) >= MaxAutoOpen {
+	if len(g.attempts) >= max || len(g.live) >= max {
 		return ErrSpawnLimit
 	}
 	return nil

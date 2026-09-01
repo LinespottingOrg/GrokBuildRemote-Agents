@@ -145,7 +145,7 @@ Usage:
       Firewall/VPN test: DNS + TCP/443 + TLS + HTTPS /health (no inbound ports).
   gbr-agent [-log=info] status
       Also lists local + remotes (gbr-agent fleet).
-  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force] [-bot-port 8788]
+  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force] [-bot-port 8788] [-inject-halt] [-no-auto-open]
   gbr-agent [-log=info] bot
       Print localhost + relay Bot API curl examples (Grok bots).
   gbr-agent [-log=info] fleet
@@ -190,6 +190,10 @@ Environment:
   GBR_INBOX_REPO                default LinespottingOrg/grok-build-inbox
   GBR_INBOX_LABEL               default boss-steer
   GBR_INBOX_POLL                default 20s
+  GBR_INJECT_HALT=1             kill-switch: refuse all injects (no approval cards)
+  GBR_INJECT_MAX=N              cap injects per session / 2 min (0 = halt)
+  GBR_NO_AUTO_OPEN=1            refuse agent-spawned grok consoles
+  GBR_MAX_AUTO_OPEN=N           cap CREATE_NEW_CONSOLE / grok spawn (default 3)
 
 Device identity: %%USERPROFILE%%\.gbr\device.json
 Sessions rename: %%USERPROFILE%%\.gbr\sessions.json
@@ -247,7 +251,15 @@ func cmdRun(args []string) int {
 	relayURL := fs.String("relay", "", "relay base URL (else GBR_RELAY_URL / default)")
 	force := fs.Bool("force", false, "start even if another agent holds the lock (unsafe)")
 	botPort := fs.Int("bot-port", botPortFromEnv(), "localhost bot HTTP port (0=off, default 8788)")
+	injectHalt := fs.Bool("inject-halt", false, "refuse all injects (same as GBR_INJECT_HALT=1)")
+	noAutoOpen := fs.Bool("no-auto-open", false, "refuse agent-spawned grok consoles (same as GBR_NO_AUTO_OPEN=1)")
 	_ = fs.Parse(args)
+	if *injectHalt {
+		_ = os.Setenv("GBR_INJECT_HALT", "1")
+	}
+	if *noAutoOpen {
+		_ = os.Setenv("GBR_NO_AUTO_OPEN", "1")
+	}
 
 	// Config: API key optional when using durable relay only.
 	cfg, cfgErr := core.LoadConfig()
@@ -486,15 +498,18 @@ func (rt *agentRuntime) pollOnce(ctx context.Context, mailboxID string) {
 		if rt.seen != nil && rt.seen.Has(fp) {
 			continue
 		}
-		if err := rt.handle(ctx, mailboxID, env); err != nil {
-			slog.Error("handle", "type", env.Type, "err", err)
-			continue
+		handleErr := rt.handle(ctx, mailboxID, env)
+		if handleErr != nil {
+			slog.Error("handle", "type", env.Type, "err", handleErr)
 		}
-		if rt.seen != nil {
+		markSeen, ack := consumeEnvelope(env.Type, handleErr)
+		if markSeen && rt.seen != nil {
 			rt.seen.Add(fp)
 		}
-		// Best-effort: drop inject/list from relay queue so restarts stay clean
-		if env.CommandID != "" && (env.Type == grok.TypeInject || env.Type == grok.TypeList) {
+		// Always ack inject/list — even when handle failed. PollOverlap (30s)
+		// re-reads unacked envelopes; skipping ack used to re-type the same
+		// prompt every poll (Grok approval-card loop).
+		if ack && env.CommandID != "" {
 			actx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			_ = rt.relay.Ack(actx, mailboxID, []string{env.CommandID}, rt.dev.DeviceID)
 			cancel()

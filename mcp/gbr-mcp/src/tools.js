@@ -157,7 +157,7 @@ export const TOOLS = [
   {
     name: 'gbr_result',
     description:
-      'Harvest a structured result excerpt from a session. THIS is the feedback loop — do not wait for full Grok TUI scrollback. Pass wait_ms to block until a shell/Grok prompt appears or output goes quiet (idle_ms, default 2500). Returns {state: idle|busy|timeout, excerpt, prompt, lock}. Empty excerpt on a Grok UI window is normal; retry once, then judge from what you have.',
+      'Harvest a structured result excerpt from a session. THIS is the feedback loop — do not wait for full Grok TUI scrollback. Pass wait_ms to block until a shell/Grok prompt appears or output goes quiet (idle_ms, default 2500). Returns {state: idle|busy|timeout, excerpt, prompt, lock, retry}. retry is true only on a real prompt. On timeout/splash/quiet: do NOT re-inject or re-open — that loop opens Grok approval cards. Judge from the excerpt or stop.',
     inputSchema: {
       type: 'object',
       properties: {

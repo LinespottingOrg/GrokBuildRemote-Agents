@@ -261,6 +261,10 @@ func (s *botServer) collectResult(sessionID, commandID string, waitMS, idleMS, e
 			}
 		}
 	}
+	// Timed-out / splash / error must not invite another inject. A quiet
+	// 2.5s harvest on a static approval card used to look "idle" enough
+	// that Grok bot re-fired open→inject and opened another card.
+	retry := idle.Idle && idle.Prompt && idle.State == "idle" && idle.Reason == inject.IdleReasonPrompt
 	out := map[string]any{
 		"ok":            true,
 		"session_id":    sessionID,
@@ -275,6 +279,7 @@ func (s *botServer) collectResult(sessionID, commandID string, waitMS, idleMS, e
 		"quiet_ms":      idle.QuietMS,
 		"prompt":        idle.Prompt,
 		"changed":       idle.Changed,
+		"retry":         retry,
 		"device":        map[string]any{"id": "local", "kind": "local", "mailbox_id": s.mailboxID},
 	}
 	if l, ok := core.GetLease(sessionID); ok {
