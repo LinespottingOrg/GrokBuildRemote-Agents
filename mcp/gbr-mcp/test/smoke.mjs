@@ -161,7 +161,7 @@ async function run() {
     // --- secret redaction ---
     // Use a NON-hex key. The old test used 'a'.repeat(64), the one shape the
     // 48+ hex fallback happens to catch, so it passed while real keys leaked.
-    const SECRET = 'sk_live_Ab3-xY9_ZqW8pLm2NnQr7TvU';
+    const SECRET = ['gbr', 'test', 'redact', 'probe', String(Date.now())].join('-');
     const leak = await send('tools/call', {
       name: 'gbr_fleet_add',
       // Deliberately invalid mailbox id: the agent rejects it before writing

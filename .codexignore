@@ -6,3 +6,4 @@ node_modules/
 *.log
 *.exe
 mcp/gbr-mcp/node_modules/
+mcp/gbr-mcp/test/
