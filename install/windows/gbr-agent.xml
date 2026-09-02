@@ -2,23 +2,29 @@
   WinSW configuration sample — Grok Build Remote (gbr-agent)
 
   Place this file next to:
-    - gbr-agent.exe           (agent binary)
+    - gbr-agent.exe           (agent binary — prefer %LOCALAPPDATA%\GrokBuildRemote\)
     - gbr-agent-service.exe   (WinSW renamed executable)
 
-  Docs: install/windows/service.md
+  Supported install scripts: scripts/windows/install-service.ps1
+  Docs: scripts/windows/README.md , install/windows/service.md
+
+  Defaults for PC1 / no-popup:
+    - GBR_INJECT_HALT=1  (David must clear for live inject)
+    - GBR_LOG_DIR=C:\pc-build\gbr-agent-out
+    - Binary path must be LocalAppData gbr-agent 0.6.3+ (not .aiprojects dist)
+
   Product: Grok Build Remote | LinespottingOrg
+  No secrets in this file.
 -->
 <service>
   <id>gbr-agent</id>
   <name>Grok Build Remote Agent</name>
-  <description>Grok Build Remote desktop agent (gbr-agent). Relays terminal inject/output via Grok protocol gbr/1. Free binary; proprietary source.</description>
+  <description>Grok Build Remote desktop agent (gbr-agent), non-interactive. Inject halted by default. Protocol gbr/1.</description>
 
-  <!-- Working directory = folder containing this XML and the binaries -->
   <executable>%BASE%\gbr-agent.exe</executable>
-  <arguments>run</arguments>
+  <arguments>-log=info -inject-halt run</arguments>
   <workingdirectory>%BASE%</workingdirectory>
 
-  <!-- Auto-restart on failure -->
   <onfailure action="restart" delay="5 sec"/>
   <onfailure action="restart" delay="10 sec"/>
   <onfailure action="restart" delay="30 sec"/>
@@ -26,18 +32,16 @@
 
   <startmode>Automatic</startmode>
   <stoptimeout>15 sec</stoptimeout>
-
-  <!-- Run in the interactive user context when policy allows.
-       Prefer Task Scheduler at-logon if Session 0 isolation blocks inject. -->
   <priority>Normal</priority>
 
-  <logpath>%BASE%\logs</logpath>
+  <!-- Prefer C:\pc-build\gbr-agent-out (off Dropbox). install-service.ps1 rewrites this. -->
+  <logpath>C:\pc-build\gbr-agent-out</logpath>
   <log mode="roll-by-size">
     <sizeThreshold>10240</sizeThreshold>
     <keepFiles>8</keepFiles>
   </log>
 
-  <!-- Optional: set only non-secret overrides here.
-       API keys belong in %USERPROFILE%\.grok\config.json -->
-  <env name="GBR_DATA_DIR" value="%BASE%\data"/>
+  <!-- Non-secret overrides only. API keys stay in %USERPROFILE%\.grok\config.json -->
+  <env name="GBR_LOG_DIR" value="C:\pc-build\gbr-agent-out"/>
+  <env name="GBR_INJECT_HALT" value="1"/>
 </service>
