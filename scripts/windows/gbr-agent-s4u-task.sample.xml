@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!--
+  Sample only — install-service.ps1 generates the real task with the current user.
+  LogonType=S4U (non-interactive). InteractiveToken / Interactive-only FORBIDDEN.
+  Replace USERPLACEHOLDER and paths before schtasks /Create /XML ...
+  No secrets.
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Grok Build Remote agent — NON-INTERACTIVE (S4U+Highest). GBR_INJECT_HALT default.</Description>
+    <URI>\GrokBuildRemoteAgentService</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+      <UserId>USERPLACEHOLDER</UserId>
+    </LogonTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>USERPLACEHOLDER</UserId>
+      <LogonType>S4U</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>true</Hidden>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe</Command>
+      <Arguments>-log=info -inject-halt run</Arguments>
+      <WorkingDirectory>%LOCALAPPDATA%\GrokBuildRemote</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
