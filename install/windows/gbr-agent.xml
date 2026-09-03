@@ -22,7 +22,7 @@
   <description>Grok Build Remote desktop agent (gbr-agent), non-interactive. Inject halted by default. Protocol gbr/1.</description>
 
   <executable>%BASE%\gbr-agent.exe</executable>
-  <arguments>-log=info -inject-halt run</arguments>
+  <arguments>-log=info run -inject-halt</arguments>
   <workingdirectory>%BASE%</workingdirectory>
 
   <onfailure action="restart" delay="5 sec"/>

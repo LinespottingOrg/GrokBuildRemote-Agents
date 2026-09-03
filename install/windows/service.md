@@ -1,7 +1,7 @@
 # Windows service — gbr-agent
 
 **Product:** Grok Build Remote  
-**Binary:** `gbr-agent.exe` at `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` (v0.6.3+)  
+**Binary:** `gbr-agent.exe` at `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` (must include PR #40 halt; **not** `6f451ac`)  
 **Owner:** LinespottingOrg (private source; free end-user binaries)
 
 **Supported NI install:** [`scripts/windows/`](../../scripts/windows/README.md) (`install-service.ps1` / `uninstall-service.ps1`).
@@ -50,7 +50,7 @@ Sample XML in this folder sets:
 
 - `GBR_INJECT_HALT=1`
 - `GBR_LOG_DIR=C:\pc-build\gbr-agent-out`
-- arguments: `-log=info -inject-halt run`
+- arguments: `-log=info run -inject-halt` (`-inject-halt` is a **run** flag; before `run` it is unknown-command)
 
 ### Manual WinSW commands
 
@@ -99,7 +99,7 @@ Used automatically by `install-service.ps1` when WinSW is absent. Summary:
 | LogonType | `S4U` (non-interactive) |
 | RunLevel | `HighestAvailable` |
 | Instances | `IgnoreNew` |
-| Exec | `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe -log=info -inject-halt run` |
+| Exec | `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe -log=info run -inject-halt` |
 | Env (User) | `GBR_INJECT_HALT=1`, `GBR_LOG_DIR=C:\pc-build\gbr-agent-out` |
 
 Requires elevated PowerShell to register.
