@@ -1,124 +1,144 @@
 # Windows service — gbr-agent
 
 **Product:** Grok Build Remote  
-**Binary:** `gbr-agent.exe`  
+**Binary:** `gbr-agent.exe` at `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` (must include PR #40 halt; **not** `6f451ac`)  
 **Owner:** LinespottingOrg (private source; free end-user binaries)
 
-The Windows agent should run as a **user-session service** (or login-started process) so it can:
+**Supported NI install:** [`scripts/windows/`](../../scripts/windows/README.md) (`install-service.ps1` / `uninstall-service.ps1`).
 
-1. Discover terminal sessions (Windows Terminal, ConEmu, etc.)
-2. Inject keystrokes via `SendInput` into the focused / target session
-3. Long-poll the Grok relay (protocol `gbr/1`) without an open inbound port
+## Goals (PC1 / no-popup)
 
-Admin services running in Session 0 **cannot** inject into interactive desktops reliably. Prefer **WinSW** under the logged-in user, or Task Scheduler “At log on”.
+1. **Non-interactive** runner — **Interactive-only / `InteractiveToken` is forbidden**
+2. **One** `gbr-agent` process
+3. Default **`GBR_INJECT_HALT=1`** (David clears halt for live inject)
+4. Logs → **`C:\pc-build\gbr-agent-out\`** (`GBR_LOG_DIR`)
+5. Keep Agents **PR #40** ack-on-fail / single `command_id` (do not regress inject loop fixes)
+6. After NI lands: **disable** legacy `\GrokBuildRemoteAgent` — **do not delete** without David yes
+
+Admin Session 0 services cannot inject into interactive desktops reliably. That is acceptable while inject is halted. For a David-gated live inject trial, prefer a user-session design that still avoids Interactive-only focus theft — and keep halt off only with explicit approval.
 
 ---
 
-## Recommended: WinSW (Windows Service Wrapper)
+## Recommended: `scripts/windows/install-service.ps1`
 
-[WinSW](https://github.com/winsw/winsw) wraps any executable as a Windows service with restart policies and logging.
-
-### Layout
-
-```
-C:\Program Files\GrokBuildRemote\
-  gbr-agent.exe          # agent binary (free download)
-  gbr-agent-service.exe  # renamed WinSW executable
-  gbr-agent.xml          # WinSW config (sample in this folder)
-  logs\                  # created by WinSW
+```powershell
+# Elevated PowerShell — registers; does not start unless -Start
+cd <repo>\scripts\windows
+.\install-service.ps1
 ```
 
-User-local alternative (no admin):
+Prefer **WinSW** when `gbr-agent-service.exe` is beside the LocalAppData binary; otherwise an **S4U + Highest** scheduled task named `\GrokBuildRemoteAgentService`.
+
+See [scripts/windows/README.md](../../scripts/windows/README.md) for install, uninstall, halt, and log path.
+
+---
+
+## WinSW (Windows Service Wrapper)
+
+[WinSW](https://github.com/winsw/winsw) wraps the executable as a Windows service with restart policies and logging.
+
+### Layout (user-local — matches PC1)
 
 ```
 %LOCALAPPDATA%\GrokBuildRemote\
-  gbr-agent.exe
-  gbr-agent-service.exe
-  gbr-agent.xml
-  logs\
+  gbr-agent.exe          # agent binary 0.6.3+ (REQUIRED path)
+  gbr-agent-service.exe  # renamed WinSW executable
+  gbr-agent.xml          # WinSW config (sample in this folder; install script rewrites)
 ```
 
-### Install steps
+Sample XML in this folder sets:
 
-1. Download free `gbr-agent` Windows amd64 binary from the product website (or GitHub Release asset `gbr-agent-windows-amd64.exe`). Rename to `gbr-agent.exe`.
-2. Download WinSW (`WinSW-x64.exe`), rename to `gbr-agent-service.exe`, place next to the agent.
-3. Copy `gbr-agent.xml` from this repo (`install/windows/gbr-agent.xml`) next to both executables. Edit paths and env if needed.
-4. Open an elevated PowerShell **only if** installing under Program Files:
+- `GBR_INJECT_HALT=1`
+- `GBR_LOG_DIR=C:\pc-build\gbr-agent-out`
+- arguments: `-log=info run -inject-halt` (`-inject-halt` is a **run** flag; before `run` it is unknown-command)
+
+### Manual WinSW commands
 
 ```powershell
-cd "C:\Program Files\GrokBuildRemote"
+cd "$env:LOCALAPPDATA\GrokBuildRemote"
 .\gbr-agent-service.exe install
+# start only when intentionally bringing the agent up:
 .\gbr-agent-service.exe start
 .\gbr-agent-service.exe status
-```
-
-5. For user-local install (no elevation), use Task Scheduler instead of a true service (see below), or install WinSW with a user account service where policy allows.
-
-### Useful WinSW commands
-
-```powershell
 .\gbr-agent-service.exe stop
-.\gbr-agent-service.exe start
-.\gbr-agent-service.exe restart
 .\gbr-agent-service.exe uninstall
 ```
 
-Logs: `logs\gbr-agent.out.log` / `logs\gbr-agent.err.log` (paths from XML).
+---
+
+## Forbidden: Interactive-only Task Scheduler
+
+Do **not** register tasks with:
+
+- “Run only when user is logged on” / **Interactive only**
+- XML `LogonType` = `InteractiveToken`
+- Wrong binary under `.aiprojects\gbr\agents\dist\gbr-agent.exe`
+
+Legacy task name on PC1: `\GrokBuildRemoteAgent` (interactive). After NI install, **disable** it:
+
+```powershell
+schtasks /Change /TN GrokBuildRemoteAgent /DISABLE
+```
+
+**Do not delete** without David yes:
+
+```powershell
+# FORBIDDEN unless David explicitly approves
+# schtasks /Delete /TN GrokBuildRemoteAgent /F
+```
 
 ---
 
-## Alternative: Task Scheduler (per-user, recommended for inject)
+## Alternative (documented): S4U + Highest AtLogon
 
-**PowerShell (run as the interactive user):**
+Used automatically by `install-service.ps1` when WinSW is absent. Summary:
 
-```powershell
-$exe = "$env:LOCALAPPDATA\GrokBuildRemote\gbr-agent.exe"
-$action  = New-ScheduledTaskAction -Execute $exe -Argument "run"
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName "GrokBuildRemote-Agent" -Action $action -Trigger $trigger -Settings $settings -Description "Grok Build Remote agent (gbr-agent)"
-```
+| Setting | Value |
+| --- | --- |
+| Task name | `GrokBuildRemoteAgentService` |
+| LogonType | `S4U` (non-interactive) |
+| RunLevel | `HighestAvailable` |
+| Instances | `IgnoreNew` |
+| Exec | `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe -log=info run -inject-halt` |
+| Env (User) | `GBR_INJECT_HALT=1`, `GBR_LOG_DIR=C:\pc-build\gbr-agent-out` |
 
-Start now:
-
-```powershell
-Start-ScheduledTask -TaskName "GrokBuildRemote-Agent"
-```
+Requires elevated PowerShell to register.
 
 ---
 
 ## Configuration
 
 | Item | Location |
-|------|----------|
+| --- | --- |
 | xAI / Grok API key | `%USERPROFILE%\.grok\config.json` |
-| Device / pairing | Agent-managed under `%LOCALAPPDATA%\GrokBuildRemote\` (implementation-defined) |
-| Protocol | `gbr/1` envelopes over Grok API (no phone↔PC sockets) |
+| Device / pairing | Agent-managed under `%LOCALAPPDATA%\GrokBuildRemote\` |
+| Inject halt | User env `GBR_INJECT_HALT=1` + `-inject-halt` |
+| Logs | `C:\pc-build\gbr-agent-out\` |
+| Protocol | `gbr/1` envelopes over Grok API |
 
-Never commit API keys. Do not place secrets in the WinSW XML committed to git.
-
----
-
-## Microsoft Store (future)
-
-Store-packaged builds will use MSIX and OS-managed lifecycle. WinSW remains the sideload / website-installer path for full inject capabilities until Store packaging is finalized.
+Never commit API keys. Do not place secrets in WinSW XML committed to git.
 
 ---
 
 ## Uninstall
 
-WinSW:
+```powershell
+cd <repo>\scripts\windows
+.\uninstall-service.ps1
+# David yes only:
+# .\uninstall-service.ps1 -DeleteInteractiveTask
+```
+
+Or WinSW manually:
 
 ```powershell
-cd "C:\Program Files\GrokBuildRemote"   # or your install dir
+cd "$env:LOCALAPPDATA\GrokBuildRemote"
 .\gbr-agent-service.exe stop
 .\gbr-agent-service.exe uninstall
 ```
 
-Task Scheduler:
+---
 
-```powershell
-Unregister-ScheduledTask -TaskName "GrokBuildRemote-Agent" -Confirm:$false
-```
+## Microsoft Store (future)
 
-Remove the install directory and optional `%LOCALAPPDATA%\GrokBuildRemote` state as desired.
+Store-packaged builds will use MSIX and OS-managed lifecycle. WinSW / S4U remains the sideload path for full control of halt + log directory until Store packaging is finalized.
