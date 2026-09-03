@@ -6,11 +6,15 @@
 
 Install the agent so it **cannot** raise interactive approval UI on the logged-in desktop by default. Inject stays **halted** until David explicitly clears the halt.
 
+**PC1 fact:** `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` labelled **0.6.3** `commit=6f451ac` (2026-08-24) is the **wmic flash** fix only. It does **not** include PR #40 (`GBR_INJECT_HALT` / `-inject-halt` / ack-on-fail). `install-service.ps1` **refuses** that SHA. Replace the exe from `origin/main` after #40 (`f7bd6c1`) before install.
+
+**Flag order:** `-inject-halt` is a **`run` subcommand** flag. Correct: `-log=info run -inject-halt`. Wrong: `-log=info -inject-halt run` (unknown-command, process dies).
+
 ## Hard rules
 
 | Rule | Detail |
 | --- | --- |
-| Binary path | `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` (v0.6.3+). **Never** `.aiprojects\gbr\agents\dist\...` |
+| Binary path | `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` with **PR #40** (`-inject-halt` / `GBR_INJECT_HALT`). **Never** `.aiprojects\gbr\agents\dist\...`. **Refuse** commit `6f451ac` (labelled 0.6.3, 2026-08-24 — wmic flash fix only, no halt). |
 | Interactive-only | **Forbidden.** Do not use Task Scheduler “Interactive only” / `InteractiveToken`. |
 | Inject | Default `GBR_INJECT_HALT=1` (+ `-inject-halt`). David must clear halt for live inject. |
 | Logs | `C:\pc-build\gbr-agent-out\` via `GBR_LOG_DIR` |
@@ -28,7 +32,7 @@ Install the agent so it **cannot** raise interactive approval UI on the logged-i
 - `RunLevel` = **HighestAvailable**
 - `MultipleInstancesPolicy` = **IgnoreNew**
 - `Hidden` = true
-- Direct `Exec` of `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe -log=info -inject-halt run`
+- Direct `Exec` of `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe -log=info run -inject-halt`
 
 ## Install
 
@@ -58,6 +62,16 @@ WinSW (optional, preferred when available):
 1. Download `WinSW-x64.exe`, rename to `gbr-agent-service.exe`
 2. Place next to `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe`
 3. Run `.\install-service.ps1` (writes `gbr-agent.xml` with halt + log dir)
+
+## Duplicates (one process)
+
+```powershell
+cd <repo>\scripts\windows
+.\kill-duplicates.ps1          # list only
+.\kill-duplicates.ps1 -Kill    # stop extras; keep LocalAppData exe if running
+```
+
+Does **not** start the agent. Does **not** clear halt.
 
 ## Halt (inject kill-switch)
 
@@ -125,7 +139,7 @@ Get-Content Env:GBR_INJECT_HALT
 Get-Content Env:GBR_LOG_DIR
 ```
 
-Do not start `gbr-agent` from docs automation; David / PC1 ops decide when to `-Start`.
+Do not start `gbr-agent` from docs automation; David / PC1 ops decide when to `-Start`. HOLD (inbox #123): do not merge/install/start or clear halt until David picks merge+install.
 
 ## Why not `gbr-agent service install` alone?
 

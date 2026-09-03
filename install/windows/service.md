@@ -1,7 +1,7 @@
 # Windows service — Grok Build Remote
 
 **Product:** Grok Build Remote  
-**Binary (CLI name unchanged):** `gbr-agent.exe` at `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe`  
+**Binary (CLI name unchanged):** `gbr-agent.exe` at `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` (must include PR #40 halt; **not** `6f451ac`)
 **Owner:** LinespottingOrg (private source; free end-user binaries)
 
 **Display name (issue #55):** Users must see **Grok Build Remote** (or **Grok Build Remote Agent**), not bare `gbr`. WinSW `<name>` is `Grok Build Remote Agent`. Internal ids (`GrokBuildRemoteAgent` legacy interactive, `GrokBuildRemoteAgentService` this PR’s S4U task) are **not** the human name.
@@ -62,7 +62,7 @@ Sample XML sets:
 - `GBR_INJECT_HALT=1`
 - `GBR_NO_AUTO_OPEN=1`
 - `GBR_LOG_DIR=C:\pc-build\gbr-agent-out`
-- arguments: `-log=info run -inject-halt` (`-inject-halt` is a **run** flag)
+- arguments: `-log=info run -inject-halt` (`-inject-halt` is a **run** flag; before `run` it is unknown-command)
 
 ### Manual WinSW commands
 

@@ -43,7 +43,7 @@ if ((Get-FileHash $i -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sha) { thro
 gbr-agent version
 ```
 
-**Windows non-interactive service / AtLogon (no Interactive-only):** after the binary is at `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe`, use [`scripts/windows/`](scripts/windows/README.md) (`install-service.ps1`). Defaults: `GBR_INJECT_HALT=1`, logs `C:\pc-build\gbr-agent-out\`. Do not delete legacy task `\GrokBuildRemoteAgent` without David yes. See also [install/windows/service.md](install/windows/service.md).
+**Windows non-interactive service / AtLogon (no Interactive-only):** after a **PR #40** binary is at `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` (help must list `-inject-halt`; refuse commit `6f451ac`), use [`scripts/windows/`](scripts/windows/README.md) (`install-service.ps1`). Args: `-log=info run -inject-halt`. Defaults: `GBR_INJECT_HALT=1`, logs `C:\pc-build\gbr-agent-out\`. Do not delete legacy task `\GrokBuildRemoteAgent` without David yes. See also [install/windows/service.md](install/windows/service.md).
 
 **Binary only** (skip the installer): verify a **hard-coded** digest from [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md), then `mkdir -p ~/.local/bin`, `install` onto that path, and `export PATH="$HOME/.local/bin:$PATH"`. Do not `curl SHA256SUMS && shasum -c`.
 
