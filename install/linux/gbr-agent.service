@@ -20,6 +20,10 @@
 # Logs: journalctl --user -u gbr-agent -f
 # Config: ~/.grok/config.json  |  Protocol: gbr/1
 # Free binary; proprietary source — LinespottingOrg
+#
+# Display name (issue #55): systemd Description= is the human label
+# ("Grok Build Remote agent (gbr-agent)"). Unit filename stays gbr-agent.service.
+# App menu: install/linux/gbr-agent.desktop (Name=Grok Build Remote).
 
 [Unit]
 Description=Grok Build Remote agent (gbr-agent)

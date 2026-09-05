@@ -20,52 +20,16 @@ func installPlatform() error {
 	}
 	// Prefer Task Scheduler logon task so agent runs in the user desktop session.
 	// /RL LIMITED = standard user; /IT = only when user logged on interactively.
-	xml := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo>
-    <Description>Grok Build Remote agent — polls relay and injects into terminals</Description>
-    <URI>\%s</URI>
-  </RegistrationInfo>
-  <Triggers>
-    <LogonTrigger>
-      <Enabled>true</Enabled>
-    </LogonTrigger>
-  </Triggers>
-  <Principals>
-    <Principal id="Author">
-      <LogonType>InteractiveToken</LogonType>
-      <RunLevel>LeastPrivilege</RunLevel>
-    </Principal>
-  </Principals>
-  <Settings>
-    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-    <AllowHardTerminate>true</AllowHardTerminate>
-    <StartWhenAvailable>true</StartWhenAvailable>
-    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
-    <AllowStartOnDemand>true</AllowStartOnDemand>
-    <Enabled>true</Enabled>
-    <Hidden>true</Hidden>
-    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
-  </Settings>
-  <Actions Context="Author">
-    <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%s' -ArgumentList '-log=info','run' -WindowStyle Hidden"</Arguments>
-      <WorkingDirectory>%s</WorkingDirectory>
-    </Exec>
-  </Actions>
-</Task>
-`, p.UnitPath, p.Binary, serviceWorkDir(p.Binary))
+	// Task list name is "Grok Build Remote" (issue #55). Spaces are valid in /TN.
+	xml := windowsTaskXML(p.UnitPath, p.Binary, serviceWorkDir(p.Binary))
 
 	tmp := filepath.Join(os.TempDir(), "gbr-agent-task.xml")
 	// Task Scheduler XML expects UTF-16 LE with BOM when using /XML
-	utf16 := utf16LEBOM(xml)
-	if err := os.WriteFile(tmp, utf16, 0o600); err != nil {
+	encoded := utf16LEBOM(xml)
+	if err := os.WriteFile(tmp, encoded, 0o600); err != nil {
 		return err
 	}
-	// Remove existing then create
+	// Remove existing then create (current human name only — not the legacy id).
 	_ = exec.Command("schtasks", "/Delete", "/TN", p.UnitPath, "/F").Run()
 	out, err := exec.Command("schtasks", "/Create", "/TN", p.UnitPath, "/XML", tmp, "/F").CombinedOutput()
 	if err != nil {
@@ -79,6 +43,7 @@ func installPlatform() error {
 				return fmt.Errorf("schtasks create: %w\n%s\nfallback: %s\nstartup: %v", err, string(out), string(out2), err3)
 			}
 			fmt.Println("note: Task Scheduler access denied — installed Startup folder launcher instead")
+			disableLegacyWindowsTasks()
 			return nil
 		}
 	}
@@ -88,9 +53,24 @@ func installPlatform() error {
 	// every single login.
 	removeStartupFolder()
 
+	// Migrate pre-#55 ids: disable, do not delete (David-yes required to remove).
+	disableLegacyWindowsTasks()
+
 	// Start now
 	_ = exec.Command("schtasks", "/Run", "/TN", p.UnitPath).Run()
 	return nil
+}
+
+// disableLegacyWindowsTasks stops auto-start of old Task Scheduler ids.
+// The tasks stay registered until David-yes to delete.
+func disableLegacyWindowsTasks() {
+	for _, name := range windowsLegacyTaskNames() {
+		if name == "" || name == WindowsTaskName {
+			continue
+		}
+		_ = exec.Command("schtasks", "/End", "/TN", name).Run()
+		_ = exec.Command("schtasks", "/Change", "/TN", name, "/DISABLE").Run()
+	}
 }
 
 // serviceWorkDir is the agent's working directory when launched by the service.
@@ -106,13 +86,22 @@ func serviceWorkDir(binary string) string {
 	return filepath.Dir(binary)
 }
 
-func removeStartupFolder() {
+func startupFolderPath(name string) string {
 	appData := os.Getenv("APPDATA")
 	if appData == "" {
-		return
+		return ""
 	}
-	_ = os.Remove(filepath.Join(appData, "Microsoft", "Windows",
-		"Start Menu", "Programs", "Startup", "GrokBuildRemoteAgent.cmd"))
+	return filepath.Join(appData, "Microsoft", "Windows",
+		"Start Menu", "Programs", "Startup", name)
+}
+
+func removeStartupFolder() {
+	if p := startupFolderPath(WindowsStartupCmd); p != "" {
+		_ = os.Remove(p)
+	}
+	if p := startupFolderPath(WindowsLegacyStartupCmd); p != "" {
+		_ = os.Remove(p)
+	}
 }
 
 func installStartupFolder(binary string) error {
@@ -124,8 +113,10 @@ func installStartupFolder(binary string) error {
 	if err := os.MkdirAll(startup, 0o755); err != nil {
 		return err
 	}
+	// Drop the pre-#55 launcher so Startup shows "Grok Build Remote".
+	_ = os.Remove(filepath.Join(startup, WindowsLegacyStartupCmd))
 	// Hidden launcher — do not use `start` on a console binary (Win11 Terminal flash).
-	cmdPath := filepath.Join(startup, "GrokBuildRemoteAgent.cmd")
+	cmdPath := filepath.Join(startup, WindowsStartupCmd)
 	body := fmt.Sprintf("@echo off\r\npowershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"Start-Process -FilePath '%s' -ArgumentList '-log=info','run' -WindowStyle Hidden\"\r\n", binary)
 	return os.WriteFile(cmdPath, []byte(body), 0o644)
 }
@@ -140,11 +131,9 @@ func uninstallPlatform() error {
 		// ignore if missing
 		_ = out
 	}
-	// Startup folder cleanup
-	appData := os.Getenv("APPDATA")
-	if appData != "" {
-		_ = os.Remove(filepath.Join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "GrokBuildRemoteAgent.cmd"))
-	}
+	// Legacy ids: disable again, do not delete without David-yes.
+	disableLegacyWindowsTasks()
+	removeStartupFolder()
 	return nil
 }
 
@@ -155,25 +144,31 @@ func statusPlatform() (string, error) {
 	}
 	out, err := exec.Command("schtasks", "/Query", "/TN", p.UnitPath, "/FO", "LIST", "/V").CombinedOutput()
 	startup := "false"
-	appData := os.Getenv("APPDATA")
-	if appData != "" {
-		if _, e := os.Stat(filepath.Join(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "GrokBuildRemoteAgent.cmd")); e == nil {
+	if sp := startupFolderPath(WindowsStartupCmd); sp != "" {
+		if _, e := os.Stat(sp); e == nil {
 			startup = "true"
 		}
 	}
+	legacy := windowsLegacyStatus()
 	if err != nil {
-		return fmt.Sprintf("task=%s installed=false startup_folder=%s\nbinary=%s\nnote=%s\n", p.UnitPath, startup, p.Binary, p.ExtraNotes), nil
+		return fmt.Sprintf("task=%s installed=false startup_folder=%s\nbinary=%s\n%snote=%s\n", p.UnitPath, startup, p.Binary, legacy, p.ExtraNotes), nil
 	}
-	return fmt.Sprintf("task=%s installed=true startup_folder=%s\nbinary=%s\n%s\nnote=%s\n", p.UnitPath, startup, p.Binary, string(out), p.ExtraNotes), nil
+	return fmt.Sprintf("task=%s installed=true startup_folder=%s\nbinary=%s\n%s%s\nnote=%s\n", p.UnitPath, startup, p.Binary, legacy, string(out), p.ExtraNotes), nil
 }
 
-func utf16LEBOM(s string) []byte {
-	// Minimal UTF-16 LE encoder for ASCII-heavy XML
-	u := make([]byte, 2+len(s)*2)
-	u[0], u[1] = 0xFF, 0xFE
-	for i := 0; i < len(s); i++ {
-		u[2+i*2] = s[i]
-		u[2+i*2+1] = 0
+func windowsLegacyStatus() string {
+	var b strings.Builder
+	for _, name := range windowsLegacyTaskNames() {
+		out, err := exec.Command("schtasks", "/Query", "/TN", name, "/FO", "LIST").CombinedOutput()
+		if err != nil {
+			continue
+		}
+		state := "registered"
+		low := strings.ToLower(string(out))
+		if strings.Contains(low, "disabled") {
+			state = "disabled"
+		}
+		fmt.Fprintf(&b, "legacy_task=%s %s (not deleted; needs David-yes to remove)\n", name, state)
 	}
-	return u
+	return b.String()
 }

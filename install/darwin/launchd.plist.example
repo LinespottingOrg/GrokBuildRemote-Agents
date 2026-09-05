@@ -19,14 +19,25 @@
   Notes:
     - Use LaunchAgents (user session), not LaunchDaemons, so AppleScript /
       Accessibility inject can reach interactive terminals.
-    - Grant Accessibility / Automation permissions to gbr-agent when prompted.
+    - Login Items / System Settings show **Grok Build Remote** via
+      AssociatedBundleIdentifiers → com.linespotting.grok-build-remote
+      (app bundle: install/darwin/Grok Build Remote.app; CFBundleDisplayName).
+      `gbr-agent service install` copies that bundle to ~/Applications.
+    - Grant Accessibility / Automation permissions to the **gbr-agent** binary
+      when prompted (the app stub execs that binary; the grant path is the CLI).
     - Grok API key: ~/.grok/config.json
     - Protocol: gbr/1
+    - CLI command stays gbr-agent; env vars stay GBR_*.
 -->
 <plist version="1.0">
   <dict>
     <key>Label</key>
     <string>com.linespotting.gbr-agent</string>
+
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+      <string>com.linespotting.grok-build-remote</string>
+    </array>
 
     <key>ProgramArguments</key>
     <array>

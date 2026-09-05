@@ -7,31 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-	"text/template"
 )
-
-const unitTmpl = `[Unit]
-Description=Grok Build Remote agent (gbr-agent)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-ExecStart={{.Binary}} -log=info run
-WorkingDirectory={{.WorkDir}}
-Restart=on-failure
-RestartSec=3
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
-{{if .RelayURL}}Environment=GBR_RELAY_URL={{.RelayURL}}
-{{end}}# Hub PCs should set GBR_BOT_REQUIRE_KEY=1 (or true/on). Default off for MCP.
-# Environment=GBR_BOT_REQUIRE_KEY=1
-# Uncomment if DISPLAY needed for xdotool:
-# Environment=DISPLAY=:0
-
-[Install]
-WantedBy=default.target
-`
 
 func installPlatform() error {
 	p, err := Resolve()
@@ -49,26 +25,35 @@ func installPlatform() error {
 	if workDir == "" {
 		workDir = p.DataDir
 	}
-	f, err := os.OpenFile(p.UnitPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	body, err := renderLinuxUnit(p.Binary, workDir, os.Getenv("GBR_RELAY_URL"))
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	t := template.Must(template.New("unit").Parse(unitTmpl))
-	if err := t.Execute(f, map[string]string{
-		"Binary":   p.Binary,
-		"WorkDir":  workDir,
-		"RelayURL": strings.TrimSpace(os.Getenv("GBR_RELAY_URL")),
-	}); err != nil {
+	if err := os.WriteFile(p.UnitPath, []byte(body), 0o644); err != nil {
+		return err
+	}
+	if err := installLinuxDesktop(workDir, p.Binary); err != nil {
 		return err
 	}
 	// enable --user
 	_ = exec.Command("systemctl", "--user", "daemon-reload").Run()
-	out, err := exec.Command("systemctl", "--user", "enable", "--now", "gbr-agent.service").CombinedOutput()
+	out, err := exec.Command("systemctl", "--user", "enable", "--now", LinuxUnitName).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("systemctl enable: %w\n%s\n(hint: loginctl enable-linger $USER for headless)", err, string(out))
 	}
 	return nil
+}
+
+func linuxDesktopPath(home string) string {
+	return filepath.Join(home, ".local", "share", "applications", LinuxDesktopFile)
+}
+
+func installLinuxDesktop(home, binary string) error {
+	path := linuxDesktopPath(home)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(linuxDesktopEntry(binary)), 0o644)
 }
 
 func uninstallPlatform() error {
@@ -76,8 +61,11 @@ func uninstallPlatform() error {
 	if err != nil {
 		return err
 	}
-	_ = exec.Command("systemctl", "--user", "disable", "--now", "gbr-agent.service").Run()
+	_ = exec.Command("systemctl", "--user", "disable", "--now", LinuxUnitName).Run()
 	_ = os.Remove(p.UnitPath)
+	if home, err := os.UserHomeDir(); err == nil {
+		_ = os.Remove(linuxDesktopPath(home))
+	}
 	_ = exec.Command("systemctl", "--user", "daemon-reload").Run()
 	return nil
 }
@@ -87,7 +75,7 @@ func statusPlatform() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, _ := exec.Command("systemctl", "--user", "status", "gbr-agent.service", "--no-pager").CombinedOutput()
+	out, _ := exec.Command("systemctl", "--user", "status", LinuxUnitName, "--no-pager").CombinedOutput()
 	exists := "false"
 	if _, err := os.Stat(p.UnitPath); err == nil {
 		exists = "true"
