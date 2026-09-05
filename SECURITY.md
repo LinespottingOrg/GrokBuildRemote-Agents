@@ -23,11 +23,11 @@ Canonical index (FAQ + GitHub + trust): https://grokbuildremote.com/integrations
 
 | Surface | Bind | Auth |
 |---------|------|------|
-| Bot API on this PC | `http://127.0.0.1:8788` after `gbr-agent run` | **Unauthenticated by default.** Set `GBR_BOT_REQUIRE_KEY=1` to require the mailbox key even on loopback. |
+| Bot API on this PC | `http://127.0.0.1:8788` after `gbr-agent run` | **Unauthenticated by default** (MCP/loopback clients). Set `GBR_BOT_REQUIRE_KEY=1` / `true` / `on` to require the mailbox key even on loopback. **Hub and `gbr-agent service install` should set this** — `POST /v1/devices` upserts remote mailbox keys. |
 | HTTPS relay | `https://gbr-relay.ekobrott.workers.dev/v1/mb/{id}/…` | `X-GBR-Key` (or Bearer) on **push / poll / ack / Bot API**. `POST /v1/mb/:id/pair` is **unauthenticated** and throttled (12/hour/mailbox) — that is where the key is issued. See [relay/README.md](relay/README.md). |
 | MCP stdio | `gbr-mcp` on the same machine | Local process; still talks to loopback `:8788` |
 
-“Attach only loopback / stdio” is not the whole story. Anyone local on that PC can inject unless `GBR_BOT_REQUIRE_KEY=1`. Details: [docs/BOT-API.md](docs/BOT-API.md).
+“Attach only loopback / stdio” is not the whole story. Anyone local on that PC can inject unless `GBR_BOT_REQUIRE_KEY=1`/`true`/`on`. Felanmälan / QA PC Android titles are hard-denied (bind and inject). Inbox comments inject only from `LinespottingPrivate` (`GBR_INBOX_AUTHORS`). Details: [docs/BOT-API.md](docs/BOT-API.md).
 
 ## Install
 

@@ -185,11 +185,13 @@ Environment:
   GBR_TRACE_REMOTE=0            trace to local file only (no relay mirror)
   GBR_LOG_DIR                   override log directory
   GBR_BOT_PORT                  localhost bot HTTP port (default 8788, 0=off)
-  GBR_BOT_REQUIRE_KEY=1         require mailbox key even on 127.0.0.1
+  GBR_BOT_REQUIRE_KEY=1|true|on require mailbox key even on 127.0.0.1
+                                (default off for MCP/loopback; set on hub/service)
   GBR_INBOX_WATCH=0             disable GitHub boss-steer → inject
   GBR_INBOX_REPO                default LinespottingOrg/grok-build-inbox
   GBR_INBOX_LABEL               default boss-steer
   GBR_INBOX_POLL                default 20s
+  GBR_INBOX_AUTHORS             comma logins allowed to inject (default LinespottingPrivate)
   GBR_INJECT_HALT=1             kill-switch: refuse all injects (no approval cards)
   GBR_INJECT_MAX=N              cap injects per session / 2 min (0 = halt)
   GBR_NO_AUTO_OPEN=1            refuse agent-spawned grok consoles
@@ -559,16 +561,16 @@ func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.
 			Text:      text,
 			Submit:    p.Submit,
 		}
-		// Prefer binding to known session if we have HWND
-		if sess, ok := rt.scanner.Registry.Get(env.SessionID); ok && sess != nil && sess.HWND != 0 {
-			_ = rt.hybrid.Bind(env.SessionID, inject.TerminalWindow{
-				HWND:  sess.HWND,
-				PID:   uint32(sess.PID),
-				Title: sess.Title,
-			})
+		var injErr error
+		if rt.scanner != nil && rt.scanner.Registry != nil {
+			if sess, ok := rt.scanner.Registry.Get(env.SessionID); ok && sess != nil {
+				injErr = bindFromRoster(rt.hybrid, sess)
+			}
 		}
 		injStart := time.Now()
-		injErr := rt.hybrid.Inject(env.SessionID, req)
+		if injErr == nil {
+			injErr = rt.hybrid.Inject(env.SessionID, req)
+		}
 		injDetail := fmt.Sprintf("chars=%d submit=%v mode=%s", len(text), p.Submit, p.Mode)
 		if injErr != nil {
 			injDetail = injErr.Error()

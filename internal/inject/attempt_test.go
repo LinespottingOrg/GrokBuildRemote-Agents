@@ -28,11 +28,33 @@ func TestAttemptGuard_EmptyCommandIDNotReplay(t *testing.T) {
 	}
 }
 
+func TestEnvTruthy(t *testing.T) {
+	for _, v := range []string{"1", "true", "TRUE", "on", "On"} {
+		if !EnvTruthy(v) {
+			t.Fatalf("%q should be truthy", v)
+		}
+	}
+	for _, v := range []string{"", "0", "false", "off", "yes", "enabled"} {
+		if EnvTruthy(v) {
+			t.Fatalf("%q should be falsey", v)
+		}
+	}
+}
+
 func TestAttemptGuard_Halt(t *testing.T) {
 	t.Setenv("GBR_INJECT_HALT", "1")
 	g := newAttemptGuard()
 	if err := g.Admit("sess-a", "cmd-1"); !errors.Is(err, ErrInjectHalted) {
 		t.Fatalf("halt must refuse, got %v", err)
+	}
+}
+
+func TestAttemptGuard_HaltTrueOn(t *testing.T) {
+	for _, v := range []string{"true", "on"} {
+		t.Setenv("GBR_INJECT_HALT", v)
+		if !HaltInject() {
+			t.Fatalf("HaltInject must accept %q", v)
+		}
 	}
 }
 

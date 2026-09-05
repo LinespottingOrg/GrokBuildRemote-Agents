@@ -10,8 +10,9 @@ import (
 )
 
 type windowSess struct {
-	PID  int
-	HWND uintptr
+	PID   int
+	HWND  uintptr
+	Title string
 }
 
 // Hybrid tries platform UI inject first, then managed shell (PTY pipes).
@@ -50,10 +51,13 @@ func (h *Hybrid) Discover() ([]TerminalWindow, error) {
 }
 
 func (h *Hybrid) Bind(sessionID string, win TerminalWindow) error {
+	if err := RefuseProtected(win.Title); err != nil {
+		return err
+	}
 	// A real HWND means "type into this window". Remember it so Inject
 	// cannot fall through to a PTY and log chars=N without spawning type.
 	if sessionID != "" && win.HWND != 0 {
-		h.rememberWindow(sessionID, int(win.PID), win.HWND)
+		h.rememberWindow(sessionID, int(win.PID), win.HWND, win.Title)
 	}
 	if h.UI != nil {
 		return h.UI.Bind(sessionID, win)
@@ -80,13 +84,40 @@ func (h *Hybrid) isWindowSession(sessionID string) bool {
 	return ok
 }
 
-func (h *Hybrid) rememberWindow(sessionID string, pid int, hwnd uintptr) {
+func (h *Hybrid) rememberWindow(sessionID string, pid int, hwnd uintptr, title string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.windows == nil {
 		h.windows = make(map[string]windowSess)
 	}
-	h.windows[sessionID] = windowSess{PID: pid, HWND: hwnd}
+	h.windows[sessionID] = windowSess{PID: pid, HWND: hwnd, Title: title}
+}
+
+// denyProtected refuses inject into an already-bound operator window.
+// Checks the stored title and the live Discover title for the same HWND.
+func (h *Hybrid) denyProtected(sessionID string) error {
+	if h == nil || sessionID == "" {
+		return nil
+	}
+	h.mu.Lock()
+	w, ok := h.windows[sessionID]
+	h.mu.Unlock()
+	if err := RefuseProtected(w.Title); err != nil {
+		return err
+	}
+	if !ok || w.HWND == 0 || h.UI == nil {
+		return nil
+	}
+	wins, err := h.UI.Discover()
+	if err != nil {
+		return nil
+	}
+	for _, live := range wins {
+		if live.HWND == w.HWND {
+			return RefuseProtected(live.Title)
+		}
+	}
+	return nil
 }
 
 func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
@@ -96,6 +127,11 @@ func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 	// Splash first (do not consume command_id — caller may retry after ready).
 	if cr, err := h.Capture(sessionID); err == nil && LooksLikeGrokSplash(cr.Text) {
 		return ErrSplash
+	}
+	// Operator windows (Felanmälan / QA PC Android): hard-deny before Admit
+	// so a named session_id cannot SendInput just because it was already bound.
+	if err := h.denyProtected(sessionID); err != nil {
+		return err
 	}
 	// Record command_id before typing so a failed / timed-out inject cannot
 	// be replayed into another Grok approval card.
@@ -109,6 +145,9 @@ func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 	// Window-backed grok (visible console): never rediscover — pickInjectTarget
 	// would happily steal ++ Felanmälan.org because it also says "Grok Build".
 	if h.isWindowSession(sessionID) {
+		if err := h.denyProtected(sessionID); err != nil {
+			return err
+		}
 		if h.UI == nil {
 			return fmt.Errorf("%w: session %q (window session has no UI injector)", ErrNotFound, sessionID)
 		}
@@ -125,8 +164,13 @@ func (h *Hybrid) Inject(sessionID string, req InjectRequest) error {
 	if h.UI != nil {
 		if wins, err := h.UI.Discover(); err == nil && len(wins) > 0 {
 			chosen := pickInjectTarget(wins, sessionID)
-			if chosen.HWND != 0 && !IsProtectedTitle(chosen.Title) {
-				_ = h.UI.Bind(sessionID, chosen)
+			if err := RefuseProtected(chosen.Title); err != nil {
+				return err
+			}
+			if chosen.HWND != 0 {
+				if err := h.Bind(sessionID, chosen); err != nil {
+					return err
+				}
 			}
 		}
 		if err := h.UI.Inject(sessionID, req); err == nil {
@@ -367,7 +411,7 @@ func (h *Hybrid) attachExistingGrok(req OpenRequest) (OpenResult, bool) {
 	if err := h.UI.Bind(sid, chosen); err != nil {
 		return OpenResult{}, false
 	}
-	h.rememberWindow(sid, int(chosen.PID), chosen.HWND)
+	h.rememberWindow(sid, int(chosen.PID), chosen.HWND, chosen.Title)
 	return OpenResult{
 		SessionID: sid,
 		Attached:  true,

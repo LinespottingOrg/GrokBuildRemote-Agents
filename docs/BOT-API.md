@@ -10,7 +10,7 @@
 
 | Surface | Who | Bind | Auth |
 |---------|-----|------|------|
-| **Local agent** | Grok Build / a coding agent on the **same PC** | `127.0.0.1:8788` only | Loopback. Optional `X-GBR-Key` (`GBR_BOT_REQUIRE_KEY=1` to require it). |
+| **Local agent** | Grok Build / a coding agent on the **same PC** | `127.0.0.1:8788` only | Loopback. Optional `X-GBR-Key` (`GBR_BOT_REQUIRE_KEY=1` / `true` / `on` to require it). Default **off** so MCP/loopback clients keep working. **Set it on hub PCs and `service install`.** |
 | **Relay** | A bot anywhere on the internet | `https://gbr-relay.ekobrott.workers.dev/v1/mb/{mailbox_id}/bot` | **Required** `X-GBR-Key` or `Authorization: Bearer <key>` |
 
 Phone **Settings → Bot API** copies the relay URL, mailbox id, and mailbox key after pairing.
@@ -22,6 +22,8 @@ Phone **Settings → Bot API** copies the relay URL, mailbox id, and mailbox key
 | **Android (Google Play)** | https://play.google.com/store/apps/details?id=com.grokbuildremote.app |
 
 Treat the mailbox key like a password. Anyone who has it can type into the paired PC sessions.
+
+`POST /v1/devices` writes remote mailbox keys into the hub fleet. When `GBR_BOT_REQUIRE_KEY` is on, that POST needs `X-GBR-Key` (or Bearer). When it is off, the agent logs a warning on a keyless device write — it does not silently grow the hole. Protected operator titles (Felanmälan, QA PC Android) are refused on bind and inject.
 
 ## Local (same PC)
 

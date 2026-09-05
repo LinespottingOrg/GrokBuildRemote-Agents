@@ -38,6 +38,8 @@
   </log>
 
   <!-- Optional: set only non-secret overrides here.
-       API keys belong in %USERPROFILE%\.grok\config.json -->
+       API keys belong in %USERPROFILE%\.grok\config.json
+       Hub PCs should also set GBR_BOT_REQUIRE_KEY=1 (or true/on). -->
   <env name="GBR_DATA_DIR" value="%BASE%\data"/>
+  <!-- <env name="GBR_BOT_REQUIRE_KEY" value="1"/> -->
 </service>

@@ -24,7 +24,9 @@ Restart=on-failure
 RestartSec=3
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 {{if .RelayURL}}Environment=GBR_RELAY_URL={{.RelayURL}}
-{{end}}# Uncomment if DISPLAY needed for xdotool:
+{{end}}# Hub PCs should set GBR_BOT_REQUIRE_KEY=1 (or true/on). Default off for MCP.
+# Environment=GBR_BOT_REQUIRE_KEY=1
+# Uncomment if DISPLAY needed for xdotool:
 # Environment=DISPLAY=:0
 
 [Install]

@@ -2,11 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/inject"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/session"
 )
 
 func TestBotAuthorizeLoopbackOpen(t *testing.T) {
@@ -31,15 +35,46 @@ func TestBotAuthorizeLoopbackOpen(t *testing.T) {
 }
 
 func TestBotAuthorizeRequireKey(t *testing.T) {
-	t.Setenv("GBR_BOT_REQUIRE_KEY", "1")
+	s := &botServer{key: "secret"}
+	for _, v := range []string{"1", "true", "TRUE", "on", "On"} {
+		t.Run(v, func(t *testing.T) {
+			t.Setenv("GBR_BOT_REQUIRE_KEY", v)
+			r := httptest.NewRequest(http.MethodGet, "/", nil)
+			if s.authorize(r) {
+				t.Fatal("require-key must reject empty")
+			}
+			r.Header.Set("X-GBR-Key", "secret")
+			if !s.authorize(r) {
+				t.Fatal("require-key should accept match")
+			}
+			r.Header.Set("X-GBR-Key", "nope")
+			if s.authorize(r) {
+				t.Fatal("wrong key must fail")
+			}
+		})
+	}
+}
+
+func TestBotAuthorizeRequireKeyFalsey(t *testing.T) {
+	t.Setenv("GBR_BOT_REQUIRE_KEY", "yes")
 	s := &botServer{key: "secret"}
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	if s.authorize(r) {
-		t.Fatal("require-key must reject empty")
-	}
-	r.Header.Set("X-GBR-Key", "secret")
 	if !s.authorize(r) {
-		t.Fatal("require-key should accept match")
+		t.Fatal("yes is not 1/true/on — loopback stays open")
+	}
+}
+
+func TestBotHealthAllowedWhenHalted(t *testing.T) {
+	t.Setenv("GBR_BOT_REQUIRE_KEY", "1")
+	t.Setenv("GBR_INJECT_HALT", "on")
+	s := &botServer{key: "secret"}
+	r := httptest.NewRequest(http.MethodGet, "/health", nil)
+	if !s.authorize(r) {
+		t.Fatal("halted agent must still answer /health without a key")
+	}
+	r2 := httptest.NewRequest(http.MethodPost, "/v1/inject", nil)
+	if s.authorize(r2) {
+		t.Fatal("inject must still require a key when GBR_BOT_REQUIRE_KEY is on")
 	}
 }
 
@@ -296,5 +331,130 @@ func TestBotHealthIncludesClassAndCompanions(t *testing.T) {
 	classes, _ := got["classes"].([]any)
 	if len(classes) != 5 {
 		t.Fatalf("health.classes want 5, got %v", got["classes"])
+	}
+}
+
+type countUI struct {
+	injects int
+	binds   int
+}
+
+func (c *countUI) Discover() ([]inject.TerminalWindow, error) { return nil, nil }
+func (c *countUI) Inject(string, inject.InjectRequest) error  { c.injects++; return nil }
+func (c *countUI) Capture(string) (inject.CaptureResult, error) {
+	return inject.CaptureResult{Method: "ui"}, nil
+}
+func (c *countUI) Bind(string, inject.TerminalWindow) error { c.binds++; return nil }
+func (c *countUI) Unbind(string)                            {}
+func (c *countUI) Close() error                             { return nil }
+
+func TestInjectLocalProtectedRosterTitle(t *testing.T) {
+	ui := &countUI{}
+	h := inject.NewHybrid(ui, inject.NewManager(nil))
+	reg := session.NewRegistry()
+	reg.Upsert(&session.Session{ID: "felan", HWND: 42, PID: 9, Title: "++ Felanmälan.org"})
+	s := &botServer{
+		rt:        &agentRuntime{hybrid: h, scanner: session.NewScanner(nil, reg, nil)},
+		mailboxID: "gbr-x",
+	}
+	w := httptest.NewRecorder()
+	s.injectLocal(w, "felan", "steal this", true, "cmd-prot", false, false, 0, 0)
+	if w.Code != 200 {
+		t.Fatalf("status %d %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["ok"] != false {
+		t.Fatalf("protected roster must not inject: %s", w.Body.String())
+	}
+	errStr, _ := got["error"].(string)
+	if !strings.Contains(errStr, "protected") {
+		t.Fatalf("want protected error, got %q", errStr)
+	}
+	if got["retry"] != false {
+		t.Fatalf("retry must stay false: %s", w.Body.String())
+	}
+	if ui.injects != 0 || ui.binds != 0 {
+		t.Fatalf("must not Bind/SendInput protected HWND (injects=%d binds=%d)", ui.injects, ui.binds)
+	}
+}
+
+func TestInjectLocalUnprotectedRosterBinds(t *testing.T) {
+	t.Setenv("GBR_INJECT_HALT", "")
+	t.Setenv("GBR_INJECT_MAX", "")
+	ui := &countUI{}
+	h := inject.NewHybrid(ui, inject.NewManager(nil))
+	reg := session.NewRegistry()
+	reg.Upsert(&session.Session{ID: "ok", HWND: 7, PID: 1, Title: "Grok Build"})
+	s := &botServer{
+		rt:        &agentRuntime{hybrid: h, scanner: session.NewScanner(nil, reg, nil)},
+		mailboxID: "gbr-x",
+	}
+	w := httptest.NewRecorder()
+	s.injectLocal(w, "ok", "hello", true, "cmd-ok", false, false, 0, 0)
+	if w.Code != 200 {
+		t.Fatalf("status %d %s", w.Code, w.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["ok"] != true {
+		t.Fatalf("unprotected inject should succeed: %s", w.Body.String())
+	}
+	if ui.injects != 1 {
+		t.Fatalf("want 1 UI inject, got %d", ui.injects)
+	}
+}
+
+func TestBotHandleDevicesRequireKey(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	t.Setenv("GBR_BOT_REQUIRE_KEY", "true")
+	s := &botServer{key: "secret", mailboxID: "gbr-x"}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/devices", strings.NewReader(`{"id":"linux","mailbox_id":"gbr-r","mailbox_key":"rk"}`))
+	r.RemoteAddr = "127.0.0.1:9"
+	s.handle(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("POST /v1/devices without key must 401 when require is on, got %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestBotDeviceWriteRequireKeyDirect(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+	t.Setenv("GBR_BOT_REQUIRE_KEY", "on")
+	s := &botServer{key: "secret", mailboxID: "gbr-x"}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/v1/devices", strings.NewReader(`{"id":"linux","mailbox_id":"gbr-r","mailbox_key":"rk"}`))
+	s.handleDeviceWrite(w, r)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("direct device write without key must 401 when require is on, got %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestBotKeyEqualLengthMismatchDenies(t *testing.T) {
+	if botKeyEqual("ab", "abc") {
+		t.Fatal("different lengths must deny")
+	}
+	if !botKeyEqual("secret", "secret") {
+		t.Fatal("equal keys must match")
+	}
+}
+
+func TestBindFromRosterProtected(t *testing.T) {
+	ui := &countUI{}
+	h := inject.NewHybrid(ui, inject.NewManager(nil))
+	err := bindFromRoster(h, &session.Session{ID: "qa", HWND: 1, Title: "++ QA PC Android"})
+	if !errors.Is(err, inject.ErrProtected) {
+		t.Fatalf("want ErrProtected, got %v", err)
+	}
+	if ui.binds != 0 {
+		t.Fatalf("must not Bind, got %d", ui.binds)
 	}
 }

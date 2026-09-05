@@ -55,6 +55,10 @@
       <string>/Users/REPLACE_ME/Library/Application Support/GrokBuildRemote</string>
       <key>PATH</key>
       <string>/usr/local/bin:/usr/bin:/bin:/Users/REPLACE_ME/.local/bin</string>
+      <!-- Hub PCs: uncomment to require mailbox key on loopback Bot API.
+      <key>GBR_BOT_REQUIRE_KEY</key>
+      <string>1</string>
+      -->
     </dict>
 
     <key>StandardOutPath</key>

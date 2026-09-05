@@ -35,6 +35,7 @@ var (
 	ErrInjectReplay   = errors.New("inject: command_id already attempted — refusing replay")
 	ErrInjectBudget   = errors.New("inject: session inject budget exhausted")
 	ErrSplash         = errors.New("inject: session is still on the Grok welcome splash — not typing")
+	ErrProtected      = errors.New("inject: protected operator title — refusing bind/inject")
 )
 
 // Kind classifies a discovered terminal window (best-effort).

@@ -12,11 +12,17 @@ import (
 // DefaultInjectWindow is the rolling window for GBR_INJECT_MAX.
 const DefaultInjectWindow = 2 * time.Minute
 
+// EnvTruthy reports whether v is a set flag: 1, true, or on (any case).
+// Shared by GBR_INJECT_HALT and GBR_BOT_REQUIRE_KEY.
+func EnvTruthy(v string) bool {
+	v = strings.TrimSpace(v)
+	return v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on")
+}
+
 // HaltInject reports the operator kill-switch.
 // GBR_INJECT_HALT=1 / true / on refuses every inject (Bot API, mailbox, inbox).
 func HaltInject() bool {
-	v := strings.TrimSpace(os.Getenv("GBR_INJECT_HALT"))
-	return v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on")
+	return EnvTruthy(os.Getenv("GBR_INJECT_HALT"))
 }
 
 // InjectMaxFromEnv is the optional per-session cap.

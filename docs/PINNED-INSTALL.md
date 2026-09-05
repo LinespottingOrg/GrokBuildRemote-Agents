@@ -105,7 +105,7 @@ f5d45d8cc7f784288597632e828506e68c3c1e8b98fabd424213eff912311c7c  gbr-agent-wind
 ## Trust
 
 - Loopback Bot API `http://127.0.0.1:8788` is **unauthenticated** unless
-  `GBR_BOT_REQUIRE_KEY=1`.
+  `GBR_BOT_REQUIRE_KEY=1` / `true` / `on`. Hub / `service install` should set it.
 - `POST /v1/inject` types into listed TTYs and can submit.
 - Relay `https://gbr-relay.ekobrott.workers.dev` is outbound HTTPS. It sees
   session titles and output for the mailbox.
