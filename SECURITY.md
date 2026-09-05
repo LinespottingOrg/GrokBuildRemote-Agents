@@ -36,3 +36,7 @@ Prefer [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md): checksum **the installe
 ## Report
 
 info@linespotting.com — no mailbox keys or `device.json` in the mail.
+
+## External merges
+
+Malicious-code review gate for outside PRs and third-party drops: [SECURITY-EXTERNAL-MERGES.md](SECURITY-EXTERNAL-MERGES.md) (process [#56](https://github.com/LinespottingOrg/GrokBuildRemote-Agents/issues/56)).
