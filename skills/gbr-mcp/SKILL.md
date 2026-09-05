@@ -2,8 +2,8 @@
 name: gbr-mcp
 description: >
   MCP stdio server for Build Remote Agent. Pin git clone --branch v0.6.2, then
-  npm install from that tag. Loopback :8788 vs HTTPS relay. Harden loopback with
-  GBR_BOT_REQUIRE_KEY=1.
+  npm ci --ignore-scripts from that tag. Loopback :8788 vs HTTPS relay. Harden
+  loopback with GBR_BOT_REQUIRE_KEY=1.
 compatibility: Requires Node ≥ 20 and gbr-agent ≥ 0.6.2. No mailbox keys. Do not clone the default branch.
 metadata:
   version: "0.6.2"
@@ -28,7 +28,7 @@ Phone roster = **terminal windows** on the paired PC, not this MCP client. The p
 
 ```bash
 git clone https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
-cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install
+cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm ci --ignore-scripts
 ```
 
 That clones **main**. It is not a trust root.
@@ -38,7 +38,8 @@ That clones **main**. It is not a trust root.
 ```bash
 git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents/mcp/gbr-mcp
-npm install
+npm ci --ignore-scripts
+chmod +x bin/gbr-mcp.js   # macOS/Linux
 node bin/gbr-mcp.js --diagnose
 ```
 

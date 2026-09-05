@@ -116,12 +116,13 @@ More: [SECURITY.md](../SECURITY.md) · [BOT-API.md](BOT-API.md)
 
 ## MCP (`gbr-mcp`) — pin the clone
 
-Do not `git clone` default branch + `npm install` as a trust root.
+Do not `git clone` default branch + `npm install` as a trust root. Tag pins source; `package-lock.json` pins `@modelcontextprotocol/sdk` at `1.30.0`.
 
 ```bash
 git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 cd GrokBuildRemote-Agents/mcp/gbr-mcp
-npm install --ignore-scripts
+npm ci --ignore-scripts
+chmod +x bin/gbr-mcp.js   # macOS/Linux; skip on Windows
 node bin/gbr-mcp.js --diagnose
 ```
 

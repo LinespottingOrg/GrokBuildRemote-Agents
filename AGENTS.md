@@ -117,7 +117,7 @@ Session labels: `~/.gbr/sessions.json`
 Same host as `gbr-agent run`. No npm package. `:8788` is Bot API REST — do not `mcp add` that URL. Recipes: [mcp/gbr-mcp/INSTALL.md](mcp/gbr-mcp/INSTALL.md). `gbr_open` spawns **Grok Build CLI** (`grok`).
 
 ```bash
-git clone --branch v0.6.1 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 bash GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh
 # ABS = absolute path of bin/gbr-mcp.js
 claude mcp add gbr -- node ABS          # Claude Code / Cowork

@@ -41,7 +41,7 @@ bash scripts/setup-gbr-mcp.sh
 # hermes mcp add gbr -- stdio -- node $HOME/.gbr/gbr-mcp-src/mcp/gbr-mcp/bin/gbr-mcp.js
 ```
 
-Pin: `git clone --branch v0.6.2 --depth 1` if you clone by hand. Never default branch + `npm install`.
+Pin: `git clone --branch v0.6.2 --depth 1` if you clone by hand. Never default branch + `npm install`. Prefer `npm ci --ignore-scripts` once the tag includes `package-lock.json`.
 
 ## Loop — this is what makes grok work
 

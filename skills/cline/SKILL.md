@@ -37,7 +37,7 @@ export GBR_BOT_REQUIRE_KEY=1
 
 ```bash
 git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
-cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install
+cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm ci --ignore-scripts && chmod +x bin/gbr-mcp.js
 ```
 
 ```bash
