@@ -75,9 +75,9 @@ NemoClaw is a **sandbox**, not a fourth pair. GBR stays the **host** tool (`gbr-
 Clone this repo (pin **v0.6.2**):
 
 ```bash
-git clone --branch v0.6.1 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
+git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 bash GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh
-# or: cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
+# or: cd GrokBuildRemote-Agents/mcp/gbr-mcp && npm ci --ignore-scripts && chmod +x bin/gbr-mcp.js
 node GrokBuildRemote-Agents/mcp/gbr-mcp/bin/gbr-mcp.js --diagnose     # expect 13 tools
 ```
 

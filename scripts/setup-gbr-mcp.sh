@@ -29,7 +29,14 @@ else
 fi
 
 cd "$DEST/mcp/gbr-mcp"
-npm install --omit=dev
+# Tag pins source; package-lock.json pins @modelcontextprotocol/sdk (exact 1.30.0).
+# --ignore-scripts: this package has no postinstall; skip transitive lifecycle scripts.
+if [[ -f package-lock.json ]]; then
+  npm ci --ignore-scripts --omit=dev
+else
+  echo "warn: no package-lock.json in this pin — falling back to npm install --ignore-scripts --omit=dev (prefer a tag that includes the lockfile)" >&2
+  npm install --ignore-scripts --omit=dev
+fi
 chmod +x bin/gbr-mcp.js
 MCP="$DEST/mcp/gbr-mcp/bin/gbr-mcp.js"
 [[ -f "$MCP" ]] || die "missing $MCP"

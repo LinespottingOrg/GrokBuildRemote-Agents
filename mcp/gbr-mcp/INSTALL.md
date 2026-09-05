@@ -72,27 +72,33 @@ cd ~ && curl -sS http://127.0.0.1:8788/v1/status
 
 ## Install gbr-mcp
 
-Pin the repo tag (not default branch):
+Pin the repo tag (not default branch). The **tag pins source**; **`package-lock.json` pins the dependency graph**. `@modelcontextprotocol/sdk` is an exact version (`1.30.0`) — no `^` range.
 
 ```
 git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git
 bash GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh
 ```
 
-Or from a clone:
+`setup-gbr-mcp.sh` runs `npm ci --ignore-scripts --omit=dev` when the lockfile is present, then `chmod +x bin/gbr-mcp.js`. Tags older than this lockfile fall back to `npm install --ignore-scripts --omit=dev`.
+
+Or from a clone that includes `mcp/gbr-mcp/package-lock.json`:
 
 ```
-cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
+cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm ci --ignore-scripts && chmod +x bin/gbr-mcp.js
 ```
 
 Hermes / OpenClaw / NemoClaw: stdio `node bin/gbr-mcp.js`. Do not register `http://127.0.0.1:8788` as an MCP server — that URL is Bot API REST. `gbr_open` spawns **Grok Build CLI** (`grok`). NemoClaw is a sandbox, not a fourth pair.
 
 **bash (Linux):**
 ```
-cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm install && chmod +x bin/gbr-mcp.js
+cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm ci --ignore-scripts && chmod +x bin/gbr-mcp.js
 ```
 
-There is **no npm package**. Always run from this clone. Pin source tag **v0.6.2**.
+`chmod +x bin/gbr-mcp.js` is still required on macOS/Linux so the shebang bin is executable (`setup-gbr-mcp.sh` already does this). Windows does not need chmod; `node bin/gbr-mcp.js` works on every OS.
+
+`--ignore-scripts` is required. This package has **no** `postinstall` / `prepare`. Transitive dependency lifecycle scripts are skipped at install time.
+
+There is **no npm package**. Always run from this clone. Pin source tag **v0.6.2** (or a later tag that includes the lockfile).
 
 ## mcp add (Claude / Grok CLI / Cursor / Hermes / OpenClaw)
 

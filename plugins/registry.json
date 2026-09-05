@@ -65,7 +65,7 @@
       "kind": "skill",
       "path": "skills/gbr-mcp/SKILL.md",
       "pin": "v0.6.2",
-      "install": "git clone --branch v0.6.2 --depth 1; npm install in mcp/gbr-mcp"
+      "install": "git clone --branch v0.6.2 --depth 1; npm ci --ignore-scripts in mcp/gbr-mcp"
     },
     {
       "id": "hermes-mcp",

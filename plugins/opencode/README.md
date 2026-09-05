@@ -6,7 +6,7 @@ Then:
 
 1. Pin-install `gbr-agent` ([docs/PINNED-INSTALL.md](../../docs/PINNED-INSTALL.md)).
 2. `gbr-agent pair` then `gbr-agent run`.
-3. `npm install` in `mcp/gbr-mcp` and point `command` at that `gbr-mcp.js`.
+3. `npm ci --ignore-scripts` in `mcp/gbr-mcp` (then `chmod +x bin/gbr-mcp.js` on macOS/Linux) and point `command` at that `gbr-mcp.js`.
 4. OpenCode (the **desktop** agent) can call Bot API tools.
 
 **What the phone receives:** titles of **terminal windows** on this machine. If OpenCode is only a headless server (no TTY), it will **not** appear on the phone. Run OpenCode in a terminal if you want that session on the roster.

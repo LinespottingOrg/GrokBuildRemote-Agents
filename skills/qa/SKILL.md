@@ -24,7 +24,7 @@ gbr-agent run
 export GBR_BOT_REQUIRE_KEY=1
 ```
 
-MCP: `git clone --branch v0.6.2 --depth 1` then `npm install` in `mcp/gbr-mcp`. Do not treat `:8788` as MCP.
+MCP: `git clone --branch v0.6.2 --depth 1` then `npm ci --ignore-scripts` in `mcp/gbr-mcp` (and `chmod +x bin/gbr-mcp.js` on macOS/Linux). Do not treat `:8788` as MCP.
 
 ## Loop
 
