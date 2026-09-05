@@ -1,0 +1,17 @@
+#!/bin/sh
+# Grok Build Remote — Finder / Login Item stub.
+# Exec the real CLI binary so pairing, env (GBR_*), and Accessibility stay on gbr-agent.
+set -e
+if [ -n "${GBR_AGENT_BIN:-}" ] && [ -x "$GBR_AGENT_BIN" ]; then
+  exec "$GBR_AGENT_BIN" "$@"
+fi
+if command -v gbr-agent >/dev/null 2>&1; then
+  exec gbr-agent "$@"
+fi
+for p in "$HOME/.local/bin/gbr-agent" /usr/local/bin/gbr-agent /opt/homebrew/bin/gbr-agent; do
+  if [ -x "$p" ]; then
+    exec "$p" "$@"
+  fi
+done
+echo "Grok Build Remote: gbr-agent not found. Install the CLI, then run: gbr-agent service install" >&2
+exit 127

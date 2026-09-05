@@ -43,14 +43,14 @@ func Resolve() (Paths, error) {
 	}
 	switch runtime.GOOS {
 	case "windows":
-		p.UnitPath = "GrokBuildRemoteAgent" // Task Scheduler task name
-		p.ExtraNotes = "User logon task (interactive session for SendInput). Not a Session 0 service."
+		p.UnitPath = WindowsTaskName // Task Scheduler list name (human)
+		p.ExtraNotes = "User logon task \"" + ProductName + "\" (interactive session for SendInput). Not a Session 0 service. Legacy id " + WindowsLegacyTaskName + " is disabled, not deleted."
 	case "darwin":
-		p.UnitPath = filepath.Join(home, "Library", "LaunchAgents", "com.linespotting.gbr-agent.plist")
-		p.ExtraNotes = "LaunchAgent; grant Accessibility + Automation for Terminal/iTerm if using UI inject."
+		p.UnitPath = filepath.Join(home, "Library", "LaunchAgents", DarwinLaunchAgentLabel+".plist")
+		p.ExtraNotes = "LaunchAgent label " + DarwinLaunchAgentLabel + "; Login Items show \"" + ProductName + "\". Accessibility is granted to the " + BinaryName + " binary."
 	case "linux":
-		p.UnitPath = filepath.Join(home, ".config", "systemd", "user", "gbr-agent.service")
-		p.ExtraNotes = "systemd --user; install xdotool for UI inject on X11; managed shell works on Wayland."
+		p.UnitPath = filepath.Join(home, ".config", "systemd", "user", LinuxUnitName)
+		p.ExtraNotes = "systemd --user unit " + LinuxUnitName + " (Description=" + LinuxDescription + "); desktop entry Name=" + ProductName + "."
 	default:
 		return p, fmt.Errorf("unsupported platform %s", runtime.GOOS)
 	}

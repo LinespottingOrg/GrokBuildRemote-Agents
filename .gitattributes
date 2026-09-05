@@ -1,0 +1,2 @@
+# macOS Login Item stub shebang must stay LF (issue #55).
+"install/darwin/Grok Build Remote.app/Contents/MacOS/Grok Build Remote" text eol=lf

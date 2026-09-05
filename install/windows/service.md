@@ -1,8 +1,12 @@
 # Windows service — gbr-agent
 
 **Product:** Grok Build Remote  
-**Binary:** `gbr-agent.exe`  
+**Binary:** `gbr-agent.exe` (CLI name unchanged)  
 **Owner:** LinespottingOrg (private source; free end-user binaries)
+
+**Display name (issue #55):** Users must see **Grok Build Remote** (or **Grok Build Remote Agent**), not bare `gbr`. That is the human label in Task Scheduler and Services.msc. Internal ids — `GrokBuildRemoteAgent` (legacy interactive logon task) and `GrokBuildRemoteAgentService` (PR #54 WinSW / S4U task) — are **not** the name people are meant to recognize. WinSW `<name>` is already `Grok Build Remote Agent`; keep it. Do not regress to bare `gbr`.
+
+`gbr-agent service install` registers Task Scheduler `/TN "Grok Build Remote"`. The pre-#55 id `GrokBuildRemoteAgent` is **disabled, not deleted** (David-yes required to remove).
 
 The Windows agent should run as a **user-session service** (or login-started process) so it can:
 
@@ -76,13 +80,13 @@ $exe = "$env:LOCALAPPDATA\GrokBuildRemote\gbr-agent.exe"
 $action  = New-ScheduledTaskAction -Execute $exe -Argument "run"
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName "GrokBuildRemote-Agent" -Action $action -Trigger $trigger -Settings $settings -Description "Grok Build Remote agent (gbr-agent)"
+Register-ScheduledTask -TaskName "Grok Build Remote" -Action $action -Trigger $trigger -Settings $settings -Description "Grok Build Remote agent (gbr-agent)"
 ```
 
 Start now:
 
 ```powershell
-Start-ScheduledTask -TaskName "GrokBuildRemote-Agent"
+Start-ScheduledTask -TaskName "Grok Build Remote"
 ```
 
 ---
@@ -118,7 +122,7 @@ cd "C:\Program Files\GrokBuildRemote"   # or your install dir
 Task Scheduler:
 
 ```powershell
-Unregister-ScheduledTask -TaskName "GrokBuildRemote-Agent" -Confirm:$false
+Unregister-ScheduledTask -TaskName "Grok Build Remote" -Confirm:$false
 ```
 
 Remove the install directory and optional `%LOCALAPPDATA%\GrokBuildRemote` state as desired.

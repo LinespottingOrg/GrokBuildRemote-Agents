@@ -1724,7 +1724,8 @@ func cmdService(args []string) int {
 			slog.Error("service install", "err", err)
 			return 1
 		}
-		fmt.Println("✓ gbr-agent auto-start installed (user session background)")
+		fmt.Printf("✓ %s auto-start installed (user session background)\n", service.ProductName)
+		fmt.Println("  CLI command stays gbr-agent · env vars stay GBR_*")
 		fmt.Println("  Windows: Task Scheduler logon · Mac: LaunchAgent · Linux: systemd --user")
 		fmt.Println("  Pair first if needed: gbr-agent pair   or   gbr-agent pair-as-mailbox")
 		fmt.Println("  Check: gbr-agent service status")

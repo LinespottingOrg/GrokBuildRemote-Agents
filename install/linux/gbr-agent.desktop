@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Grok Build Remote
+GenericName=Grok Build Remote Agent
+Comment=Grok Build Remote desktop agent (gbr-agent) — pairs with the phone app
+Exec=gbr-agent run
+TryExec=gbr-agent
+Terminal=false
+Categories=Development;Network;Utility;
+Keywords=gbr;gbr-agent;Grok;Build Remote;
+StartupNotify=false
+NoDisplay=false
+X-GNOME-UsesNotifications=false
