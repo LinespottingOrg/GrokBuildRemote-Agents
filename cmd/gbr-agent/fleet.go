@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/core"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/inject"
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/relay"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/session"
 	"github.com/google/uuid"
 )
 
@@ -302,6 +304,17 @@ func (s *botServer) handleDeviceWrite(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
 		return
 	}
+	presented := botKeyPresented(r)
+	if botRequireKey() && presented == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{
+			"error": "unauthorized",
+			"hint":  "POST /v1/devices writes mailbox keys — set X-GBR-Key (GBR_BOT_REQUIRE_KEY is on)",
+		})
+		return
+	}
+	if presented == "" {
+		slog.Warn("bot POST /v1/devices without a key — hub/service install should set GBR_BOT_REQUIRE_KEY=1/true/on")
+	}
 	raw, err := io.ReadAll(io.LimitReader(r.Body, maxBotBody))
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "read_failed"})
@@ -403,20 +416,21 @@ func (s *botServer) injectLocal(w http.ResponseWriter, sessionID, text string, s
 		// Advisory: still inject, but tell the caller who holds the window.
 		_ = l
 	}
+	var injErr error
 	if s.rt.scanner != nil && s.rt.scanner.Registry != nil {
-		if sess, ok := s.rt.scanner.Registry.Get(sessionID); ok && sess != nil && sess.HWND != 0 {
-			_ = s.rt.hybrid.Bind(sessionID, inject.TerminalWindow{
-				HWND: sess.HWND, PID: uint32(sess.PID), Title: sess.Title,
-			})
+		if sess, ok := s.rt.scanner.Registry.Get(sessionID); ok && sess != nil {
+			injErr = bindFromRoster(s.rt.hybrid, sess)
 		}
 	}
-	req := inject.InjectRequest{SessionID: sessionID, CommandID: commandID, Text: text, Submit: submit}
-	injErr := s.rt.hybrid.Inject(sessionID, req)
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer cancel()
-		_ = s.rt.captureAndPushAfterInject(ctx, s.mailboxID, sessionID, commandID, injErr)
-	}()
+	if injErr == nil {
+		req := inject.InjectRequest{SessionID: sessionID, CommandID: commandID, Text: text, Submit: submit}
+		injErr = s.rt.hybrid.Inject(sessionID, req)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			_ = s.rt.captureAndPushAfterInject(ctx, s.mailboxID, sessionID, commandID, injErr)
+		}()
+	}
 	if notify {
 		s.notifyPhone(fmt.Sprintf("bot · local · inject · session %s", sessionID))
 	}
@@ -436,4 +450,25 @@ func (s *botServer) injectLocal(w http.ResponseWriter, sessionID, text string, s
 		out["result"] = s.collectResult(sessionID, commandID, waitMS, idleMS, 4000)
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// bindFromRoster refuses operator-owned titles before Hybrid.Bind.
+// Non-protected Bind errors are ignored (same as the old fire-and-forget Bind).
+func bindFromRoster(hybrid *inject.Hybrid, sess *session.Session) error {
+	if sess == nil {
+		return nil
+	}
+	if err := inject.RefuseProtected(sess.Title); err != nil {
+		return fmt.Errorf("%w: roster title", err)
+	}
+	if hybrid == nil || sess.HWND == 0 {
+		return nil
+	}
+	err := hybrid.Bind(sess.ID, inject.TerminalWindow{
+		HWND: sess.HWND, PID: uint32(sess.PID), Title: sess.Title,
+	})
+	if err != nil && errors.Is(err, inject.ErrProtected) {
+		return err
+	}
+	return nil
 }

@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	DefaultRepo  = "LinespottingOrg/grok-build-inbox"
-	DefaultLabel = "boss-steer"
-	seenFileName = "inbox-seen.json"
+	DefaultRepo   = "LinespottingOrg/grok-build-inbox"
+	DefaultLabel  = "boss-steer"
+	DefaultAuthor = "LinespottingPrivate"
+	seenFileName  = "inbox-seen.json"
 )
 
 // GH runs `gh` with args and returns stdout. Tests replace this.
@@ -156,6 +157,10 @@ func (w *Watcher) tickIssue(iss Issue, sessions []Session) ([]Action, error) {
 		if w.already(iss.Number, c.ID) {
 			continue
 		}
+		if !authorAllowed(c.Author.Login) {
+			w.mark(iss.Number, c.ID)
+			continue
+		}
 		newest = c
 	}
 	if newest == nil {
@@ -189,6 +194,43 @@ func (w *Watcher) tickIssue(iss Issue, sessions []Session) ([]Action, error) {
 		Text:      body,
 		CommentID: newest.ID,
 	}}, nil
+}
+
+// AllowedAuthors is the comment-login allowlist (GBR_INBOX_AUTHORS or LinespottingPrivate).
+func AllowedAuthors() []string {
+	return allowedInboxAuthors()
+}
+
+// allowedInboxAuthors is GBR_INBOX_AUTHORS (comma-separated) or LinespottingPrivate.
+func allowedInboxAuthors() []string {
+	v := strings.TrimSpace(os.Getenv("GBR_INBOX_AUTHORS"))
+	if v == "" {
+		return []string{DefaultAuthor}
+	}
+	var out []string
+	for _, p := range strings.Split(v, ",") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return []string{DefaultAuthor}
+	}
+	return out
+}
+
+func authorAllowed(login string) bool {
+	login = strings.TrimSpace(login)
+	if login == "" {
+		return false
+	}
+	for _, a := range allowedInboxAuthors() {
+		if strings.EqualFold(login, a) {
+			return true
+		}
+	}
+	return false
 }
 
 func matchSession(title string, sessions []Session) string {

@@ -1,6 +1,9 @@
 package inject
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // IsProtectedTitle reports sessions the Bot API must never steal or type into.
 // Live operator windows (Felanmälan, QA PC Android) stay human-owned.
@@ -23,4 +26,12 @@ func IsProtectedTitle(title string) bool {
 		}
 	}
 	return false
+}
+
+// RefuseProtected returns ErrProtected when title is an operator-owned window.
+func RefuseProtected(title string) error {
+	if !IsProtectedTitle(title) {
+		return nil
+	}
+	return fmt.Errorf("%w: %q", ErrProtected, strings.TrimSpace(title))
 }

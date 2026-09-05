@@ -43,6 +43,8 @@ StartLimitBurst=5
 
 # Inject needs session bus / display when using xdotool
 Environment=GBR_DATA_DIR=%h/.local/share/GrokBuildRemote
+# Hub PCs: require mailbox key on loopback Bot API (1/true/on). Default off for MCP.
+# Environment=GBR_BOT_REQUIRE_KEY=1
 # Environment=DISPLAY=:0
 # Environment=XAUTHORITY=%h/.Xauthority
 

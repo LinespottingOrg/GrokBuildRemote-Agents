@@ -1,6 +1,9 @@
 package inject
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestIsProtectedTitle(t *testing.T) {
 	if !IsProtectedTitle("++ Felanmälan.org") {
@@ -14,5 +17,18 @@ func TestIsProtectedTitle(t *testing.T) {
 	}
 	if IsProtectedTitle("gbr-open-6d9acaaf") {
 		t.Fatal("agent-opened id is not protected")
+	}
+}
+
+func TestRefuseProtected(t *testing.T) {
+	if err := RefuseProtected("Grok Build"); err != nil {
+		t.Fatalf("plain grok must be allowed: %v", err)
+	}
+	err := RefuseProtected("++ Felanmälan.org")
+	if err == nil {
+		t.Fatal("expected ErrProtected")
+	}
+	if !errors.Is(err, ErrProtected) {
+		t.Fatalf("want ErrProtected, got %v", err)
 	}
 }

@@ -62,7 +62,7 @@ func (h *Hybrid) openGrokWindow(req OpenRequest) (OpenResult, error) {
 		_ = proc.Kill()
 		return OpenResult{}, err
 	}
-	h.rememberWindow(sid, grokPID, chosen.HWND)
+	h.rememberWindow(sid, grokPID, chosen.HWND, chosen.Title)
 	h.waitReady(sid, 4*time.Second)
 
 	note := "spawned grok in a real console window; inject uses SendInput"

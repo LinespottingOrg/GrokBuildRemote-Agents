@@ -103,7 +103,7 @@ func TestHybrid_WindowSessionUsesUI(t *testing.T) {
 	defer pty.Close()
 	ui := &stubUI{}
 	h := NewHybrid(ui, pty)
-	h.rememberWindow("gbr-open-win", 1, 1)
+	h.rememberWindow("gbr-open-win", 1, 1, "Grok Build")
 	if err := h.Inject("gbr-open-win", InjectRequest{Text: "hi", Submit: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -157,6 +157,87 @@ func TestHybrid_HaltRefusesInject(t *testing.T) {
 	h := NewHybrid(&stubUI{}, NewManager(nil))
 	if err := h.Inject("gbr-open-h", InjectRequest{Text: "hi", Submit: true, CommandID: "c-h"}); !errors.Is(err, ErrInjectHalted) {
 		t.Fatalf("halt must refuse, got %v", err)
+	}
+}
+
+type titledUI struct {
+	stubUI
+	wins  []TerminalWindow
+	binds int
+}
+
+func (t *titledUI) Discover() ([]TerminalWindow, error) {
+	if t.wins != nil {
+		return t.wins, nil
+	}
+	return t.stubUI.Discover()
+}
+
+func (t *titledUI) Bind(_ string, _ TerminalWindow) error {
+	t.binds++
+	return nil
+}
+
+func TestHybrid_BindProtectedRefused(t *testing.T) {
+	ui := &titledUI{}
+	h := NewHybrid(ui, NewManager(nil))
+	err := h.Bind("felan", TerminalWindow{HWND: 1, PID: 9, Title: "++ Felanmälan.org"})
+	if !errors.Is(err, ErrProtected) {
+		t.Fatalf("want ErrProtected, got %v", err)
+	}
+	if h.isWindowSession("felan") {
+		t.Fatal("must not remember a protected HWND")
+	}
+	if ui.binds != 0 {
+		t.Fatalf("must not UI.Bind protected HWND, got %d", ui.binds)
+	}
+}
+
+func TestHybrid_InjectBoundProtectedRefused(t *testing.T) {
+	ui := &stubUI{}
+	h := NewHybrid(ui, NewManager(nil))
+	h.rememberWindow("felan", 1, 1, "++ Felanmälan.org")
+	err := h.Inject("felan", InjectRequest{Text: "hi", Submit: true, CommandID: "c-prot"})
+	if !errors.Is(err, ErrProtected) {
+		t.Fatalf("want ErrProtected, got %v", err)
+	}
+	if ui.n != 0 {
+		t.Fatalf("must not SendInput into protected window, got %d UI injects", ui.n)
+	}
+	if h.attempts.Seen("c-prot") {
+		t.Fatal("protected deny must not consume command_id")
+	}
+}
+
+func TestHybrid_InjectLiveTitleProtectedRefused(t *testing.T) {
+	ui := &titledUI{wins: []TerminalWindow{{
+		HWND:  7,
+		PID:   1,
+		Title: "++ QA PC Android",
+		Kind:  KindGrokBuild,
+	}}}
+	h := NewHybrid(ui, NewManager(nil))
+	h.rememberWindow("qa", 1, 7, "") // stored title empty — live Discover must still deny
+	err := h.Inject("qa", InjectRequest{Text: "hi", Submit: true, CommandID: "c-qa"})
+	if !errors.Is(err, ErrProtected) {
+		t.Fatalf("want ErrProtected from live title, got %v", err)
+	}
+	if ui.n != 0 {
+		t.Fatalf("must not SendInput, got %d UI injects", ui.n)
+	}
+}
+
+func TestHybrid_BindUnprotectedStillWorks(t *testing.T) {
+	ui := &titledUI{}
+	h := NewHybrid(ui, NewManager(nil))
+	if err := h.Bind("ok", TerminalWindow{HWND: 2, Title: "Grok Build"}); err != nil {
+		t.Fatal(err)
+	}
+	if !h.isWindowSession("ok") {
+		t.Fatal("unprotected HWND must be remembered")
+	}
+	if ui.binds != 1 {
+		t.Fatalf("UI.Bind calls=%d", ui.binds)
 	}
 }
 

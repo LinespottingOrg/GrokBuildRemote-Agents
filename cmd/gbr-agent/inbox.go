@@ -67,7 +67,8 @@ func (rt *agentRuntime) inboxLoop(ctx context.Context) {
 	}
 	w := inbox.New(os.Getenv("GBR_INBOX_REPO"), os.Getenv("GBR_INBOX_LABEL"), nil)
 	slog.Info("inbox watch on",
-		"repo", w.Repo, "label", w.Label, "poll", inboxPoll().String())
+		"repo", w.Repo, "label", w.Label, "poll", inboxPoll().String(),
+		"authors", strings.Join(inbox.AllowedAuthors(), ","))
 	t := time.NewTicker(inboxPoll())
 	defer t.Stop()
 	rt.inboxTick(ctx, w)
@@ -166,5 +167,3 @@ func (rt *agentRuntime) applyInbox(a inbox.Action) error {
 		Submit:    true,
 	})
 }
-
-

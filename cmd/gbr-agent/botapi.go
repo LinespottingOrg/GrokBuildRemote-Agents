@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"time"
 
 	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/core"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/inject"
 	"github.com/google/uuid"
 )
 
@@ -297,7 +299,7 @@ func (s *botServer) writeDiscovery(w http.ResponseWriter) {
 		"port":        s.port,
 		"uptime_s":    int(time.Since(s.started).Seconds()),
 		"auth":        []string{"loopback", "optional X-GBR-Key", "Authorization: Bearer <mailbox_key>"},
-		"require_key": os.Getenv("GBR_BOT_REQUIRE_KEY") == "1",
+		"require_key": botRequireKey(),
 		"endpoints": map[string]string{
 			"discovery":  "GET /  or  GET /v1",
 			"health":     "GET /health  or  GET /v1/health",
@@ -312,10 +314,10 @@ func (s *botServer) writeDiscovery(w http.ResponseWriter) {
 			"output":     "GET /v1/output?session_id=&command_id=&after=&limit=",
 			"status":     "GET /v1/status?device=",
 		},
-		"classes":     core.CanonicalClasses,
-		"class_help":  core.FormatClassHelp(),
-		"grok_bot":    "2026-08-11",
-		"local":       core.LocalIdentity(s.mailboxID, s.key != ""),
+		"classes":    core.CanonicalClasses,
+		"class_help": core.FormatClassHelp(),
+		"grok_bot":   "2026-08-11",
+		"local":      core.LocalIdentity(s.mailboxID, s.key != ""),
 		"chain": []string{
 			"diagnose", "open or attach", "lock", "inject",
 			"wait idle (GET /result?wait_ms=)", "harvest excerpt",
@@ -499,7 +501,14 @@ func (s *botServer) writeStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-func (s *botServer) authorize(r *http.Request) bool {
+func botRequireKey() bool {
+	return inject.EnvTruthy(os.Getenv("GBR_BOT_REQUIRE_KEY"))
+}
+
+func botKeyPresented(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
 	presented := strings.TrimSpace(r.Header.Get("X-GBR-Key"))
 	if presented == "" {
 		auth := r.Header.Get("Authorization")
@@ -507,14 +516,37 @@ func (s *botServer) authorize(r *http.Request) bool {
 			presented = strings.TrimSpace(auth[7:])
 		}
 	}
-	require := os.Getenv("GBR_BOT_REQUIRE_KEY") == "1"
+	return presented
+}
+
+func botKeyEqual(presented, expected string) bool {
+	a := []byte(presented)
+	b := []byte(expected)
+	if len(a) != len(b) {
+		return false
+	}
+	return subtle.ConstantTimeCompare(a, b) == 1
+}
+
+func botHealthPath(path string) bool {
+	path = strings.TrimSuffix(path, "/")
+	return path == "/health" || path == "/v1/health"
+}
+
+func (s *botServer) authorize(r *http.Request) bool {
+	presented := botKeyPresented(r)
+	require := botRequireKey()
+	// Halted agent still answers /health without a key so operators can probe.
+	if presented == "" && inject.HaltInject() && r != nil && botHealthPath(r.URL.Path) {
+		return true
+	}
 	if presented == "" {
 		return !require
 	}
 	if s.key == "" {
 		return true
 	}
-	return presented == s.key
+	return botKeyEqual(presented, s.key)
 }
 
 func isLoopback(r *http.Request) bool {
