@@ -63,7 +63,7 @@ if ($LASTEXITCODE -eq 0) {
   if ($DeleteInteractiveTask) {
     schtasks.exe /End /TN $LegacyInteractiveTask 2>$null | Out-Null
     schtasks.exe /Delete /TN $LegacyInteractiveTask /F | Out-Null
-    Write-Host "Deleted legacy interactive task \$LegacyInteractiveTask (-DeleteInteractiveTask)." -ForegroundColor Yellow
+    Write-Host "Deleted legacy interactive task \${LegacyInteractiveTask} (-DeleteInteractiveTask)." -ForegroundColor Yellow
   } else {
     Write-Host "Left legacy task \$LegacyInteractiveTask in place (pass -DeleteInteractiveTask only with David yes)." -ForegroundColor Yellow
   }

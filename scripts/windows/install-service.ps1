@@ -61,19 +61,35 @@ function Test-IsAdmin {
   return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Test-ForbiddenAgentPath {
+  param([string]$Path)
+  $n = $Path.Replace('/', '\').ToLowerInvariant()
+  return $n -match '\\.aiprojects\\gbr\\agents\\dist\\'
+}
+
 function Resolve-AgentBinary {
   param([string]$Override)
-  if ($Override -and (Test-Path -LiteralPath $Override)) {
-    return (Resolve-Path -LiteralPath $Override).Path
+  if ($Override) {
+    if (-not (Test-Path -LiteralPath $Override)) {
+      throw "BinaryPath not found: $Override"
+    }
+    $resolved = (Resolve-Path -LiteralPath $Override).Path
+    if (Test-ForbiddenAgentPath $resolved) {
+      throw "Refusing .aiprojects\gbr\agents\dist binary: $resolved"
+    }
+    return $resolved
   }
   $default = Join-Path $env:LOCALAPPDATA "GrokBuildRemote\gbr-agent.exe"
   if (-not (Test-Path -LiteralPath $default)) {
     throw @"
 gbr-agent.exe not found at:
   $default
-Install/copy the 0.6.3+ binary to %LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe
-(do not point the service at .aiprojects\gbr\agents\dist).
+Copy a halt-capable rebuild from origin/main (after PR #40) to %LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe
+Do not point the service at .aiprojects\gbr\agents\dist. Commit 6f451ac is not installable.
 "@
+  }
+  if (Test-ForbiddenAgentPath $default) {
+    throw "Refusing .aiprojects\gbr\agents\dist binary."
   }
   return (Resolve-Path -LiteralPath $default).Path
 }
@@ -92,9 +108,12 @@ Do not point the service at .aiprojects\gbr\agents\dist.
 "@
   }
   $helpOut = & $Exe -h 2>&1 | Out-String
+  if ($verOut -match 'disabled after desktop popup' -or $helpOut -match 'disabled after desktop popup') {
+    throw "Refusing disable-stub at $Exe. Copy a real halt-capable gbr-agent.exe (not the popup-lockup stub)."
+  }
   if ($helpOut -notmatch 'inject-halt' -or $helpOut -notmatch 'GBR_INJECT_HALT') {
     throw @"
-Binary does not advertise -inject-halt / GBR_INJECT_HALT (PR #40 guards missing).
+Binary does not advertise -inject-halt / GBR_INJECT_HALT (PR #40 guards missing, or this is the disable-stub).
 Refusing install. Rebuild from origin/main after #40 and replace $Exe
 "@
   }
@@ -114,14 +133,16 @@ function Set-HaltAndLogEnv {
   # David clears halt explicitly: setx GBR_INJECT_HALT 0  OR System Properties → delete.
   [Environment]::SetEnvironmentVariable("GBR_LOG_DIR", $LogDirectory, "User")
   $env:GBR_LOG_DIR = $LogDirectory
+  [Environment]::SetEnvironmentVariable("GBR_NO_AUTO_OPEN", "1", "User")
+  $env:GBR_NO_AUTO_OPEN = "1"
   if ($HaltInject) {
     [Environment]::SetEnvironmentVariable("GBR_INJECT_HALT", "1", "User")
     $env:GBR_INJECT_HALT = "1"
-    Write-Host "Set User env GBR_INJECT_HALT=1 and GBR_LOG_DIR=$LogDirectory" -ForegroundColor Cyan
+    Write-Host "Set User env GBR_INJECT_HALT=1 GBR_NO_AUTO_OPEN=1 GBR_LOG_DIR=$LogDirectory" -ForegroundColor Cyan
   } else {
     [Environment]::SetEnvironmentVariable("GBR_INJECT_HALT", $null, "User")
     Remove-Item Env:GBR_INJECT_HALT -ErrorAction SilentlyContinue
-    Write-Host "AllowInject: cleared User env GBR_INJECT_HALT; GBR_LOG_DIR=$LogDirectory" -ForegroundColor Yellow
+    Write-Host "AllowInject: cleared User env GBR_INJECT_HALT; GBR_NO_AUTO_OPEN=1 GBR_LOG_DIR=$LogDirectory" -ForegroundColor Yellow
   }
 }
 
@@ -138,9 +159,9 @@ function Install-WinSW {
 
   $xmlPath = Join-Path $InstallDir "gbr-agent.xml"
   $haltEnv = if ($HaltInject) {
-    '  <env name="GBR_INJECT_HALT" value="1"/>'
+    "  <env name=`"GBR_INJECT_HALT`" value=`"1`"/>`n  <env name=`"GBR_NO_AUTO_OPEN`" value=`"1`"/>"
   } else {
-    '  <!-- GBR_INJECT_HALT omitted (-AllowInject) -->'
+    "  <!-- GBR_INJECT_HALT omitted (-AllowInject) -->`n  <env name=`"GBR_NO_AUTO_OPEN`" value=`"1`"/>"
   }
   # -inject-halt is a *run* flag (cmd/gbr-agent/main.go cmdRun). Before `run` it is unknown-command.
   $arguments = if ($HaltInject) { "-log=info run -inject-halt" } else { "-log=info run" }
@@ -263,12 +284,12 @@ function Install-S4UTask {
   if ($LASTEXITCODE -ne 0) {
     throw "schtasks create failed: $create"
   }
-  Write-Host "Registered non-interactive task \$TaskServiceName (S4U + Highest)." -ForegroundColor Green
+  Write-Host "Registered non-interactive task \${TaskServiceName} (S4U + Highest)." -ForegroundColor Green
   Write-Host "InteractiveToken / Interactive-only is FORBIDDEN for this runner." -ForegroundColor Yellow
 
   if ($DoStart) {
     schtasks.exe /Run /TN $TaskServiceName | Out-Null
-    Write-Host "Started task \$TaskServiceName." -ForegroundColor Yellow
+    Write-Host "Started task \${TaskServiceName}." -ForegroundColor Yellow
   } else {
     Write-Host "Task registered but NOT started (pass -Start to start)." -ForegroundColor Cyan
   }
@@ -277,11 +298,11 @@ function Install-S4UTask {
 function Disable-LegacyInteractiveTask {
   $null = schtasks.exe /Query /TN $LegacyInteractiveTask 2>&1
   if ($LASTEXITCODE -ne 0) {
-    Write-Host "Legacy task \$LegacyInteractiveTask not present — nothing to disable." -ForegroundColor DarkGray
+    Write-Host "Legacy task \${LegacyInteractiveTask} not present - nothing to disable." -ForegroundColor DarkGray
     return
   }
   schtasks.exe /Change /TN $LegacyInteractiveTask /DISABLE | Out-Null
-  Write-Host "Disabled legacy interactive task \$LegacyInteractiveTask (NOT deleted; David must approve delete)." -ForegroundColor Yellow
+  Write-Host "Disabled legacy interactive task \${LegacyInteractiveTask} (NOT deleted; David must approve delete)." -ForegroundColor Yellow
 }
 
 # --- main ---
@@ -313,6 +334,8 @@ if (-not $SkipDisableInteractiveTask.IsPresent) {
 Write-Host ""
 Write-Host "Done." -ForegroundColor Green
 Write-Host "  Halt default:  GBR_INJECT_HALT=$([int]$halt)  (David clears explicitly for live inject)"
+Write-Host "  No auto-open:  GBR_NO_AUTO_OPEN=1"
 Write-Host "  Logs:          $LogDir"
+Write-Host "  Human name:    Grok Build Remote Agent (WinSW) / task id GrokBuildRemoteAgentService"
 Write-Host "  Uninstall:     scripts\windows\uninstall-service.ps1"
-Write-Host "  Do NOT delete \$LegacyInteractiveTask without David yes."
+Write-Host "  Do NOT delete \${LegacyInteractiveTask} without David yes."
