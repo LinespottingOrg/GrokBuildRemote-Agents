@@ -45,6 +45,8 @@ gbr-agent version
 
 **Windows non-interactive service / AtLogon (no Interactive-only):** after a **PR #40** binary is at `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe` (help must list `-inject-halt`; refuse commit `6f451ac`), use [`scripts/windows/`](scripts/windows/README.md) (`install-service.ps1`). Args: `-log=info run -inject-halt`. Defaults: `GBR_INJECT_HALT=1`, logs `C:\pc-build\gbr-agent-out\`. Do not delete legacy task `\GrokBuildRemoteAgent` without David yes. See also [install/windows/service.md](install/windows/service.md).
 
+**macOS non-interactive LaunchAgent (Background, no Interactive ProcessType):** on the Mac Mini, after a halt-capable `gbr-agent` is at `~/.local/bin/gbr-agent`, use [`scripts/darwin/`](scripts/darwin/README.md) (`install-service.sh`). Args: `-log=info run -inject-halt`. Defaults: `GBR_INJECT_HALT=1`, `GBR_NO_AUTO_OPEN=1`, logs `$HOME/pc-build/gbr-agent-out`. Label `com.linespotting.grok-build-remote`. Disable legacy `com.linespotting.gbr-agent` (do not delete without David yes). Login Items show **Grok Build Remote**. Do not run this installer from Windows.
+
 **Binary only** (skip the installer): verify a **hard-coded** digest from [docs/PINNED-INSTALL.md](docs/PINNED-INSTALL.md), then `mkdir -p ~/.local/bin`, `install` onto that path, and `export PATH="$HOME/.local/bin:$PATH"`. Do not `curl SHA256SUMS && shasum -c`.
 
 From source (inbox watch + claw skill live on **v0.6.1**):

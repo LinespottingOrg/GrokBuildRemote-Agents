@@ -10,8 +10,11 @@
     1. Copy to ~/Library/LaunchAgents/com.linespotting.gbr-agent.plist
     2. Edit ProgramArguments[0] if your install path differs
     3. mkdir -p ~/Library/Logs/GrokBuildRemote
-    4. launchctl load ~/Library/LaunchAgents/com.linespotting.gbr-agent.plist
-    5. launchctl start com.linespotting.gbr-agent
+    Supported NI install: scripts/darwin/install-service.sh
+    (halt + no-auto-open + Background ProcessType; do not use Interactive).
+    4. Prefer: scripts/darwin/install-service.sh   # no start
+       scripts/darwin/install-service.sh --start   # David yes
+    Legacy Interactive example used com.linespotting.gbr-agent — disable, do not delete.
 
   Unload:
     launchctl unload ~/Library/LaunchAgents/com.linespotting.gbr-agent.plist
@@ -32,7 +35,7 @@
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    <string>com.linespotting.gbr-agent</string>
+    <string>com.linespotting.grok-build-remote</string>
 
     <key>AssociatedBundleIdentifiers</key>
     <array>
@@ -42,7 +45,9 @@
     <key>ProgramArguments</key>
     <array>
       <string>/Users/REPLACE_ME/.local/bin/gbr-agent</string>
+      <string>-log=info</string>
       <string>run</string>
+      <string>-inject-halt</string>
     </array>
 
     <key>RunAtLoad</key>
@@ -64,6 +69,14 @@
     <dict>
       <key>GBR_DATA_DIR</key>
       <string>/Users/REPLACE_ME/Library/Application Support/GrokBuildRemote</string>
+      <key>GBR_LOG_DIR</key>
+      <string>/Users/REPLACE_ME/pc-build/gbr-agent-out</string>
+      <key>GBR_INJECT_HALT</key>
+      <string>1</string>
+      <key>GBR_NO_AUTO_OPEN</key>
+      <string>1</string>
+      <key>GBR_INBOX_WATCH</key>
+      <string>0</string>
       <key>PATH</key>
       <string>/usr/local/bin:/usr/bin:/bin:/Users/REPLACE_ME/.local/bin</string>
       <!-- Hub PCs: uncomment to require mailbox key on loopback Bot API.
@@ -78,6 +91,6 @@
     <string>/Users/REPLACE_ME/Library/Logs/GrokBuildRemote/gbr-agent.err.log</string>
 
     <key>ProcessType</key>
-    <string>Interactive</string>
+    <string>Background</string>
   </dict>
 </plist>
