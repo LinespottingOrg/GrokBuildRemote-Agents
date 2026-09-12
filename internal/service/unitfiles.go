@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -184,12 +185,17 @@ func shSingleQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }
 
-func windowsTaskXML(taskName, binary, workDir string) string {
+func windowsTaskXML(taskName, binary, workDir, userId string) string {
+	// S4U + Hidden + direct exec. InteractiveToken / powershell host is forbidden
+	// (desktop popups). Flags are argv because S4U does not inherit User env.
+	if userId == "" {
+		userId = os.Getenv("USERDOMAIN") + `\` + os.Getenv("USERNAME")
+	}
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
     <Author>Linespotting AB</Author>
-    <Description>%s — polls relay and injects into terminals</Description>
+    <Description>%s — NON-INTERACTIVE (S4U+Highest). InteractiveToken forbidden.</Description>
     <URI>\%s</URI>
   </RegistrationInfo>
   <Triggers>
@@ -199,8 +205,9 @@ func windowsTaskXML(taskName, binary, workDir string) string {
   </Triggers>
   <Principals>
     <Principal id="Author">
-      <LogonType>InteractiveToken</LogonType>
-      <RunLevel>LeastPrivilege</RunLevel>
+      <UserId>%s</UserId>
+      <LogonType>S4U</LogonType>
+      <RunLevel>HighestAvailable</RunLevel>
     </Principal>
   </Principals>
   <Settings>
@@ -212,18 +219,18 @@ func windowsTaskXML(taskName, binary, workDir string) string {
     <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
     <AllowStartOnDemand>true</AllowStartOnDemand>
     <Enabled>true</Enabled>
-    <Hidden>false</Hidden>
+    <Hidden>true</Hidden>
     <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%s' -ArgumentList '-log=info','run' -WindowStyle Hidden"</Arguments>
+      <Command>%s</Command>
+      <Arguments>-log=info run -inject-halt -no-auto-open -no-inbox-watch</Arguments>
       <WorkingDirectory>%s</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>
-`, ProductNameAgent, taskName, binary, workDir)
+`, ProductNameAgent, taskName, userId, binary, workDir)
 }
 
 func utf16LEBOM(s string) []byte {

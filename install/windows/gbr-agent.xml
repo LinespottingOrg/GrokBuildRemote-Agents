@@ -12,7 +12,7 @@
     - GBR_INJECT_HALT=1  (David must clear for live inject)
     - GBR_NO_AUTO_OPEN=1 (no CREATE_NEW_CONSOLE)
     - GBR_LOG_DIR=C:\pc-build\gbr-agent-out
-    - Args: -log=info run -inject-halt  (-inject-halt is a run subcommand flag)
+    - Args: -log=info run -inject-halt -no-auto-open -no-inbox-watch  (run subcommand flags; S4U does not inherit User env)
     - Refuse commit 6f451ac (labelled 0.6.3, 2026-08-24 wmic-flash only — no PR #40 halt)
     - Never .aiprojects\gbr\agents\dist
 
@@ -26,7 +26,7 @@
   <description>Grok Build Remote agent (non-interactive). Inject halted by default. Protocol gbr/1.</description>
 
   <executable>%BASE%\gbr-agent.exe</executable>
-  <arguments>-log=info run -inject-halt</arguments>
+  <arguments>-log=info run -inject-halt -no-auto-open -no-inbox-watch</arguments>
   <workingdirectory>%BASE%</workingdirectory>
 
   <onfailure action="restart" delay="5 sec"/>
@@ -49,6 +49,7 @@
   <env name="GBR_LOG_DIR" value="C:\pc-build\gbr-agent-out"/>
   <env name="GBR_INJECT_HALT" value="1"/>
   <env name="GBR_NO_AUTO_OPEN" value="1"/>
+  <env name="GBR_INBOX_WATCH" value="0"/>
   <!-- Hub PCs should also set GBR_BOT_REQUIRE_KEY=1 (or true/on). -->
   <!-- <env name="GBR_BOT_REQUIRE_KEY" value="1"/> -->
 </service>

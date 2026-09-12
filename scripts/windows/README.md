@@ -35,7 +35,7 @@ Install the agent so it **cannot** raise interactive approval UI on the logged-i
 - `RunLevel` = **HighestAvailable**
 - `MultipleInstancesPolicy` = **IgnoreNew**
 - `Hidden` = true
-- Direct `Exec` of `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe -log=info run -inject-halt`
+- Direct `Exec` of `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe -log=info run -inject-halt -no-auto-open` (plus `-no-inbox-watch` when the binary advertises it). **S4U does not inherit User env** — guards must be argv.
 
 ## Install
 
@@ -82,7 +82,7 @@ Default after install:
 
 - User env `GBR_INJECT_HALT=1`
 - User env `GBR_NO_AUTO_OPEN=1`
-- Process args: `-log=info run -inject-halt`
+- Process args: `-log=info run -inject-halt -no-auto-open` (plus `-no-inbox-watch` when advertised)
 - Agent refuses all injects (Bot API / mailbox / inbox) — see `internal/inject/attempt.go`
 
 **Clear halt only with David yes** (live inject trial):
@@ -150,11 +150,11 @@ Do not start `gbr-agent` from docs automation; David / PC1 ops decide when to `-
 - [ ] `.\install-service.ps1` **without** `-Start` (elevated)
 - [ ] WinSW or `\GrokBuildRemoteAgentService` registered; **not** running unless David passed `-Start`
 - [ ] User env `GBR_INJECT_HALT=1`, `GBR_NO_AUTO_OPEN=1`, `GBR_LOG_DIR=C:\pc-build\gbr-agent-out`
-- [ ] Args `-log=info run -inject-halt`
+- [ ] Args `-log=info run -inject-halt -no-auto-open` (S4U-safe; not User-env-only)
 - [ ] Legacy `\GrokBuildRemoteAgent` **Disabled**, not deleted
 - [ ] Binary is LocalAppData halt-capable (not `6f451ac`, not dist, not stub)
 - [ ] Human name **Grok Build Remote Agent** (WinSW) — not bare `gbr`
 
 ## Why not `gbr-agent service install` alone?
 
-The built-in Windows installer (`internal/service/service_windows.go`) historically registered an **InteractiveToken** logon task (Interactive-only) and could point at whatever exe was used to install (including a wrong `.aiprojects\...\dist` path). This folder is the supported NI path for PC1 until that Go path is aligned in a later release.
+The built-in `gbr-agent service install` (`internal/service/service_windows.go`) now registers **S4U + Hidden** with `-inject-halt -no-auto-open -no-inbox-watch`. PC1 still prefers this folder: WinSW else `\GrokBuildRemoteAgentService`, refuse `6f451ac` / dist / stub, disable legacy `\GrokBuildRemoteAgent`.
