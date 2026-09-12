@@ -61,7 +61,7 @@ Phone roster = that **grok TTY**, not the OpenClaw / Hermes / NemoClaw UI.
 
 ## Inbox watch (no paste)
 
-With `gbr-agent run` and `gh` on PATH, the agent polls `LinespottingOrg/grok-build-inbox` label `boss-steer`. Matching Grok Build title → inject newest comment. After the watcher is running, **do not paste**. `GBR_INBOX_WATCH=0` disables.
+With `gbr-agent run` and `gh` on PATH, the agent polls `LinespottingOrg/grok-build-inbox` label `boss-steer`. Matching Grok Build title → inject newest comment. Spawn cwd is `~/Developer` on Mac Mini (`GBR_OPEN_CWD`), not `$HOME` or Dropbox. After the watcher is running, **do not paste**. `GBR_INBOX_WATCH=0` disables.
 
 ## NemoClaw
 
