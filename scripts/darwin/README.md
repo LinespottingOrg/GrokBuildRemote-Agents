@@ -17,7 +17,8 @@ Same contract as Windows NI: **no Interactive UI**, halt on, no auto-open, one p
 | Inject | Default `GBR_INJECT_HALT=1` + `-inject-halt`. David clears halt for live inject. |
 | No auto-open | Default `GBR_NO_AUTO_OPEN=1` |
 | Inbox | Default `GBR_INBOX_WATCH=0` |
-| Logs | `$HOME/pc-build/gbr-agent-out` (`GBR_LOG_DIR`) |
+| Logs | `$HOME/Developer/gbr-agent-out` (`GBR_LOG_DIR`) |
+| Open CWD | `$HOME/Developer` (`GBR_OPEN_CWD` / WorkingDirectory) |
 | Legacy | `com.linespotting.gbr-agent` → **bootout**, do **not** delete plist without David yes |
 | NI label | `com.linespotting.grok-build-remote` (matches CFBundleIdentifier) |
 | Secrets | Never in commits, scripts, plists, or PR bodies |
@@ -42,14 +43,14 @@ chmod +x install-service.sh uninstall-service.sh kill-duplicates.sh
 | `--allow-inject` | **David live trial only** — skip halt |
 | `--skip-disable-legacy` | Leave `com.linespotting.gbr-agent` loaded |
 | `--binary PATH` | Override (still refuse dist / 6f451ac / stub) |
-| `--log-dir PATH` | Default `$HOME/pc-build/gbr-agent-out` |
+| `--log-dir PATH` | Default `$HOME/Developer/gbr-agent-out` |
 
 ## Test checklist (Mac Mini)
 
 - [ ] `./install-service.sh` **without** `--start`
 - [ ] Plist at `~/Library/LaunchAgents/com.linespotting.grok-build-remote.plist`
 - [ ] `ProcessType` = Background; args `-log=info run -inject-halt`
-- [ ] Env halt + no-auto-open + inbox off; logs under `~/pc-build/gbr-agent-out`
+- [ ] Env halt + no-auto-open + inbox off; logs under `~/Developer/gbr-agent-out`; WorkingDirectory `~/Developer`
 - [ ] Legacy `com.linespotting.gbr-agent` bootout, plist **not** deleted
 - [ ] Then `--start`: `curl -sS http://127.0.0.1:8788/health` 200; inject halted; no new Terminal/Grok windows
 - [ ] Login Items show **Grok Build Remote** (`~/Applications/Grok Build Remote.app`)

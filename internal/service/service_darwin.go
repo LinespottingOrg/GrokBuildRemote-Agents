@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func installPlatform() error {
@@ -23,8 +24,14 @@ func installPlatform() error {
 	// Dropbox copies carry quarantine/xattrs; unsigned binaries then die with
 	// OS_REASON_CODESIGNING under launchd. Ad-hoc sign the installed binary.
 	prepareDarwinBinary(p.Binary)
-	// User home — not the binary folder (install from dist/ used to create a "dist" session).
-	workDir, _ := os.UserHomeDir()
+	// Product clone root — not the binary folder (install from dist/ used to
+	// create a "dist" session) and not $HOME (inbox #119: ~/Developer).
+	workDir := strings.TrimSpace(os.Getenv("GBR_OPEN_CWD"))
+	if workDir == "" {
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			workDir = filepath.Join(home, "Developer")
+		}
+	}
 	if workDir == "" {
 		workDir = p.DataDir
 	}

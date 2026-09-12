@@ -128,7 +128,7 @@ func (rt *agentRuntime) applyInbox(a inbox.Action) error {
 		Command: "grok",
 		Title:   a.Title,
 		Holder:  "inbox",
-		CWD:     os.Getenv("HOME"),
+		CWD:     inject.DefaultProductCWD(),
 	})
 	if err != nil {
 		return err
