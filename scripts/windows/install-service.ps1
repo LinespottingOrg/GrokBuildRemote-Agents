@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Install gbr-agent as a NON-INTERACTIVE Windows runner (WinSW service or S4U task).
@@ -7,7 +7,7 @@
   Safer minimal path for PC1 / production Windows hosts:
 
   1) Prefer WinSW (real Windows Service) when gbr-agent-service.exe sits next to
-     the LocalAppData binary (Session 0 — inject stays halted by default).
+     the LocalAppData binary (Session 0 - inject stays halted by default).
   2) Else register Scheduled Task \GrokBuildRemoteAgentService with
      LogonType=S4U + RunLevel=HighestAvailable (NOT InteractiveToken).
 
@@ -96,9 +96,13 @@ Do not point the service at .aiprojects\gbr\agents\dist. Commit 6f451ac is not i
 
 function Assert-AgentHasPR40Guards {
   param([string]$Exe)
+  # Native -h often writes stderr / exit 2. Windows PowerShell 5.1 + Stop treats that as terminating.
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
   $verOut = & $Exe version 2>&1 | Out-String
+  $ErrorActionPreference = $prevEap
   Write-Host ("version: " + $verOut.Trim())
-  # PC1 0.6.3 at this SHA is the 2026-08-24 wmic flash fix — no ack-on-fail, no halt flag.
+  # PC1 0.6.3 at this SHA is the 2026-08-24 wmic flash fix - no ack-on-fail, no halt flag.
   if ($verOut -match 'commit=6f451ac') {
     throw @"
 Refusing this binary: commit 6f451ac (labelled 0.6.3, 2026-08-24) is the wmic-console-popup fix ONLY.
@@ -107,7 +111,9 @@ Replace $Exe with a rebuild from origin/main AFTER PR #40 (merge f7bd6c1, 2026-0
 Do not point the service at .aiprojects\gbr\agents\dist.
 "@
   }
+  $ErrorActionPreference = "Continue"
   $helpOut = & $Exe -h 2>&1 | Out-String
+  $ErrorActionPreference = $prevEap
   if ($verOut -match 'disabled after desktop popup' -or $helpOut -match 'disabled after desktop popup') {
     throw "Refusing disable-stub at $Exe. Copy a real halt-capable gbr-agent.exe (not the popup-lockup stub)."
   }
@@ -127,22 +133,37 @@ function New-LogDirectory {
   Remove-Item -LiteralPath $probe -Force
 }
 
+function Get-AgentRunArguments {
+  param([bool]$HaltInject, [string]$HelpText = "")
+  # S4U Session 0 does NOT reliably inherit User env. Popup guards must be argv.
+  # -inject-halt / -no-auto-open / -no-inbox-watch are *run* flags (before `run` = unknown-command).
+  # Array not generic List - Windows PowerShell 5.1 parse-safe.
+  $bits = @("-log=info", "run")
+  if ($HaltInject) { $bits += "-inject-halt" }
+  $bits += "-no-auto-open"
+  if ($HelpText -match "no-inbox-watch") { $bits += "-no-inbox-watch" }
+  return ($bits -join " ")
+}
+
 function Set-HaltAndLogEnv {
   param([string]$LogDirectory, [bool]$HaltInject)
-  # User-scope so S4U/logon runners inherit without InteractiveToken desktop.
-  # David clears halt explicitly: setx GBR_INJECT_HALT 0  OR System Properties → delete.
+  # User-scope is a backup only. S4U Session 0 often does not inherit User env -
+  # installers MUST also pass -no-auto-open / -inject-halt on the process argv.
+  # David clears halt explicitly: setx GBR_INJECT_HALT 0  OR System Properties -> delete.
   [Environment]::SetEnvironmentVariable("GBR_LOG_DIR", $LogDirectory, "User")
   $env:GBR_LOG_DIR = $LogDirectory
   [Environment]::SetEnvironmentVariable("GBR_NO_AUTO_OPEN", "1", "User")
   $env:GBR_NO_AUTO_OPEN = "1"
+  [Environment]::SetEnvironmentVariable("GBR_INBOX_WATCH", "0", "User")
+  $env:GBR_INBOX_WATCH = "0"
   if ($HaltInject) {
     [Environment]::SetEnvironmentVariable("GBR_INJECT_HALT", "1", "User")
     $env:GBR_INJECT_HALT = "1"
-    Write-Host "Set User env GBR_INJECT_HALT=1 GBR_NO_AUTO_OPEN=1 GBR_LOG_DIR=$LogDirectory" -ForegroundColor Cyan
+    Write-Host "Set User env GBR_INJECT_HALT=1 GBR_NO_AUTO_OPEN=1 GBR_INBOX_WATCH=0 GBR_LOG_DIR=$LogDirectory" -ForegroundColor Cyan
   } else {
     [Environment]::SetEnvironmentVariable("GBR_INJECT_HALT", $null, "User")
     Remove-Item Env:GBR_INJECT_HALT -ErrorAction SilentlyContinue
-    Write-Host "AllowInject: cleared User env GBR_INJECT_HALT; GBR_NO_AUTO_OPEN=1 GBR_LOG_DIR=$LogDirectory" -ForegroundColor Yellow
+    Write-Host "AllowInject: cleared User env GBR_INJECT_HALT; GBR_NO_AUTO_OPEN=1 GBR_INBOX_WATCH=0 GBR_LOG_DIR=$LogDirectory" -ForegroundColor Yellow
   }
 }
 
@@ -158,15 +179,19 @@ function Install-WinSW {
   if (-not (Test-Path -LiteralPath $winsw)) { return $false }
 
   $xmlPath = Join-Path $InstallDir "gbr-agent.xml"
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $helpOut = & $Exe -h 2>&1 | Out-String
+  $ErrorActionPreference = $prevEap
   $haltEnv = if ($HaltInject) {
-    "  <env name=`"GBR_INJECT_HALT`" value=`"1`"/>`n  <env name=`"GBR_NO_AUTO_OPEN`" value=`"1`"/>"
+    "  <env name=`"GBR_INJECT_HALT`" value=`"1`"/>`n  <env name=`"GBR_NO_AUTO_OPEN`" value=`"1`"/>`n  <env name=`"GBR_INBOX_WATCH`" value=`"0`"/>"
   } else {
-    "  <!-- GBR_INJECT_HALT omitted (-AllowInject) -->`n  <env name=`"GBR_NO_AUTO_OPEN`" value=`"1`"/>"
+    "  <!-- GBR_INJECT_HALT omitted (-AllowInject) -->`n  <env name=`"GBR_NO_AUTO_OPEN`" value=`"1`"/>`n  <env name=`"GBR_INBOX_WATCH`" value=`"0`"/>"
   }
   # -inject-halt is a *run* flag (cmd/gbr-agent/main.go cmdRun). Before `run` it is unknown-command.
-  $arguments = if ($HaltInject) { "-log=info run -inject-halt" } else { "-log=info run" }
+  $arguments = Get-AgentRunArguments -HaltInject $HaltInject -HelpText $helpOut
   $xml = @"
-<!-- Generated by scripts/windows/install-service.ps1 — no secrets -->
+<!-- Generated by scripts/windows/install-service.ps1 - no secrets -->
 <service>
   <id>$WinSWServiceId</id>
   <name>Grok Build Remote Agent</name>
@@ -222,20 +247,20 @@ function Install-S4UTask {
   $userXml = [System.Security.SecurityElement]::Escape($userId)
   $exeXml = [System.Security.SecurityElement]::Escape($Exe)
   $workXml = [System.Security.SecurityElement]::Escape((Split-Path -Parent $Exe))
-  $argXml = if ($HaltInject) {
-    "-log=info run -inject-halt"
-  } else {
-    "-log=info run"
-  }
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $helpOut = & $Exe -h 2>&1 | Out-String
+  $ErrorActionPreference = $prevEap
+  $argXml = Get-AgentRunArguments -HaltInject $HaltInject -HelpText $helpOut
 
-  # Direct Exec of gbr-agent.exe — one agent process (no interactive powershell host UI).
+  # Direct Exec of gbr-agent.exe - one agent process (no interactive powershell host UI).
   # LogonType=S4U: non-interactive (InteractiveToken / Interactive-only FORBIDDEN).
   # RunLevel=HighestAvailable: Highest privileges without stealing desktop focus.
   $xml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>Grok Build Remote agent — NON-INTERACTIVE (S4U+Highest). InteractiveToken forbidden. GBR_INJECT_HALT default.</Description>
+    <Description>Grok Build Remote agent - NON-INTERACTIVE (S4U+Highest). InteractiveToken forbidden. GBR_INJECT_HALT default.</Description>
     <URI>\$TaskServiceName</URI>
   </RegistrationInfo>
   <Triggers>
@@ -278,7 +303,7 @@ function Install-S4UTask {
   $utf16 = New-Object System.Text.UnicodeEncoding $false, $true
   [System.IO.File]::WriteAllBytes($tmp, $utf16.GetPreamble() + $utf16.GetBytes($xml))
 
-  # Distinct task name — never /F-overwrite legacy \GrokBuildRemoteAgent.
+  # Distinct task name - never /F-overwrite legacy \GrokBuildRemoteAgent.
   schtasks.exe /Delete /TN $TaskServiceName /F 2>$null | Out-Null
   $create = schtasks.exe /Create /TN $TaskServiceName /XML $tmp /F 2>&1
   if ($LASTEXITCODE -ne 0) {
@@ -306,9 +331,9 @@ function Disable-LegacyInteractiveTask {
 }
 
 # --- main ---
-Write-Host "Grok Build Remote — non-interactive Windows install" -ForegroundColor Green
+Write-Host "Grok Build Remote - non-interactive Windows install" -ForegroundColor Green
 if ($AllowInject) {
-  Write-Host "WARNING: -AllowInject set — GBR_INJECT_HALT will NOT be applied. David live trial only." -ForegroundColor Red
+  Write-Host "WARNING: -AllowInject set - GBR_INJECT_HALT will NOT be applied. David live trial only." -ForegroundColor Red
 }
 
 $exe = Resolve-AgentBinary -Override $BinaryPath
@@ -323,7 +348,7 @@ Set-HaltAndLogEnv -LogDirectory $LogDir -HaltInject $halt
 
 $usedWinSW = Install-WinSW -InstallDir $installDir -Exe $exe -LogDirectory $LogDir -HaltInject $halt -DoStart:$Start.IsPresent
 if (-not $usedWinSW) {
-  Write-Host "WinSW (gbr-agent-service.exe) not found beside binary — using S4U scheduled task." -ForegroundColor Cyan
+  Write-Host "WinSW (gbr-agent-service.exe) not found beside binary - using S4U scheduled task." -ForegroundColor Cyan
   Install-S4UTask -Exe $exe -HaltInject $halt -DoStart:$Start.IsPresent
 }
 
@@ -334,7 +359,8 @@ if (-not $SkipDisableInteractiveTask.IsPresent) {
 Write-Host ""
 Write-Host "Done." -ForegroundColor Green
 Write-Host "  Halt default:  GBR_INJECT_HALT=$([int]$halt)  (David clears explicitly for live inject)"
-Write-Host "  No auto-open:  GBR_NO_AUTO_OPEN=1"
+Write-Host "  No auto-open:  argv -no-auto-open + GBR_NO_AUTO_OPEN=1 (S4U does not inherit User env)"
+Write-Host "  Inbox watch:   GBR_INBOX_WATCH=0 (argv -no-inbox-watch when binary advertises it)"
 Write-Host "  Logs:          $LogDir"
 Write-Host "  Human name:    Grok Build Remote Agent (WinSW) / task id GrokBuildRemoteAgentService"
 Write-Host "  Uninstall:     scripts\windows\uninstall-service.ps1"

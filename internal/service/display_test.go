@@ -40,12 +40,15 @@ func TestProductDisplayName(t *testing.T) {
 }
 
 func TestWindowsTaskXMLShowsProductName(t *testing.T) {
-	xml := windowsTaskXML(WindowsTaskName, `C:\Users\me\gbr-agent.exe`, `C:\Users\me`)
+	xml := windowsTaskXML(WindowsTaskName, `C:\Users\me\gbr-agent.exe`, `C:\Users\me`, `WORKSTATION\User`)
 	for _, want := range []string{
 		`<URI>\Grok Build Remote</URI>`,
 		`<Description>Grok Build Remote Agent`,
-		`<Hidden>false</Hidden>`,
+		`<Hidden>true</Hidden>`,
+		`<LogonType>S4U</LogonType>`,
 		`<Author>Linespotting AB</Author>`,
+		`-log=info run -inject-halt -no-auto-open -no-inbox-watch`,
+		`<Command>C:\Users\me\gbr-agent.exe</Command>`,
 	} {
 		if !strings.Contains(xml, want) {
 			t.Errorf("task XML missing %q", want)
@@ -53,6 +56,9 @@ func TestWindowsTaskXMLShowsProductName(t *testing.T) {
 	}
 	if strings.Contains(xml, `<URI>\GrokBuildRemoteAgent</URI>`) {
 		t.Error("task XML still uses legacy GrokBuildRemoteAgent as URI")
+	}
+	if strings.Contains(xml, `<LogonType>InteractiveToken</LogonType>`) || strings.Contains(xml, `powershell.exe`) {
+		t.Error("task XML must not use InteractiveToken or a powershell host (popup class)")
 	}
 }
 

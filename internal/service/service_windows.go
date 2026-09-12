@@ -18,10 +18,10 @@ func installPlatform() error {
 	if err := os.MkdirAll(p.DataDir, 0o700); err != nil {
 		return err
 	}
-	// Prefer Task Scheduler logon task so agent runs in the user desktop session.
-	// /RL LIMITED = standard user; /IT = only when user logged on interactively.
+	// Prefer S4U+Highest Hidden AtLogon (no InteractiveToken, no desktop popup).
 	// Task list name is "Grok Build Remote" (issue #55). Spaces are valid in /TN.
-	xml := windowsTaskXML(p.UnitPath, p.Binary, serviceWorkDir(p.Binary))
+	user := os.Getenv("USERDOMAIN") + `\` + os.Getenv("USERNAME")
+	xml := windowsTaskXML(p.UnitPath, p.Binary, serviceWorkDir(p.Binary), user)
 
 	tmp := filepath.Join(os.TempDir(), "gbr-agent-task.xml")
 	// Task Scheduler XML expects UTF-16 LE with BOM when using /XML
@@ -35,8 +35,8 @@ func installPlatform() error {
 	if err != nil {
 		// Fallback: simple ONLOGON create
 		out2, err2 := exec.Command("schtasks", "/Create", "/TN", p.UnitPath,
-			"/TR", fmt.Sprintf("\"%s\" -log=info run", p.Binary),
-			"/SC", "ONLOGON", "/RL", "LIMITED", "/F").CombinedOutput()
+			"/TR", fmt.Sprintf("\"%s\" -log=info run -inject-halt -no-auto-open -no-inbox-watch", p.Binary),
+			"/SC", "ONLOGON", "/RL", "HIGHEST", "/F").CombinedOutput()
 		if err2 != nil {
 			// Last resort: Startup folder shortcut (no admin)
 			if err3 := installStartupFolder(p.Binary); err3 != nil {
@@ -117,7 +117,7 @@ func installStartupFolder(binary string) error {
 	_ = os.Remove(filepath.Join(startup, WindowsLegacyStartupCmd))
 	// Hidden launcher — do not use `start` on a console binary (Win11 Terminal flash).
 	cmdPath := filepath.Join(startup, WindowsStartupCmd)
-	body := fmt.Sprintf("@echo off\r\npowershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"Start-Process -FilePath '%s' -ArgumentList '-log=info','run' -WindowStyle Hidden\"\r\n", binary)
+	body := fmt.Sprintf("@echo off\r\npowershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command \"Start-Process -FilePath '%s' -ArgumentList '-log=info','run','-inject-halt','-no-auto-open','-no-inbox-watch' -WindowStyle Hidden\"\r\n", binary)
 	return os.WriteFile(cmdPath, []byte(body), 0o644)
 }
 

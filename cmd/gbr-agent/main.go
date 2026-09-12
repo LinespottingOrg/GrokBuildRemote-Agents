@@ -145,7 +145,7 @@ Usage:
       Firewall/VPN test: DNS + TCP/443 + TLS + HTTPS /health (no inbound ports).
   gbr-agent [-log=info] status
       Also lists local + remotes (gbr-agent fleet).
-  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force] [-bot-port 8788] [-inject-halt] [-no-auto-open]
+  gbr-agent [-log=info] run [-session ID] [-conv MAILBOX_ID] [-relay URL] [-force] [-bot-port 8788] [-inject-halt] [-no-auto-open] [-no-inbox-watch]
   gbr-agent [-log=info] bot
       Print localhost + relay Bot API curl examples (Grok bots).
   gbr-agent [-log=info] fleet
@@ -187,7 +187,7 @@ Environment:
   GBR_BOT_PORT                  localhost bot HTTP port (default 8788, 0=off)
   GBR_BOT_REQUIRE_KEY=1|true|on require mailbox key even on 127.0.0.1
                                 (default off for MCP/loopback; set on hub/service)
-  GBR_INBOX_WATCH=0             disable GitHub boss-steer → inject
+  GBR_INBOX_WATCH=0             disable GitHub boss-steer → inject (also -no-inbox-watch)
   GBR_INBOX_REPO                default LinespottingOrg/grok-build-inbox
   GBR_INBOX_LABEL               default boss-steer
   GBR_INBOX_POLL                default 20s
@@ -255,12 +255,16 @@ func cmdRun(args []string) int {
 	botPort := fs.Int("bot-port", botPortFromEnv(), "localhost bot HTTP port (0=off, default 8788)")
 	injectHalt := fs.Bool("inject-halt", false, "refuse all injects (same as GBR_INJECT_HALT=1)")
 	noAutoOpen := fs.Bool("no-auto-open", false, "refuse agent-spawned grok consoles (same as GBR_NO_AUTO_OPEN=1)")
+	noInboxWatch := fs.Bool("no-inbox-watch", false, "disable GitHub inbox watch (same as GBR_INBOX_WATCH=0)")
 	_ = fs.Parse(args)
 	if *injectHalt {
 		_ = os.Setenv("GBR_INJECT_HALT", "1")
 	}
 	if *noAutoOpen {
 		_ = os.Setenv("GBR_NO_AUTO_OPEN", "1")
+	}
+	if *noInboxWatch {
+		_ = os.Setenv("GBR_INBOX_WATCH", "0")
 	}
 
 	// Config: API key optional when using durable relay only.

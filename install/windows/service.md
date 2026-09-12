@@ -16,15 +16,15 @@
 
 1. **Non-interactive** runner — **Interactive-only / `InteractiveToken` is forbidden**
 2. **One** `gbr-agent` process
-3. Default **`GBR_INJECT_HALT=1`** and args **`-log=info run -inject-halt`** (David clears halt for live inject)
-4. **`GBR_NO_AUTO_OPEN=1`** so Open cannot `CREATE_NEW_CONSOLE`
+3. Default **`GBR_INJECT_HALT=1`** and args **`-log=info run -inject-halt -no-auto-open`** (David clears halt for live inject; **S4U does not inherit User env**)
+4. **`GBR_NO_AUTO_OPEN=1`** + argv **`-no-auto-open`** so Open cannot `CREATE_NEW_CONSOLE`
 5. Logs → **`C:\pc-build\gbr-agent-out\`** (`GBR_LOG_DIR`)
 6. Keep Agents **PR #40** ack-on-fail / single `command_id` (do not regress inject loop fixes)
 7. After NI lands: **disable** legacy `\GrokBuildRemoteAgent` — **do not delete** without David yes
 
 Admin Session 0 cannot inject into interactive desktops reliably. That is acceptable while inject is halted.
 
-`gbr-agent service install` (Go) historically registered **InteractiveToken**. Do **not** use it on PC1. This folder is the supported path.
+`gbr-agent service install` (Go) now registers **S4U + Hidden + halt/no-auto-open argv**. PC1 still prefers `scripts/windows/install-service.ps1` (WinSW else `\GrokBuildRemoteAgentService`).
 
 ---
 
@@ -62,7 +62,7 @@ Sample XML sets:
 - `GBR_INJECT_HALT=1`
 - `GBR_NO_AUTO_OPEN=1`
 - `GBR_LOG_DIR=C:\pc-build\gbr-agent-out`
-- arguments: `-log=info run -inject-halt` (`-inject-halt` is a **run** flag; before `run` it is unknown-command)
+- arguments: `-log=info run -inject-halt -no-auto-open -no-inbox-watch` (these are **run** flags; before `run` they are unknown-command)
 
 ### Manual WinSW commands
 
@@ -113,8 +113,8 @@ Used automatically by `install-service.ps1` when WinSW is absent.
 | LogonType | `S4U` (non-interactive) |
 | RunLevel | `HighestAvailable` |
 | Instances | `IgnoreNew` |
-| Exec | `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe -log=info run -inject-halt` |
-| Env (User) | `GBR_INJECT_HALT=1`, `GBR_NO_AUTO_OPEN=1`, `GBR_LOG_DIR=C:\pc-build\gbr-agent-out` |
+| Exec | `%LOCALAPPDATA%\GrokBuildRemote\gbr-agent.exe -log=info run -inject-halt -no-auto-open` (+ `-no-inbox-watch` when binary advertises it) |
+| Env (User, backup only) | `GBR_INJECT_HALT=1`, `GBR_NO_AUTO_OPEN=1`, `GBR_INBOX_WATCH=0`, `GBR_LOG_DIR=C:\pc-build\gbr-agent-out` |
 
 Requires elevated PowerShell to register.
 
