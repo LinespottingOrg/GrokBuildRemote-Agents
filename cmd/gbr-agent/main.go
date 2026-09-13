@@ -184,6 +184,7 @@ Environment:
   GBR_TRACE=0                   disable hop tracing entirely
   GBR_TRACE_REMOTE=0            trace to local file only (no relay mirror)
   GBR_LOG_DIR                   override log directory
+  GBR_OPEN_CWD                  clone root for spawned grok (Mac: ~/Developer, PC: C:\\pc-build)
   GBR_BOT_PORT                  localhost bot HTTP port (default 8788, 0=off)
   GBR_BOT_REQUIRE_KEY=1|true|on require mailbox key even on 127.0.0.1
                                 (default off for MCP/loopback; set on hub/service)

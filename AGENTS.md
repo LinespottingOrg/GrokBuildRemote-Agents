@@ -17,7 +17,7 @@ This file is for **coding agents and support AIs**. Read it before installing, p
 
 Do **not** invent a second code root. Official agent source is this GitHub repo (or the Dropbox workfolder `APPAR/Grok Build Remote/agents/` for LineSpotting machines).
 
-**Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` (REST) **or** stdio `gbr-mcp` (13 tools). Do not register `:8788` as MCP. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair stays `gbr-agent pair` (QR **or** 8-char) then `run`. NemoClaw is a **sandbox**, not a fourth pair. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches — **do not paste** after the watcher is running (`GBR_INBOX_WATCH=0` to disable). `/rename TITLE` must be its **own submitted TUI line**.
+**Attach (OpenClaw / Hermes / NemoClaw):** one surface — Bot API `:8788` (REST) **or** stdio `gbr-mcp` (13 tools). Do not register `:8788` as MCP. Skill: [skills/openclaw/SKILL.md](skills/openclaw/SKILL.md). Pair stays `gbr-agent pair` (QR **or** 8-char) then `run`. NemoClaw is a **sandbox**, not a fourth pair. Inbox comments (`gh`, label `boss-steer`) inject when a Grok Build title matches — **do not paste** after the watcher is running (`GBR_INBOX_WATCH=0` to disable). `/rename TITLE` must be its **own submitted TUI line**. Mac Mini clone/spawn cwd is `~/Developer` (`GBR_OPEN_CWD`), logs `~/Developer/gbr-agent-out` — never `~/pc-build` or Dropbox (inbox #119). PC1: `C:\pc-build`.
 
 ---
 

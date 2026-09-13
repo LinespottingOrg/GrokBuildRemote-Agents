@@ -10,7 +10,9 @@ START=0
 ALLOW_INJECT=0
 SKIP_DISABLE_LEGACY=0
 BINARY="${GBR_AGENT_BIN:-$HOME/.local/bin/gbr-agent}"
-LOG_DIR="${GBR_LOG_DIR:-$HOME/pc-build/gbr-agent-out}"
+# Mac Mini canonical root is ~/Developer/<slug> (inbox #119). Never ~/pc-build.
+LOG_DIR="${GBR_LOG_DIR:-$HOME/Developer/gbr-agent-out}"
+WORK_DIR="${GBR_OPEN_CWD:-$HOME/Developer}"
 
 NI_LABEL="com.linespotting.grok-build-remote"
 LEGACY_LABEL="com.linespotting.gbr-agent"
@@ -65,7 +67,7 @@ echo "$VER_OUT$HELP_OUT" | grep -qi 'disabled after desktop popup' && die "refus
 echo "$HELP_OUT" | grep -q 'inject-halt' || die "binary does not advertise -inject-halt (PR #40 missing). Refusing."
 echo "$HELP_OUT" | grep -q 'GBR_INJECT_HALT' || die "binary does not advertise GBR_INJECT_HALT. Refusing."
 
-mkdir -p "$LOG_DIR" "${HOME}/Library/LaunchAgents" "${HOME}/Applications"
+mkdir -p "$LOG_DIR" "$WORK_DIR" "${HOME}/Library/LaunchAgents" "${HOME}/Applications"
 probe="${LOG_DIR}/.gbr-write-probe"
 date -u +%Y-%m-%dT%H:%M:%SZ >"$probe"
 rm -f "$probe"
@@ -81,9 +83,13 @@ fi
 export GBR_NO_AUTO_OPEN=1
 export GBR_INBOX_WATCH=0
 export GBR_LOG_DIR="$LOG_DIR"
+export GBR_OPEN_CWD="$WORK_DIR"
+export GBR_DEVICE_CLASS="${GBR_DEVICE_CLASS:-mac_mini}"
 launchctl setenv GBR_NO_AUTO_OPEN 1 2>/dev/null || true
 launchctl setenv GBR_INBOX_WATCH 0 2>/dev/null || true
 launchctl setenv GBR_LOG_DIR "$LOG_DIR" 2>/dev/null || true
+launchctl setenv GBR_OPEN_CWD "$WORK_DIR" 2>/dev/null || true
+launchctl setenv GBR_DEVICE_CLASS "$GBR_DEVICE_CLASS" 2>/dev/null || true
 
 ARGS_HALT=""
 if [[ "$ALLOW_INJECT" -eq 0 ]]; then
@@ -116,7 +122,7 @@ ${ARGS_HALT}
   <key>ProcessType</key>
   <string>Background</string>
   <key>WorkingDirectory</key>
-  <string>${HOME}</string>
+  <string>${WORK_DIR}</string>
   <key>StandardOutPath</key>
   <string>${LOG_DIR}/gbr-agent.out.log</string>
   <key>StandardErrorPath</key>
@@ -129,6 +135,10 @@ ${ARGS_HALT}
     <string>${HOME}</string>
     <key>GBR_LOG_DIR</key>
     <string>${LOG_DIR}</string>
+    <key>GBR_OPEN_CWD</key>
+    <string>${WORK_DIR}</string>
+    <key>GBR_DEVICE_CLASS</key>
+    <string>${GBR_DEVICE_CLASS}</string>
     <key>GBR_NO_AUTO_OPEN</key>
     <string>1</string>
     <key>GBR_INBOX_WATCH</key>

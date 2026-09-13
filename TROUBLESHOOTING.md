@@ -114,6 +114,19 @@ set GBR_NO_AUTO_OPEN=1
 
 `GET /v1/result` sets `retry: false` on timeout / splash / quiet-without-prompt. Do not re-open + re-inject that command.
 
+### Mac Mini clone root / GBR logs (inbox #119)
+
+Product builds: `/Users/user/Developer/<slug>` only. Not Dropbox. Not `~/pc-build`.
+
+| | Path |
+|--|------|
+| LaunchAgent | `com.linespotting.grok-build-remote` |
+| WorkingDirectory / `GBR_OPEN_CWD` | `~/Developer` |
+| Logs `GBR_LOG_DIR` | `~/Developer/gbr-agent-out` |
+| Inbox watch (NI) | `GBR_INBOX_WATCH=0` unless David enables it |
+
+Installer: `scripts/darwin/install-service.sh`. Do not point logs at `~/pc-build`. PC1 logs stay `C:\pc-build\gbr-agent-out`.
+
 ### Firewall
 
 Outbound **HTTPS 443** to the relay host only. No inbound ports.  

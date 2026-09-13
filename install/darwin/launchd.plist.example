@@ -63,14 +63,18 @@
     <integer>10</integer>
 
     <key>WorkingDirectory</key>
-    <string>/Users/REPLACE_ME</string>
+    <string>/Users/REPLACE_ME/Developer</string>
 
     <key>EnvironmentVariables</key>
     <dict>
       <key>GBR_DATA_DIR</key>
       <string>/Users/REPLACE_ME/Library/Application Support/GrokBuildRemote</string>
       <key>GBR_LOG_DIR</key>
-      <string>/Users/REPLACE_ME/pc-build/gbr-agent-out</string>
+      <string>/Users/REPLACE_ME/Developer/gbr-agent-out</string>
+      <key>GBR_OPEN_CWD</key>
+      <string>/Users/REPLACE_ME/Developer</string>
+      <key>GBR_DEVICE_CLASS</key>
+      <string>mac_mini</string>
       <key>GBR_INJECT_HALT</key>
       <string>1</string>
       <key>GBR_NO_AUTO_OPEN</key>

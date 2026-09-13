@@ -40,7 +40,7 @@ Mobile GUI frameworks (mobilerun, agent-device) drive a phone as a robot — dif
 Attach via stdio gbr-mcp (13 tools) or Bot API http://127.0.0.1:8788 (REST, not MCP). Skill: skills/openclaw/SKILL.md
 mcp add: Claude `claude mcp add gbr -- node ABS` · Grok CLI `grok mcp add gbr -- node ABS` · Cursor ~/.cursor/mcp.json · Hermes `hermes mcp add gbr -- stdio -- node ABS` · OpenClaw skill (not a core PR).
 Do not mcp-add :8788. gbr_open spawns grok. NemoClaw = sandbox, not a fourth pair. GBR = host tool.
-Inbox: gbr-agent run watches GitHub boss-steer issues and injects into a matching Grok Build title. Do not paste after the watcher is running.
+Inbox: gbr-agent run watches GitHub boss-steer issues and injects into a matching Grok Build title. Do not paste after the watcher is running. Spawn cwd: Mac ~/Developer, Windows C:\pc-build (GBR_OPEN_CWD). Never Dropbox. Never ~/pc-build on Mac.
 
 ## Bot API
 Same PC: http://127.0.0.1:8788  (gbr-agent run; gbr-agent bot)

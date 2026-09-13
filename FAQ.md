@@ -67,6 +67,19 @@ One attach surface: Bot API `127.0.0.1:8788` (REST) or stdio `gbr-mcp` (13 tools
 
 `gbr-agent run` polls GitHub `LinespottingOrg/grok-build-inbox` label `boss-steer` (`gh` on PATH). Matching Grok Build window title → inject newest comment + submit. No window → two submits: (1) `/rename TITLE` as its **own TUI line**, (2) the issue body with no slash. After the watcher is running, **do not paste** inbox comments. Reports on the issue are not re-injected. `GBR_INBOX_WATCH=0` disables.
 
+Spawned grok cwd is the machine clone root (`GBR_OPEN_CWD`), **not** `$HOME` and **not** Dropbox:
+
+| Machine | Clone + IPA/AAB | Inbox spawn cwd / logs |
+|---------|-----------------|------------------------|
+| **Mac Mini** | `/Users/user/Developer/<slug>` | cwd `~/Developer` · logs `~/Developer/gbr-agent-out` |
+| **PC1** | `C:\pc-build\<slug>` | cwd `C:\pc-build` · logs `C:\pc-build\gbr-agent-out` |
+
+Mac Mini NI LaunchAgent (`com.linespotting.grok-build-remote`) defaults inbox **off**. Do **not** expand `~/pc-build` on the Mac. Inbox: [#119](https://github.com/LinespottingOrg/grok-build-inbox/issues/119) · [#122](https://github.com/LinespottingOrg/grok-build-inbox/issues/122).
+
+## Where do Mac Mini builds live?
+
+**`/Users/user/Developer/<slug>`** only. Never Dropbox `APPAR/` or `Domain/`. Never `~/pc-build` (PlanCalc leftover) or `~/mac-build`. `gbr_open` / inbox spawn land in `~/Developer`; then `cd ~/Developer/<slug>`. PC1 twin: `C:\pc-build\<slug>`.
+
 ## Do I need a login?
 
 No. Pair with the desktop agent (QR or short code).

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/google/uuid"
@@ -81,6 +82,28 @@ func newOpenSessionID(resume string) string {
 	return "gbr-open-" + raw[:8]
 }
 
+// DefaultProductCWD is the machine clone root for spawned Grok sessions.
+// Mac Mini: /Users/<user>/Developer (inbox #119). PC1: C:\pc-build (inbox #122).
+// Override with GBR_OPEN_CWD. Never Dropbox, never ~/pc-build on Darwin.
+func DefaultProductCWD() string {
+	if v := strings.TrimSpace(os.Getenv("GBR_OPEN_CWD")); v != "" {
+		return v
+	}
+	home, _ := os.UserHomeDir()
+	switch runtime.GOOS {
+	case "darwin":
+		if home != "" {
+			return filepath.Join(home, "Developer")
+		}
+	case "windows":
+		return `C:\pc-build`
+	}
+	if w, err := os.Getwd(); err == nil && w != "" {
+		return w
+	}
+	return home
+}
+
 func resolveOpenCWD(cwd string) string {
 	cwd = strings.TrimSpace(cwd)
 	if cwd != "" {
@@ -88,6 +111,9 @@ func resolveOpenCWD(cwd string) string {
 			return abs
 		}
 		return cwd
+	}
+	if d := DefaultProductCWD(); d != "" {
+		return d
 	}
 	if w, err := os.Getwd(); err == nil && w != "" {
 		return w
