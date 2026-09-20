@@ -132,6 +132,36 @@ Installer: `scripts/darwin/install-service.sh`. Do not point logs at `~/pc-build
 Outbound **HTTPS 443** to the relay host only. No inbound ports.  
 `gbr-agent netcheck -doc` · [NETWORK.md](NETWORK.md).
 
+
+### Windows: discover `grok_build=0` / session isolation
+
+**Symptom:** discover logs `windows=0 grok_build=0` while `grok.exe` windows are open.
+
+**Cause:** `gbr-agent` is in Windows **session 0** (S4U / service-style task such as `\GrokBuildRemoteAgentService`) while Grok Build lives in the interactive **session 1**. Session 0 cannot `EnumWindows` the interactive desktop.
+
+**Verify:**
+
+```powershell
+Get-Process gbr-agent,grok -ErrorAction SilentlyContinue |
+  Format-Table Id,ProcessName,SessionId -AutoSize
+curl http://127.0.0.1:8788/v1/status
+Get-Content $env:GBR_LOG_DIR\agent-$(Get-Date -Format yyyy-MM-dd).jsonl -Tail 80 |
+  Select-String 'discover|session_mismatch|session_ok|SESSION-ISOLATION'
+```
+
+On PC1, `GBR_LOG_DIR=C:\pc-build\gbr-agent-out`. Healthy: same `SessionId` for agent and grok (typically `1`), and discover `grok_build` > 0 when Grok windows exist.
+
+**Fix:**
+
+1. Disable the session-0 task (`\GrokBuildRemoteAgentService`). Do **not** re-enable S4U for window discovery.
+2. Auto-start `gbr-agent` at logon **in the interactive session** (Startup shortcut or `schtasks` `/IT` / "Run only when user is logged on").
+3. Args: `-log=info run`. Env: `GBR_INJECT_HALT=0` `GBR_INBOX_WATCH=1` `GBR_NO_AUTO_OPEN=0` `GBR_LOG_DIR=C:\pc-build\gbr-agent-out`.
+4. Optional watcher: `scripts/windows/session-watch.ps1` (writes `session_mismatch` / `session_ok` into the daily jsonl). Apply helper: `scripts/windows/apply-session-isolation-pc1.ps1`.
+
+Full write-up: [docs/SESSION-ISOLATION.md](docs/SESSION-ISOLATION.md). WinSW / NI service install that forces session 0 remains **on HOLD** for discover hosts — see `scripts/windows/README.md`.
+
+**Grep keys:** `session_mismatch` · `agent.session` · `agent.session_watch` · `grok_build=0` · `SESSION-ISOLATION` · `session_ok`
+
 ## 4. Phone: Unpair vs Disconnect vs Clear data
 
 | | Keeps pairing | Keeps Relay URL | Use when |

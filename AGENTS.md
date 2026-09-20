@@ -206,6 +206,7 @@ Shipped in mobile **1.3.0** (Play vc22 live; iOS 1.3.0 b20 in App Review). Older
 | Netcheck fail | Firewall / TLS intercept | Outbound 443 to `gbr-relay.ekobrott.workers.dev` |
 | Two agents fighting | Two processes same mailbox | One `gbr-agent run` per mailbox; `service status` |
 | Grok approval cards loop on Windows | Unacked inject re-typed every poll; or bot retries `/result` timeout | Same `command_id` is typed once. Kill-switch: `GBR_INJECT_HALT=1` / `gbr-agent run -inject-halt`. `GBR_INJECT_MAX=1`. `GBR_NO_AUTO_OPEN=1`. `/result` `retry:false` on timeout — do not re-inject. |
+| Discover `grok_build=0` / `windows=0` on Windows | Agent in session 0 (S4U/service); Grok in session 1 | Run agent interactively; disable session-0 task; [docs/SESSION-ISOLATION.md](docs/SESSION-ISOLATION.md) |
 
 More: [TROUBLESHOOTING.md](TROUBLESHOOTING.md) · https://grokbuildremote.com/support
 
@@ -241,5 +242,6 @@ Do not commit `relay/wrangler.toml`, `~/.gbr/`, pairing codes, or keys.
 | [SELF-HOSTED-RELAY.md](SELF-HOSTED-RELAY.md) | Own Worker |
 | [protocol/v1.md](protocol/v1.md) | Envelopes |
 | [APP-TODO.md](APP-TODO.md) | Mobile follow-ups |
+| [docs/SESSION-ISOLATION.md](docs/SESSION-ISOLATION.md) | Windows session 0 vs interactive discover |
 | [FAQ.md](FAQ.md) | Same FAQ as grokbuildremote.com |
 | [llms.txt](llms.txt) | Short machine summary |
