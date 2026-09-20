@@ -73,6 +73,7 @@ Windows service / WinSW / S4U installs that force session 0 remain **on HOLD** f
 
 ## Related
 
-- [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) — section **Windows: discover grok_build=0 / session isolation**
-- [FAQ.md](../FAQ.md) · [AGENTS.md](../AGENTS.md)
+- [TROUBLESHOOTING.md](../TROUBLESHOOTING.md#windows-discover-grok_build0--session-isolation) — section **Windows: discover grok_build=0 / session isolation**
+- [FAQ.md](../FAQ.md#why-does-discover-show-grok_build0-windows0-on-windows-even-though-grok-build-is-open) — homepage / support Q: *Why does discover show grok_build=0 / windows=0 on Windows even though Grok Build is open?*
+- [AGENTS.md](../AGENTS.md)
 - `scripts/windows/session-watch.ps1` · `scripts/windows/apply-session-isolation-pc1.ps1`

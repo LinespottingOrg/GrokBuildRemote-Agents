@@ -158,7 +158,7 @@ On PC1, `GBR_LOG_DIR=C:\pc-build\gbr-agent-out`. Healthy: same `SessionId` for a
 3. Args: `-log=info run`. Env: `GBR_INJECT_HALT=0` `GBR_INBOX_WATCH=1` `GBR_NO_AUTO_OPEN=0` `GBR_LOG_DIR=C:\pc-build\gbr-agent-out`.
 4. Optional watcher: `scripts/windows/session-watch.ps1` (writes `session_mismatch` / `session_ok` into the daily jsonl). Apply helper: `scripts/windows/apply-session-isolation-pc1.ps1`.
 
-Full write-up: [docs/SESSION-ISOLATION.md](docs/SESSION-ISOLATION.md). WinSW / NI service install that forces session 0 remains **on HOLD** for discover hosts — see `scripts/windows/README.md`.
+Full write-up: [docs/SESSION-ISOLATION.md](docs/SESSION-ISOLATION.md). Homepage / support FAQ: [Why does discover show grok_build=0 / windows=0 on Windows even though Grok Build is open?](FAQ.md#why-does-discover-show-grok_build0-windows0-on-windows-even-though-grok-build-is-open). WinSW / NI service install that forces session 0 remains **on HOLD** for discover hosts — see `scripts/windows/README.md`.
 
 **Grep keys:** `session_mismatch` · `agent.session` · `agent.session_watch` · `grok_build=0` · `SESSION-ISOLATION` · `session_ok`
 
