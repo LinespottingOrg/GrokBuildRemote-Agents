@@ -185,10 +185,17 @@ Kill-switch: `GBR_INJECT_HALT=1` or `gbr-agent run -inject-halt`. Cap: `GBR_INJE
 
 Queued with a stable `command_id`. Flushes when paired again (or Settings → Flush queue).
 
+## Why does discover show grok_build=0 / windows=0 on Windows even though Grok Build is open?
 
-## Discover shows `grok_build=0` / `windows=0` on Windows?
+The agent ran in Windows **session 0** (background scheduled task / S4U) while Grok Build CLI windows are on interactive **session 1**. Session 0 cannot `EnumWindows` the interactive desktop.
 
-`gbr-agent` is almost certainly in **session 0** while Grok Build is in the interactive session. Session 0 cannot see desktop windows. Run the agent interactively, disable the session-0 scheduled task, and see [docs/SESSION-ISOLATION.md](docs/SESSION-ISOLATION.md) / [TROUBLESHOOTING.md](TROUBLESHOOTING.md#windows-discover-grok_build0--session-isolation).
+**Fix:** run `gbr-agent` in the interactive user session; keep `\GrokBuildRemoteAgentService` (and similar session-0 tasks) **Disabled**; auto-start at logon via Startup shortcut or `schtasks /IT`.
+
+**Verify:** `Get-Process` `SessionId` and grep `agent-*.jsonl` for `session_ok` / `session_mismatch` / `SESSION-ISOLATION`.
+
+Full guide: [docs/SESSION-ISOLATION.md](docs/SESSION-ISOLATION.md). Scripts: [`scripts/windows/apply-session-isolation-pc1.ps1`](scripts/windows/apply-session-isolation-pc1.ps1) and [`scripts/windows/session-watch.ps1`](scripts/windows/session-watch.ps1). Symptom table: [TROUBLESHOOTING.md](TROUBLESHOOTING.md#windows-discover-grok_build0--session-isolation).
+
+This is `windows=0 grok_build=0` (session isolation). If discover already sees `windows=N` with N > 0 and `grok_build=0`, that is a **classifier** miss — re-pairing will not fix either case.
 
 ## Ports / firewall?
 
