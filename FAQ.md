@@ -185,6 +185,11 @@ Kill-switch: `GBR_INJECT_HALT=1` or `gbr-agent run -inject-halt`. Cap: `GBR_INJE
 
 Queued with a stable `command_id`. Flushes when paired again (or Settings → Flush queue).
 
+
+## Discover shows `grok_build=0` / `windows=0` on Windows?
+
+`gbr-agent` is almost certainly in **session 0** while Grok Build is in the interactive session. Session 0 cannot see desktop windows. Run the agent interactively, disable the session-0 scheduled task, and see [docs/SESSION-ISOLATION.md](docs/SESSION-ISOLATION.md) / [TROUBLESHOOTING.md](TROUBLESHOOTING.md#windows-discover-grok_build0--session-isolation).
+
 ## Ports / firewall?
 
 No inbound ports. Outbound HTTPS **443** to the relay. `gbr-agent netcheck` · [NETWORK.md](NETWORK.md).

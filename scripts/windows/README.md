@@ -12,6 +12,8 @@ Install the agent so it **cannot** raise interactive approval UI on the logged-i
 
 **Flag order:** `-inject-halt` is a **`run` subcommand** flag. Correct: `-log=info run -inject-halt`. Wrong: `-log=info -inject-halt run` (unknown-command, process dies).
 
+> **Discover / EnumWindows hosts (PC1):** do **not** use the S4U / WinSW session-0 path below if the agent must see Grok Build windows. Use interactive logon auto-start + [docs/SESSION-ISOLATION.md](../../docs/SESSION-ISOLATION.md) (`apply-session-isolation-pc1.ps1`, `session-watch.ps1`). WinSW remains on HOLD for that use case.
+
 ## Hard rules
 
 | Rule | Detail |
