@@ -179,7 +179,18 @@ curl -sS https://gbr-relay.ekobrott.workers.dev/health
 
 `auth_mode: enforce` is expected. Clients must send `X-GBR-Key` from pair.
 
-## 6. Still stuck
+## 6. Mac Mini ready ping
+
+The Mac Mini check runs **on botmaster** and reads only `http://127.0.0.1:8788/health`. It is ready only when `health.hostname` is `botmaster`, `health.class` is `mac_mini`, and `health.quality` is `ok`. A Workstation loopback or the Workstation relay is not this machine: that document has a different hostname and class, and the script refuses any non-loopback URL.
+
+```bash
+python3 scripts/mac-mini-ready.py
+# READY hostname=botmaster class=mac_mini quality=ok
+```
+
+Exit 0 is ready. Exit 1 is down or the wrong machine. Exit 2 is a refused URL.
+
+## 7. Still stuck
 
 1. https://grokbuildremote.com/support  
 2. Email **info@linespotting.com** with `gbr-agent version`, OS, `support-log`, and whether Unpair + re-pair was tried.  
