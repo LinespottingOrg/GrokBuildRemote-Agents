@@ -2,7 +2,7 @@
 name: gbr
 description: >
   Drive Grok Build CLI (grok) through Build Remote Agent from OpenClaw / Hermes / NemoClaw.
-  Attach via stdio gbr-mcp. Pair the phone to spectate that grok TTY.
+  Attach via stdio gbr-mcp. Pair the phone as a remote-control client for that grok TTY (host keyboard).
 compatibility: Requires gbr-agent run on the host. Loopback. No mailbox keys in this file.
 metadata:
   version: "0.6.1"
@@ -16,7 +16,7 @@ One adapter. Not 50 one-off integrations. Default target is **Grok Build CLI** (
 
 Independent Linespotting AB. Not affiliated with OpenClaw, Hermes, NVIDIA, xAI, or SpaceX.
 
-## Pair (phone spectator — optional, same mailbox)
+## Pair (remote-control client — optional, same mailbox)
 
 1. Pin `gbr-agent` v0.6.2 — https://grokbuildremote.com/PINNED-INSTALL.md
 2. PC: `gbr-agent pair` then `gbr-agent run` (keep running).

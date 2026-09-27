@@ -4,7 +4,7 @@ version: 0.6.2
 description: >
   Pair a phone running Build Remote Agent to this desktop AI agent.
   Requires gbr-agent run on the host. Attach via Bot API 127.0.0.1:8788 or gbr-mcp.
-  Use when the user wants mobile spectator / inject into a *terminal window* on this PC.
+  Use when the user wants a phone remote-control client to inject into a terminal window on this PC (host keyboard).
 author:
   name: Linespotting AB
   email: info@linespotting.com
@@ -46,7 +46,7 @@ Unpair on the phone before a new mailbox. Force-close is not enough.
 | Bot API | `http://127.0.0.1:8788` after `gbr-agent run` |
 | MCP | `gbr-mcp` stdio (same JSON as Bot API) |
 
-Phone is spectator + veto, not orchestrator.
+Phone with inject is a remote-control client (host keyboard) and can veto. It is not the orchestrator. Device class phone is not an inject target.
 
 ```bash
 curl -sS http://127.0.0.1:8788/health
