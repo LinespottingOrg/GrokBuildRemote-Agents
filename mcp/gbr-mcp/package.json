@@ -29,7 +29,12 @@
     "test:smoke": "node test/smoke.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0"
+    "@modelcontextprotocol/sdk": "1.32.1"
+  },
+  "overrides": {
+    "fast-uri": "^3.1.8",
+    "ip-address": "^10.7.1",
+    "proxy-addr": "^2.0.8"
   },
   "keywords": [
     "mcp",
