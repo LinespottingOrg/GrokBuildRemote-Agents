@@ -72,7 +72,7 @@ cd ~ && curl -sS http://127.0.0.1:8788/v1/status
 
 ## Install gbr-mcp
 
-Pin the repo tag (not default branch). The **tag pins source**; **`package-lock.json` pins the dependency graph**. `@modelcontextprotocol/sdk` is an exact version (`1.30.0`) — no `^` range.
+Pin the repo tag (not default branch). The **tag pins source**; **`package-lock.json` pins the dependency graph**. `@modelcontextprotocol/sdk` is an exact version (`1.32.1`) — no `^` range.
 
 ```
 git clone --branch v0.6.2 --depth 1 https://github.com/LinespottingOrg/GrokBuildRemote-Agents.git

@@ -46,7 +46,7 @@ gbr-agent pair && gbr-agent run
 cd path/to/GrokBuildRemote-Agents/mcp/gbr-mcp && npm ci --ignore-scripts && node bin/gbr-mcp.js --diagnose
 ```
 
-On macOS/Linux also `chmod +x bin/gbr-mcp.js` if you will exec the bin without `node` (`scripts/setup-gbr-mcp.sh` already does this). Windows: skip chmod. The **tag pins source**; **`package-lock.json` pins `@modelcontextprotocol/sdk` at `1.30.0`**.
+On macOS/Linux also `chmod +x bin/gbr-mcp.js` if you will exec the bin without `node` (`scripts/setup-gbr-mcp.sh` already does this). Windows: skip chmod. The **tag pins source**; **`package-lock.json` pins `@modelcontextprotocol/sdk` at `1.32.1`**.
 
 Full instructions: [INSTALL.md](INSTALL.md) · When it breaks: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
