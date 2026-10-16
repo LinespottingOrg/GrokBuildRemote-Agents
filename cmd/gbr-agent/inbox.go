@@ -23,14 +23,18 @@ func inboxEnabled() bool {
 	return true
 }
 
+// inboxPoll is the boss-steer poll interval. Default and floor are 60s: the
+// relay/BOSS contract is "at most once a minute" so we never poll faster even
+// if GBR_INBOX_POLL asks for less. Larger values are honoured.
 func inboxPoll() time.Duration {
+	const minPoll = 60 * time.Second
 	s := strings.TrimSpace(os.Getenv("GBR_INBOX_POLL"))
 	if s == "" {
-		return 20 * time.Second
+		return minPoll
 	}
 	d, err := time.ParseDuration(s)
-	if err != nil || d < 5*time.Second {
-		return 20 * time.Second
+	if err != nil || d < minPoll {
+		return minPoll
 	}
 	return d
 }

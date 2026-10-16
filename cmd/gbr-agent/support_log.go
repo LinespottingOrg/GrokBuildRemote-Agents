@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/proc"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -183,11 +183,11 @@ func downloadsDir() string {
 func openPath(dir string) error {
 	switch runtime.GOOS {
 	case "darwin":
-		return exec.Command("open", dir).Start()
+		return proc.Command("open", dir).Start()
 	case "windows":
-		return exec.Command("explorer", dir).Start()
+		return proc.Command("explorer", dir).Start()
 	default:
-		return exec.Command("xdg-open", dir).Start()
+		return proc.Command("xdg-open", dir).Start()
 	}
 }
 
