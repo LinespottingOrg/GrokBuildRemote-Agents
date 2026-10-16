@@ -7,11 +7,15 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/proc"
 )
 
 // DefaultGH answers the same gh-shaped JSON the Watcher expects, but fetches it
@@ -155,7 +159,10 @@ func urlQueryEscape(s string) string {
 
 // ghToken resolves the GitHub token the same way gh does, without ever logging
 // it: GH_TOKEN / GITHUB_TOKEN env first, then the oauth_token for github.com in
-// gh's hosts.yml.
+// gh's hosts.yml, and finally `gh auth token` (covers the common case where gh
+// keeps the token in the OS keyring/Credential Manager instead of hosts.yml).
+// The CLI result is cached with a TTL so we spawn gh rarely, and that one child
+// is created hidden (no console window flash).
 func ghToken() string {
 	for _, k := range []string{"GH_TOKEN", "GITHUB_TOKEN"} {
 		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
@@ -165,6 +172,73 @@ func ghToken() string {
 	for _, p := range ghHostsPaths() {
 		if tok := parseOAuthToken(p); tok != "" {
 			return tok
+		}
+	}
+	return ghCLIToken()
+}
+
+const ghTokenTTL = 30 * time.Minute
+
+var (
+	ghTokMu  sync.Mutex
+	ghTokVal string
+	ghTokAt  time.Time
+)
+
+// ghCLIToken returns `gh auth token`, cached for ghTokenTTL. gh reads the token
+// from the OS keyring when hosts.yml has none. The value is never logged, and
+// the gh child is spawned with no visible window.
+func ghCLIToken() string {
+	ghTokMu.Lock()
+	defer ghTokMu.Unlock()
+	if ghTokVal != "" && time.Since(ghTokAt) < ghTokenTTL {
+		return ghTokVal
+	}
+	bin := ghBinary()
+	if bin == "" {
+		return ghTokVal // may be stale but better than nothing
+	}
+	cmd := proc.Command(bin, "auth", "token")
+	cmd.Env = os.Environ()
+	out, err := cmd.Output()
+	if err != nil {
+		return ghTokVal
+	}
+	tok := strings.TrimSpace(string(out))
+	if tok != "" {
+		ghTokVal = tok
+		ghTokAt = time.Now()
+	}
+	return ghTokVal
+}
+
+// ghBinary finds the gh executable: PATH first, then common install locations
+// (Windows "Program Files", winget links) so the agent's PATH at logon does not
+// have to include it.
+func ghBinary() string {
+	if p, err := exec.LookPath("gh"); err == nil {
+		return p
+	}
+	var cands []string
+	if runtime.GOOS == "windows" {
+		pf := os.Getenv("ProgramFiles")
+		pf86 := os.Getenv("ProgramFiles(x86)")
+		la := os.Getenv("LOCALAPPDATA")
+		for _, c := range []string{
+			filepath.Join(pf, "gh.exe"),
+			filepath.Join(pf, "GitHub CLI", "gh.exe"),
+			filepath.Join(pf86, "GitHub CLI", "gh.exe"),
+			filepath.Join(la, "Programs", "GitHub CLI", "gh.exe"),
+			filepath.Join(la, "Microsoft", "WinGet", "Links", "gh.exe"),
+		} {
+			if c != "" {
+				cands = append(cands, c)
+			}
+		}
+	}
+	for _, c := range cands {
+		if st, err := os.Stat(c); err == nil && !st.IsDir() {
+			return c
 		}
 	}
 	return ""
