@@ -1,0 +1,36 @@
+Grok Build Remote connects the Grok Build CLI running on your Windows PC to your phone or tablet, so you can follow and steer long coding sessions from anywhere in the house or on the move. It runs quietly in the system tray and keeps your sessions reachable without leaving a terminal window open on screen.
+
+Start a build or a refactor at your desk, then step away. On your phone you see the live session, read what the agent is doing, and send a short instruction to nudge it in the right direction. No screen sharing, no remote desktop, no copy-pasting logs into chat.
+
+WHAT YOU CAN DO
+• Mirror live Grok Build CLI sessions from your PC to your phone, updated as they run.
+• Send steering text to a running session, so you can correct course without sitting at the keyboard.
+• Open a new session on the PC from your phone and give it a task.
+• Follow several sessions at once, each with a clear title you choose.
+• Pair your phone in seconds with a one-time code. Unpair whenever you like.
+
+HOW IT WORKS
+Grok Build Remote runs as a small background agent in the Windows system tray. It talks to your phone through a secure HTTPS relay, so it keeps working across different networks without you opening router ports or configuring a VPN. The tray menu gives you quick control: see status at a glance, open the logs, pause or resume polling when you want quiet, restart the agent, or quit.
+
+A local helper API is available on this computer only, bound to 127.0.0.1, for coding tools on the same PC that want to cooperate with your sessions. Nothing on that interface is exposed to the network.
+
+A CALMER WAY TO SUPERVISE AI CODING
+Agentic coding runs can take a long time, and the hardest part is often just keeping an eye on them. Grok Build Remote is made for that waiting: glance at your phone, confirm the session is still on track, send one line if it is not, and get on with your day. When something needs your judgement, you are a tap away instead of tied to the desk.
+
+QUIET BY DESIGN
+The agent is built to stay out of your way. It does not flash terminal windows while it works in the background, and it starts automatically at sign-in so your sessions are ready when you are. The tray icon is the one thing you see; everything else happens behind it. Pause polling from the tray when you want the machine fully quiet, and resume with a click.
+
+PRIVACY
+Your work stays on your own computer and your paired devices. Grok Build Remote does not sell your data and shows no ads. Session content moves between your PC and your phone through the relay you are paired with; it is not used to train anything. You can pause polling at any time from the tray, and unpair a device whenever you choose. Logs are stored locally so you can see exactly what the agent did. See the privacy policy at https://linespotting.com/privacy-policy/.
+
+WHO IT IS FOR
+Developers and power users who run the Grok Build CLI on a Windows machine and want to keep an eye on long-running work from their phone. If you often start a task and wish you could check on it from the couch, the kitchen, or the train, this is built for that.
+
+GOOD TO KNOW
+• Windows 10 version 2004 (build 19041) or newer, 64-bit.
+• You need the Grok Build CLI installed on the same PC; Grok Build Remote connects to it, it does not replace it.
+• The phone app is the companion view for your paired sessions.
+• Pairing uses a one-time code, and you can revoke a device at any time.
+• The background agent and its activity log live on your PC, under your user profile.
+
+Grok Build Remote turns the PC under your desk into something you can reach from your pocket, calmly and securely, without turning your workflow upside down. Set up once, pair your phone, and your coding sessions follow you around the house.

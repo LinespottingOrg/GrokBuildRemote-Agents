@@ -1,0 +1,1 @@
+NEEDS TRANSLATION from en. Shared metadata (developed-by, privacy, support, copyright, license URLs) may stay as-is; short-description, description, whats-new, keywords require locale translation before Store submission.
