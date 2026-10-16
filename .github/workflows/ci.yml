@@ -33,4 +33,6 @@ jobs:
             echo "--> $out"
             CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -trimpath -ldflags "-s -w" -o "$out" ./cmd/gbr-agent
           done
+          # Tray app is Windows-only, GUI subsystem.
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -H=windowsgui" -o dist/gbr-tray-windows-amd64.exe ./cmd/gbr-tray
           ls -la dist/

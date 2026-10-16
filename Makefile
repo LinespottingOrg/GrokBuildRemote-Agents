@@ -1,7 +1,9 @@
 # Grok Build Remote — agent cross-compile
 MODULE  := github.com/LinespottingOrg/GrokBuildRemote-Agents
 BIN     := gbr-agent
+TRAY    := gbr-tray
 CMD     := ./cmd/gbr-agent
+TRAYCMD := ./cmd/gbr-tray
 DIST    := dist
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.1.0-dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
@@ -31,6 +33,8 @@ windows:
 	mkdir -p $(DIST)
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST)/$(BIN)-windows-amd64.exe $(CMD)
 	GOOS=windows GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(DIST)/$(BIN)-windows-arm64.exe $(CMD)
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS) -H=windowsgui" -o $(DIST)/$(TRAY)-windows-amd64.exe $(TRAYCMD)
+	GOOS=windows GOARCH=arm64 go build -ldflags "$(LDFLAGS) -H=windowsgui" -o $(DIST)/$(TRAY)-windows-arm64.exe $(TRAYCMD)
 
 darwin:
 	mkdir -p $(DIST)

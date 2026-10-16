@@ -29,9 +29,9 @@ const darwinInfoPlist = `<?xml version="1.0" encoding="UTF-8"?>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.6.4</string>
+	<string>0.6.5</string>
 	<key>CFBundleVersion</key>
-	<string>0.6.4</string>
+	<string>0.6.5</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
 	<key>LSUIElement</key>

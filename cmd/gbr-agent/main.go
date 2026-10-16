@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -44,7 +45,7 @@ import (
 )
 
 var (
-	version = "0.6.4"
+	version = "0.6.5"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -247,6 +248,11 @@ type agentRuntime struct {
 
 	outMu  sync.Mutex
 	outLog []botOutputItem
+
+	// paused gates the inbox watch and the main relay poll. Toggled over the
+	// loopback Bot API (/v1/control) by the tray app. The relay connection and
+	// Bot API stay up so the phone still shows the device online.
+	paused atomic.Bool
 }
 
 func cmdRun(args []string) int {
@@ -470,6 +476,9 @@ Lock file: %s
 }
 
 func (rt *agentRuntime) pollOnce(ctx context.Context, mailboxID string) {
+	if rt.paused.Load() {
+		return
+	}
 	pctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
 	pollStart := time.Now()
