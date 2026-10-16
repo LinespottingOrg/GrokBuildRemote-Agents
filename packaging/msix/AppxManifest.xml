@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap5 rescap">
+
+  <!-- Publisher is CN=Linespotting to match the code-signing cert for local
+       sign + WACK. At Store reservation, Partner Center assigns the final
+       Package/Identity (Name + Publisher); update this to that identity before
+       the Store MSIX upload. -->
+  <Identity Name="Linespotting.GrokBuildRemote"
+            Publisher="CN=Linespotting"
+            Version="0.6.5.0"
+            ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Grok Build Remote</DisplayName>
+    <PublisherDisplayName>Linespotting AB</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Drive and watch your Grok Build CLI sessions on this PC from your phone, over a secure relay. Runs quietly in the system tray.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="gbr-tray.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Grok Build Remote"
+        Description="Remote control and mirror for Grok Build CLI sessions, from your phone."
+        BackgroundColor="#181A20"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square71x71Logo="Assets\Square71x71Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#181A20" />
+      </uap:VisualElements>
+      <Extensions>
+        <uap5:Extension Category="windows.startupTask">
+          <uap5:StartupTask TaskId="GrokBuildRemoteTray"
+            Enabled="true"
+            DisplayName="Grok Build Remote" />
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

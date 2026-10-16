@@ -1,0 +1,3 @@
+• New system-tray app: status, open logs, pause/resume polling, restart, and quit from one menu.
+• Starts automatically at sign-in and runs without flashing terminal windows.
+• More reliable background polling and a steadier relay connection.

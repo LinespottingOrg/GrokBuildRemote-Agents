@@ -1,0 +1,7 @@
+Copyright © 2026 Linespotting AB. Grok Build Remote is licensed, not sold.
+
+Linespotting AB grants you a personal, non-exclusive, non-transferable licence to install and use this application on devices you own or control. You may not redistribute, resell, rent, sublicense, reverse engineer, decompile or modify the software, except to the extent such restriction is prohibited by applicable law.
+
+The software is provided "as is", without warranty of any kind. Linespotting AB is not liable for interrupted sessions or lost work.
+
+Privacy policy: https://linespotting.com/privacy-policy/
