@@ -90,6 +90,9 @@ func (rt *agentRuntime) inboxTick(ctx context.Context, w *inbox.Watcher) {
 	if ctx.Err() != nil {
 		return
 	}
+	if rt.paused.Load() {
+		return
+	}
 	var sessions []inbox.Session
 	for _, row := range rt.listSessionPayloads() {
 		id, _ := row["session_id"].(string)

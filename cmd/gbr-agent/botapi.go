@@ -206,6 +206,29 @@ func (s *botServer) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.writeHealth(w)
+	case path == "/v1/control":
+		switch r.Method {
+		case http.MethodGet:
+			s.writeControl(w)
+		case http.MethodPost:
+			s.handleControlPost(w, r)
+		default:
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
+		}
+	case path == "/v1/control/pause":
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
+			return
+		}
+		s.setPaused(true)
+		s.writeControl(w)
+	case path == "/v1/control/resume":
+		if r.Method != http.MethodPost {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
+			return
+		}
+		s.setPaused(false)
+		s.writeControl(w)
 	case path == "/v1/sessions":
 		if r.Method != http.MethodGet {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
@@ -533,11 +556,21 @@ func botHealthPath(path string) bool {
 	return path == "/health" || path == "/v1/health"
 }
 
+func botControlPath(path string) bool {
+	path = strings.TrimSuffix(path, "/")
+	return path == "/v1/control" || path == "/v1/control/pause" || path == "/v1/control/resume"
+}
+
 func (s *botServer) authorize(r *http.Request) bool {
 	presented := botKeyPresented(r)
 	require := botRequireKey()
 	// Halted agent still answers /health without a key so operators can probe.
 	if presented == "" && inject.HaltInject() && r != nil && botHealthPath(r.URL.Path) {
+		return true
+	}
+	// Loopback-only polling control for the local tray app. isLoopback() has
+	// already been enforced before authorize() runs.
+	if presented == "" && r != nil && botControlPath(r.URL.Path) {
 		return true
 	}
 	if presented == "" {
@@ -649,4 +682,39 @@ phone paired to the hub mailbox.
 
 `)
 	return 0
+}
+
+// writeControl reports whether inbox + relay polling is currently paused.
+func (s *botServer) writeControl(w http.ResponseWriter) {
+	paused := false
+	if s.rt != nil {
+		paused = s.rt.paused.Load()
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":     true,
+		"paused": paused,
+		"note":   "pause gates the boss-steer inbox watch and the main relay poll; the relay connection and Bot API stay up",
+	})
+}
+
+// handleControlPost toggles polling from a JSON body {"paused": true|false}.
+func (s *botServer) handleControlPost(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Paused *bool `json:"paused"`
+	}
+	_ = json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body)
+	if body.Paused == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "missing_paused"})
+		return
+	}
+	s.setPaused(*body.Paused)
+	s.writeControl(w)
+}
+
+func (s *botServer) setPaused(p bool) {
+	if s.rt == nil {
+		return
+	}
+	s.rt.paused.Store(p)
+	slog.Info("polling control", "paused", p)
 }
