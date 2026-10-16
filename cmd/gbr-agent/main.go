@@ -20,6 +20,8 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/proc"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -42,7 +44,7 @@ import (
 )
 
 var (
-	version = "0.6.3"
+	version = "0.6.4"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -1520,7 +1522,7 @@ func openBrowser(url string) error {
 	default:
 		cmd = exec.Command("xdg-open", url)
 	}
-	return cmd.Start()
+	return proc.Hidden(cmd).Start()
 }
 
 func cmdRename(args []string) int {

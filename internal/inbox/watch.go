@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -22,20 +21,6 @@ const (
 
 // GH runs `gh` with args and returns stdout. Tests replace this.
 type GH func(args ...string) ([]byte, error)
-
-func DefaultGH(args ...string) ([]byte, error) {
-	bin, err := exec.LookPath("gh")
-	if err != nil {
-		return nil, fmt.Errorf("gh not on PATH — install GitHub CLI")
-	}
-	cmd := exec.Command(bin, args...)
-	cmd.Env = os.Environ()
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return out, fmt.Errorf("gh %s: %w: %s", strings.Join(args, " "), err, trim(string(out), 400))
-	}
-	return out, nil
-}
 
 type Issue struct {
 	Number    int       `json:"number"`

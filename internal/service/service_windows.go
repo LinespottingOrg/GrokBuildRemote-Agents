@@ -4,8 +4,8 @@ package service
 
 import (
 	"fmt"
+	"github.com/LinespottingOrg/GrokBuildRemote-Agents/internal/proc"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -30,11 +30,11 @@ func installPlatform() error {
 		return err
 	}
 	// Remove existing then create (current human name only — not the legacy id).
-	_ = exec.Command("schtasks", "/Delete", "/TN", p.UnitPath, "/F").Run()
-	out, err := exec.Command("schtasks", "/Create", "/TN", p.UnitPath, "/XML", tmp, "/F").CombinedOutput()
+	_ = proc.Command("schtasks", "/Delete", "/TN", p.UnitPath, "/F").Run()
+	out, err := proc.Command("schtasks", "/Create", "/TN", p.UnitPath, "/XML", tmp, "/F").CombinedOutput()
 	if err != nil {
 		// Fallback: simple ONLOGON create
-		out2, err2 := exec.Command("schtasks", "/Create", "/TN", p.UnitPath,
+		out2, err2 := proc.Command("schtasks", "/Create", "/TN", p.UnitPath,
 			"/TR", fmt.Sprintf("\"%s\" -log=info run -inject-halt -no-auto-open -no-inbox-watch", p.Binary),
 			"/SC", "ONLOGON", "/RL", "HIGHEST", "/F").CombinedOutput()
 		if err2 != nil {
@@ -57,7 +57,7 @@ func installPlatform() error {
 	disableLegacyWindowsTasks()
 
 	// Start now
-	_ = exec.Command("schtasks", "/Run", "/TN", p.UnitPath).Run()
+	_ = proc.Command("schtasks", "/Run", "/TN", p.UnitPath).Run()
 	return nil
 }
 
@@ -68,8 +68,8 @@ func disableLegacyWindowsTasks() {
 		if name == "" || name == WindowsTaskName {
 			continue
 		}
-		_ = exec.Command("schtasks", "/End", "/TN", name).Run()
-		_ = exec.Command("schtasks", "/Change", "/TN", name, "/DISABLE").Run()
+		_ = proc.Command("schtasks", "/End", "/TN", name).Run()
+		_ = proc.Command("schtasks", "/Change", "/TN", name, "/DISABLE").Run()
 	}
 }
 
@@ -126,7 +126,7 @@ func uninstallPlatform() error {
 	if err != nil {
 		return err
 	}
-	out, err := exec.Command("schtasks", "/Delete", "/TN", p.UnitPath, "/F").CombinedOutput()
+	out, err := proc.Command("schtasks", "/Delete", "/TN", p.UnitPath, "/F").CombinedOutput()
 	if err != nil && !strings.Contains(string(out), "cannot find") && !strings.Contains(strings.ToLower(string(out)), "not found") {
 		// ignore if missing
 		_ = out
@@ -142,7 +142,7 @@ func statusPlatform() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	out, err := exec.Command("schtasks", "/Query", "/TN", p.UnitPath, "/FO", "LIST", "/V").CombinedOutput()
+	out, err := proc.Command("schtasks", "/Query", "/TN", p.UnitPath, "/FO", "LIST", "/V").CombinedOutput()
 	startup := "false"
 	if sp := startupFolderPath(WindowsStartupCmd); sp != "" {
 		if _, e := os.Stat(sp); e == nil {
@@ -159,7 +159,7 @@ func statusPlatform() (string, error) {
 func windowsLegacyStatus() string {
 	var b strings.Builder
 	for _, name := range windowsLegacyTaskNames() {
-		out, err := exec.Command("schtasks", "/Query", "/TN", name, "/FO", "LIST").CombinedOutput()
+		out, err := proc.Command("schtasks", "/Query", "/TN", name, "/FO", "LIST").CombinedOutput()
 		if err != nil {
 			continue
 		}
