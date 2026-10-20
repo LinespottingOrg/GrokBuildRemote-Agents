@@ -19,7 +19,7 @@ jobs:
       - name: HOL Plugin Scanner
         # Pin commit, not the floating v1 tag (supply-chain). String still contains
         # hashgraph-online/ai-plugin-scanner-action so the awesome-list gate matches.
-        uses: hashgraph-online/ai-plugin-scanner-action@06567cf1673bc722ca51428f9be1e007c0ce1f72  # v1.2.752
+        uses: hashgraph-online/ai-plugin-scanner-action@4a44de6c18b68ec258fcc3e0cec5261fc8ea63fd  # v1.2.792
         with:
           plugin_dir: "."
           mode: scan
