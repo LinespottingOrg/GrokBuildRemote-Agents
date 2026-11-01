@@ -35,14 +35,20 @@ type OpenResult struct {
 	Note      string  `json:"note,omitempty"`
 }
 
-// LookGrok returns the grok CLI path if installed.
-func LookGrok() (string, error) {
+// lookGrok is the grok lookup used by open. Tests replace it so they do not
+// spawn a real Grok Build window.
+var lookGrok = func() (string, error) {
 	for _, name := range []string{"grok", "grok.exe"} {
 		if p, err := exec.LookPath(name); err == nil {
 			return p, nil
 		}
 	}
 	return "", fmt.Errorf("grok CLI not on PATH — install Grok Build, or open an existing session")
+}
+
+// LookGrok returns the grok CLI path if installed.
+func LookGrok() (string, error) {
+	return lookGrok()
 }
 
 func sanitizeOpenID(id string) string {
@@ -148,7 +154,7 @@ func (m *Manager) OpenOrAttach(req OpenRequest) (OpenResult, error) {
 	cmdName := strings.ToLower(strings.TrimSpace(req.Command))
 	wantGrok := cmdName == "" || cmdName == "grok" || cmdName == "grok-build"
 	if wantGrok {
-		bin, err := LookGrok()
+		bin, err := lookGrok()
 		if err != nil && (cmdName == "grok" || cmdName == "grok-build") {
 			return OpenResult{}, err
 		}

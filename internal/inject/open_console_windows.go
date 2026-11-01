@@ -16,7 +16,7 @@ func (h *Hybrid) openGrokWindow(req OpenRequest) (OpenResult, error) {
 	if h == nil || h.UI == nil {
 		return OpenResult{}, fmt.Errorf("open grok window: no UI injector")
 	}
-	bin, err := LookGrok()
+	bin, err := lookGrok()
 	if err != nil {
 		return OpenResult{}, err
 	}

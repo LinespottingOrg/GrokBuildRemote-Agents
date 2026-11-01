@@ -338,6 +338,21 @@ func (h *Hybrid) OpenOrAttach(req OpenRequest) (OpenResult, error) {
 			return OpenResult{}, err
 		}
 
+		// Mac opens a managed shell when grok is not on PATH (default command).
+		// Windows must do the same. Do not fall through into ConPTY grok:
+		// that path does not echo, and a visible console is the grok path.
+		if runtime.GOOS == "windows" && h.PTY != nil && cmdName != "grok" && cmdName != "grok-build" {
+			if _, gerr := lookGrok(); gerr != nil {
+				res, err := h.PTY.OpenOrAttach(req)
+				if err != nil {
+					return OpenResult{}, err
+				}
+				h.log.Info("open shell, grok missing", "holder", req.Holder, "session", res.SessionID, "method", res.Method)
+				h.waitReady(res.SessionID, clawReadyWait)
+				return res, nil
+			}
+		}
+
 		if runtime.GOOS == "windows" && h.UI != nil {
 			wres, werr := h.openGrokWindow(req)
 			if werr != nil {

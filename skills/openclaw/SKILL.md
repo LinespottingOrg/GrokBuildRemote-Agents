@@ -37,6 +37,7 @@ Do **not** `hermes mcp add` / OpenClaw MCP the `:8788` URL. That is JSON REST. M
 ```bash
 export GBR_BOT_REQUIRE_KEY=1
 bash scripts/setup-gbr-mcp.sh
+# Windows: powershell -NoProfile -File .\scripts\setup-gbr-mcp.ps1
 # then:
 # hermes mcp add gbr -- stdio -- node $HOME/.gbr/gbr-mcp-src/mcp/gbr-mcp/bin/gbr-mcp.js
 ```

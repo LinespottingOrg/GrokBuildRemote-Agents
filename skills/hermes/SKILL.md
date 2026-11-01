@@ -26,6 +26,13 @@ bash /path/to/GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh
 # prints: hermes mcp add gbr -- stdio -- node $HOME/.gbr/gbr-mcp-src/mcp/gbr-mcp/bin/gbr-mcp.js
 ```
 
+Windows (same protocol, stdio not `:8788`):
+
+```powershell
+$env:GBR_BOT_REQUIRE_KEY = '1'
+powershell -NoProfile -File .\scripts\setup-gbr-mcp.ps1
+```
+
 `:8788` is **Bot API REST**. Hermes MCP must be **stdio `gbr-mcp`**, not that URL.
 
 ## Loop (every task)

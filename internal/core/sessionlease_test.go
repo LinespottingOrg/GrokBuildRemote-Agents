@@ -28,6 +28,18 @@ func TestNormalizeHolder(t *testing.T) {
 	if got := normalizeHolder(""); got != "grok-bot" {
 		t.Fatalf("empty → %q", got)
 	}
+	if got := normalizeHolder("OpenClaw"); got != "openclaw" {
+		t.Fatalf("OpenClaw → %q", got)
+	}
+	if got := normalizeHolder("open-claw"); got != "openclaw" {
+		t.Fatalf("open-claw → %q", got)
+	}
+	if got := normalizeHolder("Hermes"); got != "hermes" {
+		t.Fatalf("Hermes → %q", got)
+	}
+	if got := normalizeHolder("NemoClaw"); got != "nemoclaw" {
+		t.Fatalf("NemoClaw → %q", got)
+	}
 }
 
 func TestAcquireAndConflict(t *testing.T) {
