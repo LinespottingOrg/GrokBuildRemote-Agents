@@ -14,6 +14,7 @@ import { homedir, platform, release } from 'node:os';
 import { GbrClient } from './client.js';
 import { isInjectable, isUnnamed } from './sessions.js';
 import { logMeta, log } from './logger.js';
+import { agentProcessLines } from './agentproc.js';
 
 const exec = promisify(execFile);
 
@@ -66,7 +67,9 @@ export async function diagnose(clientOpts = {}, cid) {
     which.ok ? which.out : 'gbr-agent not found on PATH',
     which.ok
       ? null
-      : 'The installer puts it in ~/.local/bin but does not reload your shell. Run: export PATH="$HOME/.local/bin:$PATH" (and open a new terminal — the installer already appended it to ~/.zshrc).',
+      : process.platform === 'win32'
+        ? 'The installer puts gbr-agent.exe in %LOCALAPPDATA%\\GrokBuildRemote. Open a new terminal after install.'
+        : 'The installer puts it in ~/.local/bin but does not reload your shell. Run: export PATH="$HOME/.local/bin:$PATH" (and open a new terminal — the installer already appended it to ~/.zshrc).',
   );
 
   // 4. Agent version >= 0.5.3
@@ -88,28 +91,28 @@ export async function diagnose(clientOpts = {}, cid) {
   // NOTE: match on the binary only, never on "gbr-agent run" — the process is
   // commonly started as `gbr-agent -log=info run`, so flags sit between the
   // binary and the subcommand and a literal "gbr-agent run" pattern misses it.
-  if (process.platform !== 'win32') {
-    const pg = await sh('pgrep', ['-fl', 'gbr-agent']);
-    const lines = (pg.out || '')
-      .split('\n')
-      .map((s) => s.trim())
-      .filter((s) => s && / run(\s|$)/.test(s));
+  const proc = process.platform === 'win32'
+    ? await sh('tasklist', ['/FI', 'IMAGENAME eq gbr-agent.exe', '/FO', 'CSV', '/NH'])
+    : await sh('pgrep', ['-fl', 'gbr-agent']);
+  const lines = agentProcessLines(process.platform, proc.out);
+  add(
+    'gbr_agent_running',
+    lines.length > 0,
+    lines.join(' | ') || 'no running gbr-agent found',
+    lines.length
+      ? null
+      : 'Start it: gbr-agent run  (or persist it: gbr-agent service install)',
+  );
+  if (lines.length > 1) {
+    const killHint = process.platform === 'win32'
+      ? 'Stop the extras so exactly one gbr-agent.exe owns port 8788.'
+      : 'Kill the extras: pkill -f "gbr-agent" then start exactly one with `gbr-agent run`.';
     add(
-      'gbr_agent_running',
-      lines.length > 0,
-      lines.join(' | ') || 'no running gbr-agent found',
-      lines.length
-        ? null
-        : 'Start it: gbr-agent run  (or persist it: gbr-agent service install)',
+      'single_agent',
+      false,
+      `${lines.length} agents running — they will fight over port 8788`,
+      killHint,
     );
-    if (lines.length > 1) {
-      add(
-        'single_agent',
-        false,
-        `${lines.length} agents running — they will fight over port 8788`,
-        'Kill the extras: pkill -f "gbr-agent" then start exactly one with `gbr-agent run`.',
-      );
-    }
   }
 
   // 6. Bot API reachable + shape sane

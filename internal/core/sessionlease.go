@@ -17,10 +17,10 @@ import (
 // same window at once. This is NOT the single-agent PID lock in lock.go.
 
 const (
-	LeaseFileName     = "leases.json"
-	DefaultLeaseTTL   = 15 * time.Minute
-	MaxLeaseTTL       = 2 * time.Hour
-	MinLeaseTTL       = 30 * time.Second
+	LeaseFileName      = "leases.json"
+	DefaultLeaseTTL    = 15 * time.Minute
+	MaxLeaseTTL        = 2 * time.Hour
+	MinLeaseTTL        = 30 * time.Second
 	DefaultLeaseHolder = "bot"
 )
 
@@ -128,6 +128,12 @@ func normalizeHolder(h string) string {
 		return "claude-coworker"
 	case "phone", "mobile", "ios", "android":
 		return "phone"
+	case "hermes":
+		return "hermes"
+	case "openclaw", "open-claw":
+		return "openclaw"
+	case "nemoclaw", "nemo-claw":
+		return "nemoclaw"
 	}
 	if len(h) > 64 {
 		h = h[:64]

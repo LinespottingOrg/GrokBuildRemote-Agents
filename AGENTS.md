@@ -123,6 +123,7 @@ bash GrokBuildRemote-Agents/scripts/setup-gbr-mcp.sh
 claude mcp add gbr -- node ABS          # Claude Code / Cowork
 grok mcp add gbr -- node ABS            # Grok CLI
 hermes mcp add gbr -- stdio -- node ABS # Hermes
+# Windows: powershell -File scripts/setup-gbr-mcp.ps1  (same stdio gbr/1 protocol)
 # Cursor: ~/.cursor/mcp.json → { "mcpServers": { "gbr": { "command": "node", "args": ["ABS"] } } }
 # OpenClaw: skills/openclaw/SKILL.md — not a fourth pair; not a core OpenClaw PR
 node ABS --diagnose                     # 13 tools
