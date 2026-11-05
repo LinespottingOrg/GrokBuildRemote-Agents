@@ -72,6 +72,12 @@ Do **not** merge Dependabot (or any external PR) without an explicit **David or 
 
 ---
 
+## CI
+
+Pull requests to `main` run `.github/workflows/external-merge-scan.yml`. It flags added lines that introduce a piped download, a private-key block, a cloud access-key id, a base-repository workflow trigger, a package install hook, a go.mod replace, or a long base64 blob. A clean scan is not an APPROVE. The checklist below still decides the verdict.
+
+Branch protection that requires this check for authors outside the org is a GitHub setting. This file cannot turn that setting on.
+
 ## How to run the review
 
 1. List open PRs on `GrokBuildRemote-Agents`, `GrokBuildRemote-Ops`, `GrokBuildRemote-MobileApps`.

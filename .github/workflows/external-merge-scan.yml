@@ -1,0 +1,22 @@
+name: external-merge-scan
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Self-test the scanner
+        run: python3 .github/scripts/external-merge-scan.py --self-test
+
+      - name: Scan the pull request diff
+        run: git diff --unified=0 ${{ github.event.pull_request.base.sha }}...HEAD | python3 .github/scripts/external-merge-scan.py
