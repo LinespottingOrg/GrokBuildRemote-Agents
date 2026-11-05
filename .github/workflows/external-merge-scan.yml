@@ -19,4 +19,4 @@ jobs:
         run: python3 .github/scripts/external-merge-scan.py --self-test
 
       - name: Scan the pull request diff
-        run: git diff --unified=0 origin/${{ github.base_ref }}...HEAD | python3 .github/scripts/external-merge-scan.py
+        run: git diff --unified=0 ${{ github.event.pull_request.base.sha }}...HEAD | python3 .github/scripts/external-merge-scan.py
