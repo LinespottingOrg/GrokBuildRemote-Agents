@@ -29,6 +29,18 @@ func TestIsAgentReport(t *testing.T) {
 	if !isAgentReport("result: watcher up") {
 		t.Fatal("result")
 	}
+	if !isAgentReport("progress | chapter 3 done | ETA 10m") {
+		t.Fatal("progress pipe")
+	}
+	if !isAgentReport("blocked | waiting on QA") {
+		t.Fatal("blocked pipe")
+	}
+	if !isAgentReport("next | wire paywall") {
+		t.Fatal("next pipe")
+	}
+	if !isAgentReport("status | idle") {
+		t.Fatal("status pipe")
+	}
 	if isAgentReport("PRIO 1 no-paste. Inbox comment IS the prompt.") {
 		t.Fatal("boss order should inject")
 	}

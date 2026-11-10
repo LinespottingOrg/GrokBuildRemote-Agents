@@ -3,6 +3,7 @@
 package windows
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"syscall"
@@ -102,7 +103,10 @@ func (inj *Injector) Inject(sessionID string, req Request) error {
 	}
 
 	text := effectiveText(req)
-	if err := sendUnicodeText(text); err != nil {
+	if err := sendUnicodeText(hwnd, text); err != nil {
+		if errors.Is(err, ErrFocusFailed) {
+			return err
+		}
 		return fmt.Errorf("%w: %v", ErrInjectFailed, err)
 	}
 	return nil
