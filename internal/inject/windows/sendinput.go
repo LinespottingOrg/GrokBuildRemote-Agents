@@ -53,11 +53,29 @@ func focusWindow(hwnd syscall.Handle) error {
 	return fmt.Errorf("SetForegroundWindow failed for hwnd=%v", hwnd)
 }
 
+
+// requireForeground returns an error when hwnd is not the foreground window.
+func requireForeground(hwnd syscall.Handle) error {
+	if hwnd == 0 {
+		return fmt.Errorf("%w: null hwnd", ErrFocusFailed)
+	}
+	fg := getForegroundWindow()
+	if fg != hwnd {
+		return fmt.Errorf("%w: target hwnd=%v foreground=%v (refusing SendInput into another window)", ErrFocusFailed, hwnd, fg)
+	}
+	return nil
+}
+
 // sendUnicodeText types s using KEYEVENTF_UNICODE (UTF-16 code units).
 // Newline / CR become VK_RETURN keydown+keyup pairs (more reliable in consoles).
-func sendUnicodeText(s string) error {
+// hwnd is the bound target; if the foreground window is not hwnd before a chunk,
+// abort so keystrokes never land in David's other windows.
+func sendUnicodeText(hwnd syscall.Handle, s string) error {
 	if s == "" {
 		return nil
+	}
+	if err := requireForeground(hwnd); err != nil {
+		return err
 	}
 
 	var inputs []kiInput
@@ -107,6 +125,9 @@ func sendUnicodeText(s string) error {
 		end := off + chunk
 		if end > len(inputs) {
 			end = len(inputs)
+		}
+		if err := requireForeground(hwnd); err != nil {
+			return err
 		}
 		n, err := sendInputKeyboard(inputs[off:end])
 		if err != nil {

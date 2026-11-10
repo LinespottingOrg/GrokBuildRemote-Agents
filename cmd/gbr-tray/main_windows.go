@@ -298,11 +298,13 @@ func launchAgent() {
 	}
 	cmd := proc.Command(exe, "-log=info", "run")
 	cmd.Dir = agentDir()
-	// Preserve the behaviour of start-gbr-agent-interactive.cmd.
+	// Inbox watch is opt-in. Hard-coding GBR_INBOX_WATCH=1 caused agent
+	// "progress |" comments (same GitHub login as BOSS) to be typed into
+	// whatever window had focus via SendInput.
 	env := os.Environ()
 	env = append(env,
 		"GBR_INJECT_HALT=0",
-		"GBR_INBOX_WATCH=1",
+		"GBR_INBOX_WATCH=0",
 		"GBR_NO_AUTO_OPEN=0",
 		"GBR_LOG_DIR="+logDir(),
 	)

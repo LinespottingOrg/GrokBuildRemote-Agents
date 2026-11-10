@@ -255,7 +255,7 @@ func isAgentReport(body string) bool {
 	// Agent status posts use "kind | text | ETA". All agents post as the same
 	// GitHub login, so without this filter one machine's progress comment is
 	// re-injected (typed) into every other machine's session with that title.
-	for _, p := range []string{"result:", "result ", "progress |", "progress:", "blocked |", "blocked:", "eta |", "status |", "moved to http"} {
+	for _, p := range []string{"result:", "result ", "progress |", "progress:", "blocked |", "blocked:", "next |", "next:", "eta |", "status |", "moved to http"} {
 		if strings.HasPrefix(first, p) {
 			return true
 		}
