@@ -251,8 +251,16 @@ func isAgentReport(body string) bool {
 	if strings.HasPrefix(low, "bound.") {
 		return true
 	}
-	first := strings.SplitN(low, "\n", 2)[0]
-	return strings.HasPrefix(first, "result:") || strings.HasPrefix(first, "result ")
+	first := strings.TrimSpace(strings.SplitN(low, "\n", 2)[0])
+	// Agent status posts use "kind | text | ETA". All agents post as the same
+	// GitHub login, so without this filter one machine's progress comment is
+	// re-injected (typed) into every other machine's session with that title.
+	for _, p := range []string{"result:", "result ", "progress |", "progress:", "blocked |", "blocked:", "eta |", "status |", "moved to http"} {
+		if strings.HasPrefix(first, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func (w *Watcher) already(n int, id string) bool {
