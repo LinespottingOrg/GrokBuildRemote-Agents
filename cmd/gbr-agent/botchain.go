@@ -52,6 +52,9 @@ func (s *botServer) handleOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if d.Kind == "relay" {
+		// The remote agent only knows itself as "local"; forwarding the hub's
+		// fleet name (e.g. "mac") makes the remote answer unknown_device.
+		body.Device, body.DeviceID = "local", ""
 		s.proxyRemote(w, d, http.MethodPost, "/sessions/open", body)
 		return
 	}
@@ -339,6 +342,7 @@ func (s *botServer) lockAcquire(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if d.Kind == "relay" {
+		body.Device = "local"
 		s.proxyRemote(w, d, http.MethodPost, "/lock", body)
 		return
 	}
