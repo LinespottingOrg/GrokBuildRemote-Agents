@@ -130,6 +130,7 @@ func onReady() {
 
 	mStatus := systray.AddMenuItem("Status", "Show agent health")
 	mLogs := systray.AddMenuItem("Open logs", "Open the agent log folder")
+	mSettings := systray.AddMenuItem("Settings…", "Roster visibility and agent settings")
 	pauseItem = systray.AddMenuItem("Pause polling", "Pause boss-steer inbox + relay polling")
 	systray.AddSeparator()
 	mRestart := systray.AddMenuItem("Restart agent", "Stop and relaunch the agent (hidden)")
@@ -147,6 +148,8 @@ func onReady() {
 				showStatus()
 			case <-mLogs.ClickedCh:
 				openLogs()
+			case <-mSettings.ClickedCh:
+				openSettings()
 			case <-pauseItem.ClickedCh:
 				togglePause()
 			case <-mRestart.ClickedCh:
@@ -227,6 +230,10 @@ func showStatus() {
 func openLogs() {
 	dir := logDir()
 	_ = proc.Command("explorer.exe", dir).Start()
+}
+
+func openSettings() {
+	_ = proc.Command("rundll32", "url.dll,FileProtocolHandler", botBase+"/settings").Start()
 }
 
 func togglePause() {

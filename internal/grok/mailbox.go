@@ -287,14 +287,17 @@ type ControlPayload struct {
 // Agent 0.5.0+ may include AgentVersion / Relay / OS for in-app health checks.
 // Agent 0.5.1+ may include Sessions (live roster). Older phones ignore unknown fields.
 type HeartbeatPayload struct {
-	SessionCount int                 `json:"session_count"`
-	Status       string              `json:"status,omitempty"`
-	AgentVersion string              `json:"agent_version,omitempty"`
-	Relay        string              `json:"relay,omitempty"`
-	OS           string              `json:"os,omitempty"`
+	SessionCount int    `json:"session_count"`
+	Status       string `json:"status,omitempty"`
+	AgentVersion string `json:"agent_version,omitempty"`
+	Relay        string `json:"relay,omitempty"`
+	OS           string `json:"os,omitempty"`
 	// Sessions is the live roster (id + title). Additive; older phones ignore.
 	// Replaces a stale cached list when names change or windows open/close.
+	// Hidden sessions are omitted. An empty list with Replace means "none visible".
 	Sessions []HeartbeatSession `json:"sessions,omitempty"`
+	// Replace asks the phone to drop sessions missing from Sessions.
+	Replace bool `json:"replace,omitempty"`
 }
 
 // HeartbeatSession is one row of the live session roster on heartbeat.

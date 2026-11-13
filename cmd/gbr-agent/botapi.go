@@ -229,6 +229,21 @@ func (s *botServer) handle(w http.ResponseWriter, r *http.Request) {
 		}
 		s.setPaused(false)
 		s.writeControl(w)
+	case path == "/settings":
+		if r.Method != http.MethodGet {
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
+			return
+		}
+		s.writeSettingsPage(w)
+	case path == "/v1/settings/roster":
+		switch r.Method {
+		case http.MethodGet:
+			s.writeRosterSettings(w)
+		case http.MethodPost:
+			s.handleRosterSettings(w, r)
+		default:
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
+		}
 	case path == "/v1/sessions":
 		if r.Method != http.MethodGet {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method_not_allowed"})
@@ -328,6 +343,8 @@ func (s *botServer) writeDiscovery(w http.ResponseWriter) {
 			"health":     "GET /health  or  GET /v1/health",
 			"devices":    "GET /v1/devices",
 			"add_device": "POST /v1/devices",
+			"settings":   "GET /settings",
+			"roster":     "GET|POST /v1/settings/roster",
 			"sessions":   "GET /v1/sessions?device=",
 			"open":       "POST /v1/sessions/open",
 			"inject":     "POST /v1/inject",
@@ -561,6 +578,11 @@ func botControlPath(path string) bool {
 	return path == "/v1/control" || path == "/v1/control/pause" || path == "/v1/control/resume"
 }
 
+func botSettingsPath(path string) bool {
+	path = strings.TrimSuffix(path, "/")
+	return path == "/settings" || path == "/v1/settings/roster"
+}
+
 func (s *botServer) authorize(r *http.Request) bool {
 	presented := botKeyPresented(r)
 	require := botRequireKey()
@@ -570,7 +592,7 @@ func (s *botServer) authorize(r *http.Request) bool {
 	}
 	// Loopback-only polling control for the local tray app. isLoopback() has
 	// already been enforced before authorize() runs.
-	if presented == "" && r != nil && botControlPath(r.URL.Path) {
+	if presented == "" && r != nil && (botControlPath(r.URL.Path) || botSettingsPath(r.URL.Path)) {
 		return true
 	}
 	if presented == "" {

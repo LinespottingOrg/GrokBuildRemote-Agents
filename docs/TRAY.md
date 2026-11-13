@@ -3,6 +3,8 @@
 `gbr-tray` is a GUI-subsystem (no console) supervisor for `gbr-agent` on Windows.
 It is the login autostart; it keeps the agent running and gives a tray menu.
 
+macOS (menu bar) and Linux (StatusNotifier tray, when `DISPLAY` or `WAYLAND_DISPLAY` is set) show the same Settings item from `gbr-agent` itself. `GBR_TRAY=0` skips the icon. The page is always `http://127.0.0.1:8788/settings`.
+
 Build:
 
 ```
@@ -15,6 +17,7 @@ go build -ldflags "-H=windowsgui -X main.version=<v>" ./cmd/gbr-tray
 |------|--------|
 | Status | MessageBox with agent health (version, relay quality, phone online, paused) from `GET /health` |
 | Open logs | Opens the agent log folder (`GBR_LOG_DIR`) |
+| Settings… | Opens `http://127.0.0.1:8788/settings` — hide terminals from the phone roster |
 | Pause / Resume polling | Toggles `POST /v1/control/pause` / `/resume` — gates the boss-steer inbox watch and the main relay poll; the relay connection and Bot API stay up so the phone still shows the device online |
 | Restart agent | Stops `gbr-agent.exe` and relaunches it hidden |
 | Quit | Stops the agent and exits |

@@ -203,6 +203,7 @@ Environment:
 
 Device identity: %%USERPROFILE%%\.gbr\device.json
 Sessions rename: %%USERPROFILE%%\.gbr\sessions.json
+Roster hide:     %%USERPROFILE%%\.gbr\roster-visibility.json  (default: every session visible)
 Inject dedup:    %%USERPROFILE%%\.gbr\seen.json
 Trace log:       %%USERPROFILE%%\.gbr\logs\agent-YYYY-MM-DD.jsonl
 
@@ -237,6 +238,7 @@ type agentRuntime struct {
 	hybrid  *inject.Hybrid
 	scanner *session.Scanner
 	store   *session.Store
+	vis     *session.Visibility
 	seen    *core.SeenStore
 
 	// lastFeedbackHash avoids spamming identical capture text on the periodic loop.
@@ -256,6 +258,17 @@ type agentRuntime struct {
 }
 
 func cmdRun(args []string) int {
+	if trayRunsOnMain() {
+		var code atomic.Int32
+		runTrayBlocking(trayPort(args), func() {
+			code.Store(int32(cmdRunAgent(args)))
+		})
+		return int(code.Load())
+	}
+	return cmdRunAgent(args)
+}
+
+func cmdRunAgent(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	sessionFlag := fs.String("session", "", "also force-track this session_id at cwd")
 	conv := fs.String("conv", "", "mailbox conversation id (else from device.json)")
@@ -339,6 +352,11 @@ Lock file: %s
 		slog.Warn("session store", "err", err)
 		store = nil
 	}
+	vis, visErr := session.OpenVisibility("")
+	if visErr != nil {
+		slog.Warn("roster visibility unreadable; keeping every session visible", "err", visErr)
+		vis = session.EmptyVisibility()
+	}
 	reg := session.NewRegistry()
 	ui := inject.Default()
 	pty := inject.NewManager(nil)
@@ -387,6 +405,7 @@ Lock file: %s
 		hybrid:  hybrid,
 		scanner: sc,
 		store:   store,
+		vis:     vis,
 		seen:    seenStore,
 	}
 
@@ -571,6 +590,9 @@ func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.
 		if p.Mode == "nl" && p.NLPrompt != "" && text == "" {
 			text = p.NLPrompt
 		}
+		if rt.refuseHiddenPhone(ctx, mailboxID, env.SessionID, env.CommandID, "inject") {
+			return nil
+		}
 		req := inject.InjectRequest{
 			SessionID: env.SessionID,
 			CommandID: env.CommandID,
@@ -614,7 +636,10 @@ func (rt *agentRuntime) handle(ctx context.Context, mailboxID string, env *grok.
 		if env.DeviceID == rt.dev.DeviceID {
 			return nil
 		}
-		sessions := rt.listSessionPayloads()
+		sessions := rt.phoneSessionPayloads()
+		if sessions == nil {
+			sessions = []map[string]any{}
+		}
 		out, err := grok.NewEnvelope(grok.TypeList, rt.dev.DeviceID, "", env.CommandID, map[string]any{
 			"sessions": sessions,
 			"replace":  true,
@@ -803,11 +828,20 @@ func (rt *agentRuntime) handleControl(ctx context.Context, mailboxID string, env
 		if sid == "" {
 			sid = env.SessionID
 		}
+		if rt.refuseHiddenPhone(ctx, mailboxID, sid, env.CommandID, action) {
+			return nil
+		}
 		return rt.pushFeedbackSample(ctx, mailboxID, sid, env.CommandID, true)
 	case "open":
+		if p.SessionID != "" && rt.refuseHiddenPhone(ctx, mailboxID, p.SessionID, env.CommandID, "open") {
+			return nil
+		}
 		return rt.controlOpen(ctx, mailboxID, env.CommandID, p)
 	case "lock":
 		sid := firstNonEmpty(p.SessionID, env.SessionID)
+		if rt.refuseHiddenPhone(ctx, mailboxID, sid, env.CommandID, "lock") {
+			return nil
+		}
 		lease, err := core.AcquireLease(sid, p.Holder, p.Goal, time.Duration(p.TTLSec)*time.Second, p.Steal)
 		msg := "lock ok · " + sid
 		if err != nil {
@@ -818,6 +852,9 @@ func (rt *agentRuntime) handleControl(ctx context.Context, mailboxID string, env
 		return rt.pushOutputFull(ctx, mailboxID, sid, env.CommandID, "system", msg, true, "control", "lock")
 	case "unlock", "release":
 		sid := firstNonEmpty(p.SessionID, env.SessionID)
+		if rt.refuseHiddenPhone(ctx, mailboxID, sid, env.CommandID, action) {
+			return nil
+		}
 		err := core.ReleaseLease(sid, p.Holder, p.Steal)
 		msg := "unlock · " + sid
 		if err != nil {
@@ -826,6 +863,9 @@ func (rt *agentRuntime) handleControl(ctx context.Context, mailboxID string, env
 		return rt.pushOutputFull(ctx, mailboxID, sid, env.CommandID, "system", msg, true, "control", "unlock")
 	case "result":
 		sid := firstNonEmpty(p.SessionID, env.SessionID)
+		if rt.refuseHiddenPhone(ctx, mailboxID, sid, env.CommandID, "result") {
+			return nil
+		}
 		text, method := "", ""
 		if rt.hybrid != nil {
 			cap, _ := rt.hybrid.Capture(sid)
@@ -839,8 +879,12 @@ func (rt *agentRuntime) handleControl(ctx context.Context, mailboxID string, env
 		return rt.pushOutputFull(ctx, mailboxID, sid, env.CommandID, "stdout",
 			trimChunk(chunk, 12*1024), true, "result", method)
 	case "task":
+		sid := firstNonEmpty(p.SessionID, env.SessionID)
+		if rt.refuseHiddenPhone(ctx, mailboxID, sid, env.CommandID, "task") {
+			return nil
+		}
 		t, err := core.UpsertTask(core.Task{
-			ID: p.TaskID, SessionID: firstNonEmpty(p.SessionID, env.SessionID),
+			ID: p.TaskID, SessionID: sid,
 			Holder: p.Holder, Goal: p.Goal, Status: p.Status,
 			LastExcerpt: p.Excerpt, LastJudge: p.Judge, CommandID: env.CommandID,
 		})
@@ -919,6 +963,9 @@ func (rt *agentRuntime) feedbackLoop(ctx context.Context, mailboxID string) {
 
 func (rt *agentRuntime) feedbackSessionIDs(cfg core.FeedbackConfig) []string {
 	if cfg.SessionID != "" {
+		if rt.phoneSessionHidden(cfg.SessionID) {
+			return nil
+		}
 		return []string{cfg.SessionID}
 	}
 	var ids []string
@@ -927,11 +974,13 @@ func (rt *agentRuntime) feedbackSessionIDs(cfg core.FeedbackConfig) []string {
 			ids = append(ids, s.ID)
 		}
 	}
-	for _, id := range rt.hybrid.ManagedIDs() {
-		ids = append(ids, id)
+	if rt.hybrid != nil {
+		for _, id := range rt.hybrid.ManagedIDs() {
+			ids = append(ids, id)
+		}
 	}
 	// Grok Build first, then the agent shell, then other terminals. No cap.
-	return prioritizeSessionIDs(ids)
+	return filterVisibleIDs(prioritizeSessionIDs(ids), rt.vis)
 }
 
 func (rt *agentRuntime) pushFeedbackSample(ctx context.Context, mailboxID, sessionID, commandID string, force bool) error {
@@ -1141,6 +1190,12 @@ func (rt *agentRuntime) listSessionPayloads() []map[string]any {
 		}
 		return false
 	})
+	for _, row := range out {
+		id, _ := row["session_id"].(string)
+		if rt.phoneSessionHidden(id) {
+			row["hidden"] = true
+		}
+	}
 	return clipAndLog(out, "list")
 }
 
@@ -1179,7 +1234,7 @@ func (rt *agentRuntime) noteSessionSnapshot(all []*session.Session) bool {
 }
 
 func (rt *agentRuntime) heartbeatSessions() []grok.HeartbeatSession {
-	raw := rt.listSessionPayloads()
+	raw := rt.phoneSessionPayloads()
 	out := make([]grok.HeartbeatSession, 0, len(raw))
 	for _, m := range raw {
 		id, _ := m["session_id"].(string)
@@ -1193,7 +1248,10 @@ func (rt *agentRuntime) heartbeatSessions() []grok.HeartbeatSession {
 }
 
 func (rt *agentRuntime) publishSessionSnapshot(ctx context.Context, mailboxID string) {
-	sessions := rt.listSessionPayloads()
+	sessions := rt.phoneSessionPayloads()
+	if sessions == nil {
+		sessions = []map[string]any{}
+	}
 	env, err := grok.NewEnvelope(grok.TypeList, rt.dev.DeviceID, "", uuid.NewString(), map[string]any{
 		"sessions": sessions,
 		"replace":  true,
@@ -1219,6 +1277,9 @@ func (rt *agentRuntime) publishRegisters(ctx context.Context, mailboxID string) 
 	})
 	regs = clipAndLog(regs, "register")
 	for _, msg := range regs {
+		if rt.phoneSessionHidden(msg.SessionID) {
+			continue
+		}
 		// msg is session.RegisterMessage — convert to grok envelope map
 		b, err := json.Marshal(msg)
 		if err != nil {
@@ -1252,6 +1313,7 @@ func (rt *agentRuntime) heartbeatLoop(ctx context.Context, mailboxID string) {
 				AgentVersion: version,
 				Relay:        rt.relay.Base(),
 				OS:           runtime.GOOS,
+				Replace:      true,
 				Sessions:     roster,
 			})
 			if err != nil {
