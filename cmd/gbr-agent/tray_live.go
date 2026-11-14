@@ -1,4 +1,4 @@
-//go:build linux || (darwin && cgo)
+//go:build darwin || linux
 
 package main
 
@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"syscall"
 
-	"fyne.io/systray"
+	"github.com/gogpu/systray"
 )
 
 func trayRunsOnMain() bool {
@@ -17,52 +17,49 @@ func trayRunsOnMain() bool {
 		return false
 	}
 	if runtime.GOOS == "linux" && os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
-		slog.Info("tray skipped; no DISPLAY or WAYLAND_DISPLAY", "settings", "http://127.0.0.1:8788/settings")
+		slog.Info("tray skipped; no DISPLAY or WAYLAND_DISPLAY", "settings", settingsURL(0))
 		return false
 	}
 	return true
 }
 
 func runTrayBlocking(port int, agent func()) {
-	systray.Run(func() {
-		installTrayMenu(port)
-		go func() {
-			if agent != nil {
-				agent()
-			}
-			systray.Quit()
-		}()
-	}, func() {})
+	tray := systray.New().
+		SetAppName("Grok Build Remote").
+		SetIcon(trayIconPNG).
+		SetTooltip("Grok Build Remote settings").
+		SetMenu(trayMenu(port)).
+		OnClick(func() { openSettings(port) }).
+		Show()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if agent != nil {
+			agent()
+		}
+		tray.Remove()
+	}()
+	if err := tray.Run(); err != nil {
+		slog.Warn("tray stopped", "err", err, "settings", settingsURL(port))
+	}
+	<-done
 }
 
-func installTrayMenu(port int) {
-	systray.SetIcon(trayIconPNG)
-	systray.SetTitle("Grok Build Remote")
-	systray.SetTooltip("Grok Build Remote settings")
-	mSettings := systray.AddMenuItem("Settings…", "Roster visibility and agent settings")
-	systray.AddSeparator()
-	mQuit := systray.AddMenuItem("Quit", "Stop gbr-agent")
-	systray.SetOnTapped(func() { openSettings(port) })
-	go func() {
-		for {
-			select {
-			case <-mSettings.ClickedCh:
-				openSettings(port)
-			case <-mQuit.ClickedCh:
-				if p, err := os.FindProcess(os.Getpid()); err == nil {
-					_ = p.Signal(syscall.SIGTERM)
-				}
-				return
-			}
+func trayMenu(port int) *systray.Menu {
+	menu := systray.NewMenu()
+	menu.Add("Settings…", func() { openSettings(port) })
+	menu.AddSeparator()
+	menu.Add("Quit", func() {
+		p, err := os.FindProcess(os.Getpid())
+		if err == nil {
+			_ = p.Signal(syscall.SIGTERM)
 		}
-	}()
+	})
+	return menu
 }
 
 func openSettings(port int) {
-	if port <= 0 {
-		port = defaultBotPort
-	}
-	u := "http://127.0.0.1:" + itoaPort(port) + "/settings"
+	u := settingsURL(port)
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -75,26 +72,4 @@ func openSettings(port int) {
 	if err := cmd.Start(); err != nil {
 		slog.Warn("open settings", "url", u, "err", err)
 	}
-}
-
-func itoaPort(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var b [16]byte
-	i := len(b)
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	for n > 0 {
-		i--
-		b[i] = byte('0' + n%10)
-		n /= 10
-	}
-	if neg {
-		i--
-		b[i] = '-'
-	}
-	return string(b[i:])
 }

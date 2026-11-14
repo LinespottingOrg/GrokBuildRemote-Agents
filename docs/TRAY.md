@@ -3,7 +3,7 @@
 `gbr-tray` is a GUI-subsystem (no console) supervisor for `gbr-agent` on Windows.
 It is the login autostart; it keeps the agent running and gives a tray menu.
 
-macOS (menu bar) and Linux (StatusNotifier tray, when `DISPLAY` or `WAYLAND_DISPLAY` is set) show the same Settings item from `gbr-agent` itself. `GBR_TRAY=0` skips the icon. The page is always `http://127.0.0.1:8788/settings`.
+macOS (menu bar) and Linux (StatusNotifier tray, when `DISPLAY` or `WAYLAND_DISPLAY` is set) show the Grok Build Remote icon and a Settings item from `gbr-agent` itself. Both compile with `CGO_ENABLED=0`, so the Ubuntu release cross-compile includes them. macOS uses `NSStatusItem` and does not add a Dock icon. `GBR_TRAY=0` skips the icon. The page is always `http://127.0.0.1:8788/settings`.
 
 Build:
 

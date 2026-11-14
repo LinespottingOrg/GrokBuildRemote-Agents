@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+func settingsURL(port int) string {
+	if port <= 0 {
+		port = defaultBotPort
+	}
+	return "http://127.0.0.1:" + strconv.Itoa(port) + "/settings"
+}
+
 func trayDisabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("GBR_TRAY"))) {
 	case "0", "off", "false", "no":
