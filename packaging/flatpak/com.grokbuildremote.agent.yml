@@ -1,0 +1,15 @@
+app-id: com.grokbuildremote.agent
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+command: gbr-agent
+modules:
+  - name: gbr-agent
+    buildsystem: simple
+    sources:
+      - type: file
+        url: https://grokbuildremote.com/downloads/packages/0.6.8/gbr-agent-linux-amd64
+        sha256: 510183d54bf1d1e5a6fe9dab2e26f8fdbbd0e88c4b25df89077de1a5699c72d1
+        dest-filename: gbr-agent
+    build-commands:
+      - install -Dm755 gbr-agent /app/bin/gbr-agent
