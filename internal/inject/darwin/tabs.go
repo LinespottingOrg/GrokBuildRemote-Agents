@@ -9,6 +9,9 @@ import (
 )
 
 // ListTabs enumerates open Terminal.app and iTerm2 tabs best-effort.
+// Field delimiter is ASCII 9 via `ASCII character 9`. The AppleScript
+// `tab` constant is class text ("tab") on some Macs, which collapsed
+// every window to hwnd=0 and empty titles.
 func ListTabs(ctx context.Context) ([]TabInfo, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -40,6 +43,7 @@ func listTerminalTabs(ctx context.Context) ([]TabInfo, error) {
 	const script = `
 tell application "Terminal"
 	if not (exists) then return ""
+	set sep to ASCII character 9
 	set rows to {}
 	set wi to 0
 	repeat with w in windows
@@ -60,7 +64,7 @@ tell application "Terminal"
 			try
 				set ttyn to tty of t
 			end try
-			set end of rows to ((wi as text) & tab & (ti as text) & tab & ttl & tab & ttyn)
+			set end of rows to ((wi as text) & sep & (ti as text) & sep & ttl & sep & ttyn)
 		end repeat
 	end repeat
 	set AppleScript's text item delimiters to linefeed
@@ -80,6 +84,7 @@ tell application "System Events"
 	if not (exists process "iTerm2") and not (exists process "iTerm") then return ""
 end tell
 tell application "iTerm"
+	set sep to ASCII character 9
 	set rows to {}
 	set wi to 0
 	repeat with w in windows
@@ -97,7 +102,7 @@ tell application "iTerm"
 						set ttl to name of w
 					end try
 				end if
-				set end of rows to ((wi as text) & tab & (ti as text) & tab & ttl & tab)
+				set end of rows to ((wi as text) & sep & (ti as text) & sep & ttl & sep)
 			end repeat
 		end try
 	end repeat
