@@ -1,0 +1,10 @@
+PackageIdentifier: Linespotting.BuildRemoteAgent
+PackageVersion: 0.6.8
+InstallerType: wix
+Scope: user
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://grokbuildremote.com/downloads/packages/0.6.8/GBR_0.6.8_x64.msi
+    InstallerSha256: 4e49cd773fa073abde937196275ec62f57a4ad8254f442d89f567fde4b9d964c
+ManifestType: installer
+ManifestVersion: 1.6.0

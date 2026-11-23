@@ -1,0 +1,20 @@
+# Maintainer: Linespotting AB
+pkgname=gbr-agent
+pkgver=0.6.8
+pkgrel=1
+pkgdesc='Desktop agent for Build Remote Agent'
+arch=('x86_64' 'aarch64')
+url='https://grokbuildremote.com/'
+license=('MIT')
+source_x86_64=("https://grokbuildremote.com/downloads/packages/0.6.8/gbr-agent-linux-amd64")
+source_aarch64=("https://grokbuildremote.com/downloads/packages/0.6.8/gbr-agent-linux-arm64")
+sha256sums_x86_64=('510183d54bf1d1e5a6fe9dab2e26f8fdbbd0e88c4b25df89077de1a5699c72d1')
+sha256sums_aarch64=('0d930356e6327ceed534284b4cc764e383c9ba22fe61dde69e458ce42b585d58')
+
+package() {
+  if [ "$CARCH" = "x86_64" ]; then
+    install -Dm755 "$srcdir/gbr-agent-linux-amd64" "$pkgdir/usr/bin/gbr-agent"
+  else
+    install -Dm755 "$srcdir/gbr-agent-linux-arm64" "$pkgdir/usr/bin/gbr-agent"
+  fi
+}

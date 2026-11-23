@@ -1,0 +1,27 @@
+{
+  "version": "0.6.8",
+  "description": "Desktop agent for Build Remote Agent",
+  "homepage": "https://grokbuildremote.com/",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://grokbuildremote.com/downloads/packages/0.6.8/GBR_0.6.8-portable.zip",
+      "hash": "f90a7aa69f152226879a3f96f4a454c18619fb846740836aa48ec134c8f81072"
+    }
+  },
+  "bin": [
+    "gbr-agent.exe",
+    "gbr-tray-windows-amd64.exe"
+  ],
+  "checkver": {
+    "url": "https://grokbuildremote.com/downloads/packages/latest.txt",
+    "regex": "([\\d.]+)"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://grokbuildremote.com/downloads/packages/$version/GBR_$version-portable.zip"
+      }
+    }
+  }
+}
