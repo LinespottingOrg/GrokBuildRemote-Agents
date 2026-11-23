@@ -1,0 +1,9 @@
+PackageIdentifier: Linespotting.BuildRemoteAgent
+PackageVersion: 0.6.8
+PackageLocale: en-US
+Publisher: Linespotting AB
+PackageName: Build Remote Agent
+License: MIT
+ShortDescription: Desktop agent for Build Remote Agent
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

@@ -73,7 +73,8 @@ func TestWindowsToCandidates_MacTitleIsGrok(t *testing.T) {
 
 func TestWindowsToCandidates_UniqueGrokID(t *testing.T) {
 	wins := []inject.TerminalWindow{
-		{HWND: 0x111, PID: 1, Title: "", Kind: inject.KindConhost},
+		// Not PID 1: launchd is 1, and a grok parent-walk would mark that row as Grok.
+		{HWND: 0x111, PID: 424242, Title: "", Kind: inject.KindConhost},
 		{HWND: 0x40a22, PID: 20924, Title: "Grok 4.6 - grok", Kind: "grok-build"},
 	}
 	sortWindowsGrokFirst(wins)

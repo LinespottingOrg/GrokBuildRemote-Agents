@@ -1,0 +1,16 @@
+name: gbr-agent
+version: "0.6.8"
+summary: Desktop agent for Build Remote Agent
+description: Free desktop agent for Build Remote Agent.
+base: core24
+confinement: strict
+grade: stable
+apps:
+  gbr-agent:
+    command: bin/gbr-agent
+parts:
+  agent:
+    plugin: dump
+    source: https://grokbuildremote.com/downloads/packages/0.6.8/gbr-agent-linux-amd64
+    override-build: |
+      install -Dm755 gbr-agent-linux-amd64 "$CRAFT_PART_INSTALL/bin/gbr-agent"
